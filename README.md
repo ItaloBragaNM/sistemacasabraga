@@ -15,12 +15,11 @@ A ficha foi modelada como a ordem de serviço que a casa já usa no dia a dia e 
 
 | Bloco da ficha | Módulo futuro |
 | --- | --- |
-| Cardápio, restrições, observações de cozinha | Separação de Insumos, Fichas Técnicas, Estoque, Perdas |
-| Equipe interna e externa | Administrativo e Pagamento de Mão de Obra |
-| Materiais | Separação, Estoque, Alocação, Inventário e Compras |
-| Veículos | Controle de Uso e Multas |
-| Financeiro resumido | Contas a Receber |
-| Cliente e valores | Dashboard Comercial e Orçamentos |
+| Cardápio, restrições e observações | Separação de Insumos, Fichas Técnicas, Estoque, Perdas |
+| Equipe por função | Administrativo e Pagamento de Mão de Obra |
+| Entrega de material, cavalete, estrutura do local | Logística |
+| Per capita | Comercial e Contas a Receber |
+| Fardamentos | Administrativo |
 
 Supabase e deploy na Vercel ficam para depois da validação.
 
