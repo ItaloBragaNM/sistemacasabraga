@@ -8,19 +8,18 @@ import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { casaBragaVenue } from "@/lib/event-factory";
-import { EVENT_TYPE_LABELS, SERVICE_STYLE_LABELS } from "@/lib/labels";
-import { EVENT_TYPES, SERVICE_STYLES, type EventType, type ServiceStyle } from "@/lib/types";
+import { EVENT_TYPE_LABELS } from "@/lib/labels";
+import { EVENT_TYPES, type EventType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function NewEventForm() {
   const router = useRouter();
   const { create } = useEvents();
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState("2026-08-23");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<EventType>("casamento");
-  const [serviceStyle, setServiceStyle] = useState<ServiceStyle>("buffet");
   const [adults, setAdults] = useState(80);
-  const [clientName, setClientName] = useState("");
+  const [address, setAddress] = useState("Casa Braga — Fortaleza, CE");
 
   return (
     <form
@@ -28,25 +27,20 @@ export function NewEventForm() {
       onSubmit={(event) => {
         event.preventDefault();
         if (!title.trim()) {
-          toast.error("Dê um nome ao evento.");
+          toast.error("Informe o nome do evento.");
+          return;
+        }
+        if (!date) {
+          toast.error("Informe a data do evento.");
           return;
         }
         const created = create({
           title: title.trim(),
           date,
           type,
-          serviceStyle,
           status: "rascunho",
-          guests: { adults, children: 0 },
-          client: {
-            name: clientName,
-            company: "",
-            phone: "",
-            email: "",
-            dayContactName: "",
-            dayContactPhone: "",
-          },
-          venue: casaBragaVenue(),
+          guests: { adults, children: 0, professionals: 0 },
+          venue: { ...casaBragaVenue(), address },
         });
         toast.success("Ficha criada. Complete os demais campos.");
         router.push(`/eventos/${created.id}`);
@@ -58,13 +52,13 @@ export function NewEventForm() {
           Nova ficha
         </h1>
         <p className="mt-2 text-sm font-light text-forest/60">
-          Abra a ficha com o essencial. O restante — cardápio, equipe, materiais —
-          se completa na própria página do evento.
+          Os campos com estrela são os obrigatórios da ficha da casa. O cardápio
+          e o restante se completam na própria página do evento.
         </p>
       </div>
 
       <div className="space-y-4 rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <Field label="Nome do evento">
+        <Field label="★ Nome do evento">
           <input
             className={fieldControlClass}
             value={title}
@@ -73,7 +67,7 @@ export function NewEventForm() {
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Data">
+          <Field label="★ Data do evento">
             <input
               type="date"
               className={fieldControlClass}
@@ -81,16 +75,7 @@ export function NewEventForm() {
               onChange={(event) => setDate(event.target.value)}
             />
           </Field>
-          <Field label="Adultos previstos">
-            <input
-              type="number"
-              min={0}
-              className={fieldControlClass}
-              value={adults}
-              onChange={(event) => setAdults(Number(event.target.value))}
-            />
-          </Field>
-          <Field label="Tipo">
+          <Field label="★ Tipo do evento">
             <select
               className={fieldControlClass}
               value={type}
@@ -103,28 +88,23 @@ export function NewEventForm() {
               ))}
             </select>
           </Field>
-          <Field label="Serviço">
-            <select
+          <Field label="★ Adultos">
+            <input
+              type="number"
+              min={0}
               className={fieldControlClass}
-              value={serviceStyle}
-              onChange={(event) => setServiceStyle(event.target.value as ServiceStyle)}
-            >
-              {SERVICE_STYLES.map((item) => (
-                <option key={item} value={item}>
-                  {SERVICE_STYLE_LABELS[item]}
-                </option>
-              ))}
-            </select>
+              value={adults}
+              onChange={(event) => setAdults(Number(event.target.value))}
+            />
+          </Field>
+          <Field label="Local / endereço">
+            <input
+              className={fieldControlClass}
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+            />
           </Field>
         </div>
-        <Field label="Cliente">
-          <input
-            className={fieldControlClass}
-            value={clientName}
-            onChange={(event) => setClientName(event.target.value)}
-            placeholder="Nome de quem contratou"
-          />
-        </Field>
       </div>
 
       <div className="flex flex-wrap gap-2">

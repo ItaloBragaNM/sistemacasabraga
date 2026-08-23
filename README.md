@@ -7,7 +7,7 @@ Esta primeira fase entrega o **módulo de Eventos**. Os demais módulos já est�
 ## O que está pronto
 
 - **Calendário de Eventos** — visão mensal, semanal e lista agrupada por dia
-- **Ficha do Evento** — documento operacional editável (identificação, cliente, local, público, serviço, cronograma, cardápio, restrições, equipe, materiais, veículos, financeiro resumido e briefing)
+- **Ficha do Evento** — a mesma lógica da planilha da casa: dados do evento, convidados e horários, equipe por função, cardápio por categoria (Para Começar, Amuse Bouche, Ramequim, Menu, Mesa e Buffet, Saladas, Altas Horas, Sobremesas, Menu Kids, Acompanhamentos), bebidas, fardamentos, extras/logística e observações
 - **PDF da cozinha** — layout A4 para a produção trabalhar, sem valores financeiros
 - Dados de exemplo da operação da casa, salvos neste aparelho (localStorage)
 

@@ -1,15 +1,16 @@
 import type {
-  Client,
+  DrinkQuantities,
   EventRecord,
-  EventStatus,
   EventType,
-  FinanceSummary,
   Guests,
+  Logistics,
   Menu,
   MenuItem,
-  ServiceStyle,
+  StaffCounts,
+  Uniforms,
   Venue,
 } from "./types";
+import { MENU_SECTIONS } from "./types";
 
 export function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -18,36 +19,72 @@ export function uid() {
   return `id-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function menuItem(
-  name: string,
-  quantity = "",
-  notes = "",
-): MenuItem {
+export function menuItem(name = "", quantity = "", notes = ""): MenuItem {
   return { id: uid(), name, quantity, notes };
 }
 
-export function emptyMenu(): Menu {
+export function emptyMenu(filled?: Partial<Record<keyof Menu, MenuItem[]>>): Menu {
+  const menu = {} as Menu;
+  for (const section of MENU_SECTIONS) {
+    const existing = filled?.[section.key] ?? [];
+    const rows = existing.length >= section.rows ? existing : [
+      ...existing,
+      ...Array.from({ length: section.rows - existing.length }, () => menuItem()),
+    ];
+    menu[section.key] = rows;
+  }
+  return menu;
+}
+
+export function emptyStaff(): StaffCounts {
   return {
-    reception: [],
-    starters: [],
-    mains: [],
-    sides: [],
-    desserts: [],
-    kids: [],
-    drinks: [],
-    dietaryNotes: "",
-    kitchenNotes: "",
+    garcons: 0,
+    garconetes: 0,
+    copeiros: 0,
+    chefes: 0,
+    segurancas: 0,
+    portaria: 0,
+    monitor: 0,
+    gerente: 0,
+    apoioSalao: 0,
+    outros: 0,
   };
 }
 
-export function emptyClient(): Client {
+export function emptyDrinks(): DrinkQuantities {
   return {
-    name: "",
-    company: "",
-    phone: "",
-    email: "",
-    dayContactName: "",
-    dayContactPhone: "",
+    agua: "",
+    refrigerante: "",
+    suco: "",
+    espumante: "",
+    vinho: "",
+    cerveja: "",
+    whisky: "",
+    vodka: "",
+    cafe: "",
+    licor: "",
+  };
+}
+
+export function emptyUniforms(): Uniforms {
+  const sizes = { p: 0, m: 0, g: 0, gg: 0 };
+  return {
+    dolma: { ...sizes },
+    bata: { ...sizes },
+    avental: { ...sizes },
+  };
+}
+
+export function emptyLogistics(): Logistics {
+  return {
+    alcohol: "",
+    materialPreviousDay: "",
+    trestleTable: "",
+    hasKitchen: "",
+    hasFreezer: "",
+    hasOven: "",
+    hasMicrowave: "",
+    flyingMenu: "",
   };
 }
 
@@ -56,20 +93,16 @@ export function casaBragaVenue(): Venue {
     kind: "casa_braga",
     name: "Casa Braga",
     address: "Fortaleza, CE",
-    notes: "",
   };
 }
 
 export function emptyGuests(): Guests {
-  return { adults: 0, children: 0 };
+  return { adults: 0, children: 0, professionals: 0 };
 }
 
-export function emptyFinance(): FinanceSummary {
-  return { contractValue: 0, paid: 0, paymentNotes: "" };
-}
-
-export function createBlankEvent(partial?: Partial<EventRecord>): EventRecord {
+export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecord {
   const now = new Date().toISOString();
+  const uniforms = emptyUniforms();
   return {
     id: uid(),
     code: "",
@@ -77,29 +110,28 @@ export function createBlankEvent(partial?: Partial<EventRecord>): EventRecord {
     type: "outro",
     status: "rascunho",
     date: now.slice(0, 10),
-    startTime: "19:00",
-    endTime: "23:00",
-    assemblyTime: "14:00",
-    teardownTime: "00:30",
-    client: emptyClient(),
-    venue: casaBragaVenue(),
-    guests: emptyGuests(),
-    serviceStyle: "buffet",
-    uniform: "Social Casa Braga",
-    serviceNotes: "",
-    commercialOwner: "",
-    operationalOwner: "",
-    timeline: [],
-    menu: emptyMenu(),
-    staff: [],
-    materials: [],
-    vehicles: [],
-    finance: emptyFinance(),
-    briefing: "",
-    attentionPoints: "",
+    materialDeliveryDate: "",
+    foodDeliveryDate: "",
+    perCapita: 0,
+    teamArrival: "",
+    invitationTime: "",
+    serviceTime: "",
+    dietaryNotes: "",
+    menuSetupNotes: "",
     createdAt: now,
     updatedAt: now,
     ...partial,
+    venue: { ...casaBragaVenue(), ...partial.venue },
+    guests: { ...emptyGuests(), ...partial.guests },
+    staff: { ...emptyStaff(), ...partial.staff },
+    menu: emptyMenu(partial.menu),
+    drinks: { ...emptyDrinks(), ...partial.drinks },
+    uniforms: {
+      dolma: { ...uniforms.dolma, ...partial.uniforms?.dolma },
+      bata: { ...uniforms.bata, ...partial.uniforms?.bata },
+      avental: { ...uniforms.avental, ...partial.uniforms?.avental },
+    },
+    logistics: { ...emptyLogistics(), ...partial.logistics },
   };
 }
 
@@ -119,14 +151,10 @@ export function eventDefaults(input: {
   title: string;
   date: string;
   type: EventType;
-  status?: EventStatus;
-  serviceStyle?: ServiceStyle;
-}): Pick<EventRecord, "title" | "date" | "type" | "status" | "serviceStyle"> {
+}): Pick<EventRecord, "title" | "date" | "type"> {
   return {
     title: input.title,
     date: input.date,
     type: input.type,
-    status: input.status ?? "rascunho",
-    serviceStyle: input.serviceStyle ?? "buffet",
   };
 }

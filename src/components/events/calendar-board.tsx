@@ -19,7 +19,9 @@ function eventsOnDay(events: EventRecord[], day: Date) {
   const key = format(day, "yyyy-MM-dd");
   return events
     .filter((event) => event.date === key)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    .sort((a, b) =>
+      (a.invitationTime || a.serviceTime).localeCompare(b.invitationTime || b.serviceTime),
+    );
 }
 
 function EventChip({ event }: { event: EventRecord }) {
@@ -34,7 +36,7 @@ function EventChip({ event }: { event: EventRecord }) {
       )}
     >
       <p className="font-list truncate text-[0.7rem] font-medium">
-        {event.startTime} · {event.title}
+        {event.invitationTime || event.serviceTime || "—"} · {event.title}
       </p>
       <p className="truncate text-[0.62rem] opacity-75">
         {EVENT_TYPE_LABELS[event.type]} · {guestTotal(event.guests)} pax
@@ -52,7 +54,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
 
   const filtered = useMemo(() => {
     return events.filter((event) => {
-      const hay = `${event.title} ${event.code} ${event.client.name} ${event.venue.name}`.toLowerCase();
+      const hay = `${event.title} ${event.code} ${event.venue.name} ${event.venue.address}`.toLowerCase();
       const matchesQuery = hay.includes(query.trim().toLowerCase());
       const matchesStatus = status === "todos" || event.status === status;
       const matchesType = type === "todos" || event.type === type;
@@ -170,7 +172,11 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           {listDays.map((date) => {
             const dayEvents = filtered
               .filter((event) => event.date === date)
-              .sort((a, b) => a.startTime.localeCompare(b.startTime));
+              .sort((a, b) =>
+                (a.invitationTime || a.serviceTime).localeCompare(
+                  b.invitationTime || b.serviceTime,
+                ),
+              );
             return (
               <section key={date}>
                 <h3 className="font-section mb-3 text-[0.7rem] text-forest/55">
@@ -187,7 +193,8 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
                       )}
                     >
                       <p className="font-list text-sm font-medium text-forest">
-                        {event.startTime}–{event.endTime}
+                        {event.invitationTime || "—"}
+                        {event.serviceTime ? ` · srv ${event.serviceTime}` : ""}
                       </p>
                       <div>
                         <p className="font-display text-2xl text-forest">{event.title}</p>

@@ -10,27 +10,22 @@ import { fieldControlClass, Field, SectionTitle } from "@/components/events/fiel
 import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
-import { uid } from "@/lib/event-factory";
-import {
-  EVENT_STATUS_LABELS,
-  EVENT_TYPE_LABELS,
-  MATERIAL_SOURCE_LABELS,
-  SERVICE_STYLE_LABELS,
-  STAFF_KIND_LABELS,
-  VENUE_KIND_LABELS,
-} from "@/lib/labels";
+import { menuItem } from "@/lib/event-factory";
+import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import {
+  DRINK_ITEMS,
   EVENT_STATUSES,
   EVENT_TYPES,
   guestTotal,
   MENU_SECTIONS,
-  SERVICE_STYLES,
+  STAFF_ROLES,
+  UNIFORM_PIECES,
+  UNIFORM_SIZES,
   type EventRecord,
-  type MaterialSource,
   type MenuSectionKey,
-  type StaffKind,
   type VenueKind,
+  type YesNo,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -59,8 +54,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
     return () => window.clearTimeout(timer);
   }, [draft, onSave]);
 
-  const pending = draft.finance.contractValue - draft.finance.paid;
-
   const update = <K extends keyof EventRecord>(key: K, value: EventRecord[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
@@ -84,15 +77,17 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                 ? "Salvando…"
                 : saveState === "saved"
                   ? "Alterações salvas neste aparelho"
-                  : "Ficha operacional"}
+                  : "Ficha operacional — uso interno"}
             </span>
           </div>
           <h1 className="font-display mt-2 text-4xl tracking-tight text-forest sm:text-5xl">
             {draft.title || "Evento sem nome"}
           </h1>
           <p className="mt-2 text-sm font-light text-forest/60">
-            {formatWeekday(draft.date)}, {formatLongDate(draft.date)} · {draft.startTime} às{" "}
-            {draft.endTime} · {guestTotal(draft.guests)} convidados
+            {draft.date ? `${formatWeekday(draft.date)}, ${formatLongDate(draft.date)}` : "Data a definir"}
+            {draft.invitationTime ? ` · convite ${draft.invitationTime}` : ""}
+            {draft.serviceTime ? ` · serviço ${draft.serviceTime}` : ""}
+            {` · ${guestTotal(draft.guests)} a servir`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -131,25 +126,18 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle
-          title="Identificação do evento"
-          hint="Cabeçalho da ficha. Alimenta o calendário e os demais módulos."
+          title="Dados do evento"
+          hint="Campos com estrela são os obrigatórios da ficha da casa."
         />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Field label="Nome do evento" className="md:col-span-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="★ Nome do evento" className="md:col-span-2">
             <input
               className={fieldControlClass}
               value={draft.title}
               onChange={(event) => update("title", event.target.value)}
             />
           </Field>
-          <Field label="Código">
-            <input
-              className={fieldControlClass}
-              value={draft.code}
-              onChange={(event) => update("code", event.target.value)}
-            />
-          </Field>
-          <Field label="Tipo">
+          <Field label="★ Tipo do evento">
             <select
               className={fieldControlClass}
               value={draft.type}
@@ -162,7 +150,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Status">
+          <Field label="Status interno">
             <select
               className={fieldControlClass}
               value={draft.status}
@@ -175,7 +163,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Data">
+          <Field label="★ Data do evento">
             <input
               type="date"
               className={fieldControlClass}
@@ -183,118 +171,31 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("date", event.target.value)}
             />
           </Field>
-          <Field label="Início">
+          <Field label="Dt. entrega material">
             <input
-              type="time"
+              type="date"
               className={fieldControlClass}
-              value={draft.startTime}
-              onChange={(event) => update("startTime", event.target.value)}
+              value={draft.materialDeliveryDate}
+              onChange={(event) => update("materialDeliveryDate", event.target.value)}
             />
           </Field>
-          <Field label="Término">
+          <Field label="Dt. entrega comida">
             <input
-              type="time"
+              type="date"
               className={fieldControlClass}
-              value={draft.endTime}
-              onChange={(event) => update("endTime", event.target.value)}
+              value={draft.foodDeliveryDate}
+              onChange={(event) => update("foodDeliveryDate", event.target.value)}
             />
           </Field>
-          <Field label="Montagem">
+          <Field label="Per capita (R$)">
             <input
-              type="time"
+              type="number"
+              min={0}
               className={fieldControlClass}
-              value={draft.assemblyTime}
-              onChange={(event) => update("assemblyTime", event.target.value)}
+              value={draft.perCapita || ""}
+              onChange={(event) => update("perCapita", Number(event.target.value))}
             />
           </Field>
-          <Field label="Desmontagem">
-            <input
-              type="time"
-              className={fieldControlClass}
-              value={draft.teardownTime}
-              onChange={(event) => update("teardownTime", event.target.value)}
-            />
-          </Field>
-          <Field label="Comercial">
-            <input
-              className={fieldControlClass}
-              value={draft.commercialOwner}
-              onChange={(event) => update("commercialOwner", event.target.value)}
-            />
-          </Field>
-          <Field label="Operação">
-            <input
-              className={fieldControlClass}
-              value={draft.operationalOwner}
-              onChange={(event) => update("operationalOwner", event.target.value)}
-            />
-          </Field>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Cliente e contatos" hint="Quem contratou e quem responde no dia." />
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Cliente">
-            <input
-              className={fieldControlClass}
-              value={draft.client.name}
-              onChange={(event) =>
-                update("client", { ...draft.client, name: event.target.value })
-              }
-            />
-          </Field>
-          <Field label="Empresa">
-            <input
-              className={fieldControlClass}
-              value={draft.client.company}
-              onChange={(event) =>
-                update("client", { ...draft.client, company: event.target.value })
-              }
-            />
-          </Field>
-          <Field label="Telefone">
-            <input
-              className={fieldControlClass}
-              value={draft.client.phone}
-              onChange={(event) =>
-                update("client", { ...draft.client, phone: event.target.value })
-              }
-            />
-          </Field>
-          <Field label="E-mail">
-            <input
-              className={fieldControlClass}
-              value={draft.client.email}
-              onChange={(event) =>
-                update("client", { ...draft.client, email: event.target.value })
-              }
-            />
-          </Field>
-          <Field label="Contato no dia">
-            <input
-              className={fieldControlClass}
-              value={draft.client.dayContactName}
-              onChange={(event) =>
-                update("client", { ...draft.client, dayContactName: event.target.value })
-              }
-            />
-          </Field>
-          <Field label="Telefone do dia">
-            <input
-              className={fieldControlClass}
-              value={draft.client.dayContactPhone}
-              onChange={(event) =>
-                update("client", { ...draft.client, dayContactPhone: event.target.value })
-              }
-            />
-          </Field>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Local e público" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Tipo de local">
             <select
               className={fieldControlClass}
@@ -315,16 +216,33 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Nome do espaço">
+          <Field label="Local / endereço" className="md:col-span-2 xl:col-span-3">
             <input
               className={fieldControlClass}
-              value={draft.venue.name}
+              value={draft.venue.address}
               onChange={(event) =>
-                update("venue", { ...draft.venue, name: event.target.value })
+                update("venue", { ...draft.venue, address: event.target.value })
               }
             />
           </Field>
-          <Field label="Adultos">
+        </div>
+        {draft.perCapita > 0 && (
+          <p className="mt-4 text-sm font-light text-forest/55">
+            Per capita {formatBRL(draft.perCapita)} · {guestTotal(draft.guests)} a servir
+            {draft.guests.adults
+              ? ` · referência ${formatBRL(draft.perCapita * draft.guests.adults)} nos adultos`
+              : ""}
+          </p>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle
+          title="Convidados e horários"
+          hint="Profissionais são externos que se alimentam no evento (fotógrafo, DJ, cerimonialista)."
+        />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="★ Adultos">
             <input
               type="number"
               min={0}
@@ -342,142 +260,79 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               className={fieldControlClass}
               value={draft.guests.children}
               onChange={(event) =>
+                update("guests", { ...draft.guests, children: Number(event.target.value) })
+              }
+            />
+          </Field>
+          <Field label="Profissionais">
+            <input
+              type="number"
+              min={0}
+              className={fieldControlClass}
+              value={draft.guests.professionals}
+              onChange={(event) =>
                 update("guests", {
                   ...draft.guests,
-                  children: Number(event.target.value),
+                  professionals: Number(event.target.value),
                 })
               }
             />
           </Field>
-          <Field label="Endereço" className="md:col-span-2 xl:col-span-3">
+          <Field label="Chegada equipe">
             <input
+              type="time"
               className={fieldControlClass}
-              value={draft.venue.address}
-              onChange={(event) =>
-                update("venue", { ...draft.venue, address: event.target.value })
-              }
+              value={draft.teamArrival}
+              onChange={(event) => update("teamArrival", event.target.value)}
             />
           </Field>
-          <Field label="Total pax">
-            <div className={cn(fieldControlClass, "flex items-center bg-cream font-medium")}>
-              {guestTotal(draft.guests)}
-            </div>
+          <Field label="Horário convite">
+            <input
+              type="time"
+              className={fieldControlClass}
+              value={draft.invitationTime}
+              onChange={(event) => update("invitationTime", event.target.value)}
+            />
           </Field>
-          <Field label="Acesso e observações do local" className="md:col-span-2 xl:col-span-4">
-            <textarea
-              className={cn(fieldControlClass, "h-20 py-2")}
-              value={draft.venue.notes}
-              onChange={(event) =>
-                update("venue", { ...draft.venue, notes: event.target.value })
-              }
+          <Field label="Horário serviço">
+            <input
+              type="time"
+              className={fieldControlClass}
+              value={draft.serviceTime}
+              onChange={(event) => update("serviceTime", event.target.value)}
             />
           </Field>
         </div>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Serviço" hint="Como a casa atende no salão." />
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Modalidade">
-            <select
-              className={fieldControlClass}
-              value={draft.serviceStyle}
-              onChange={(event) =>
-                update("serviceStyle", event.target.value as EventRecord["serviceStyle"])
-              }
-            >
-              {SERVICE_STYLES.map((item) => (
-                <option key={item} value={item}>
-                  {SERVICE_STYLE_LABELS[item]}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Uniforme">
-            <input
-              className={fieldControlClass}
-              value={draft.uniform}
-              onChange={(event) => update("uniform", event.target.value)}
-            />
-          </Field>
-          <Field label="Observações de serviço" className="md:col-span-2">
-            <textarea
-              className={cn(fieldControlClass, "h-20 py-2")}
-              value={draft.serviceNotes}
-              onChange={(event) => update("serviceNotes", event.target.value)}
-            />
-          </Field>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Cronograma" hint="Ordem do dia para operação e cozinha." />
-        <RowTable
-          columns={["Horário", "Atividade", "Responsável"]}
-          onAdd={() =>
-            update("timeline", [
-              ...draft.timeline,
-              { id: uid(), time: "", activity: "", owner: "" },
-            ])
-          }
-        >
-          {draft.timeline.map((item, index) => (
-            <tr key={item.id} className="border-t border-forest/8">
-              <td className="p-2">
-                <input
-                  type="time"
-                  className={fieldControlClass}
-                  value={item.time}
-                  onChange={(event) => {
-                    const timeline = [...draft.timeline];
-                    timeline[index] = { ...item, time: event.target.value };
-                    update("timeline", timeline);
-                  }}
-                />
-              </td>
-              <td className="p-2">
-                <input
-                  className={fieldControlClass}
-                  value={item.activity}
-                  onChange={(event) => {
-                    const timeline = [...draft.timeline];
-                    timeline[index] = { ...item, activity: event.target.value };
-                    update("timeline", timeline);
-                  }}
-                />
-              </td>
-              <td className="p-2">
-                <input
-                  className={fieldControlClass}
-                  value={item.owner}
-                  onChange={(event) => {
-                    const timeline = [...draft.timeline];
-                    timeline[index] = { ...item, owner: event.target.value };
-                    update("timeline", timeline);
-                  }}
-                />
-              </td>
-              <td className="p-2 text-right">
-                <RemoveButton
-                  onClick={() =>
-                    update(
-                      "timeline",
-                      draft.timeline.filter((row) => row.id !== item.id),
-                    )
-                  }
-                />
-              </td>
-            </tr>
+        <SectionTitle title="Equipe" hint="Quantidade por função, como na planilha da casa." />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {STAFF_ROLES.map((role) => (
+            <Field key={role.key} label={role.label}>
+              <input
+                type="number"
+                min={0}
+                className={fieldControlClass}
+                value={draft.staff[role.key]}
+                onChange={(event) =>
+                  update("staff", {
+                    ...draft.staff,
+                    [role.key]: Number(event.target.value),
+                  } as EventRecord["staff"])
+                }
+              />
+            </Field>
           ))}
-        </RowTable>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle
-          title="Cardápio"
-          hint="Base da Separação de Insumos e das Fichas Técnicas."
+          title="Cardápio do evento"
+          hint="Categoria, quantidade, prato/variação e observação — a base da lista de materiais."
         />
-        <div className="space-y-8">
+        <div className="space-y-7">
           {MENU_SECTIONS.map((section) => (
             <MenuBlock
               key={section.key}
@@ -488,438 +343,168 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             />
           ))}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Restrições e alergias">
-              <textarea
-                className={cn(
-                  fieldControlClass,
-                  "min-h-28 border-terracotta/30 bg-terracotta/5 py-2",
-                )}
-                value={draft.menu.dietaryNotes}
-                onChange={(event) =>
-                  update("menu", { ...draft.menu, dietaryNotes: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="Observações da cozinha">
-              <textarea
-                className={cn(fieldControlClass, "min-h-28 py-2")}
-                value={draft.menu.kitchenNotes}
-                onChange={(event) =>
-                  update("menu", { ...draft.menu, kitchenNotes: event.target.value })
-                }
-              />
-            </Field>
-          </div>
         </div>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Equipe"
-          hint="Alimenta Administrativo e o pagamento de mão de obra externa."
-        />
-        <RowTable
-          columns={["Função", "Nome", "Qtd", "Tipo", "Turno", "Diária"]}
-          onAdd={() =>
-            update("staff", [
-              ...draft.staff,
-              {
-                id: uid(),
-                role: "",
-                name: "",
-                quantity: 1,
-                kind: "interna",
-                shift: "",
-                dailyRate: 0,
-              },
-            ])
-          }
-        >
-          {draft.staff.map((item, index) => (
-            <tr key={item.id} className="border-t border-forest/8">
-              <CellInput
-                value={item.role}
-                onChange={(value) => {
-                  const staff = [...draft.staff];
-                  staff[index] = { ...item, role: value };
-                  update("staff", staff);
-                }}
+        <SectionTitle title="Bebidas" hint="Quantidade e unidade de cada item da casa." />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {DRINK_ITEMS.map((drink) => (
+            <Field key={drink.key} label={`${drink.label} · qtd/unid`}>
+              <input
+                className={fieldControlClass}
+                value={draft.drinks[drink.key]}
+                onChange={(event) =>
+                  update("drinks", {
+                    ...draft.drinks,
+                    [drink.key]: event.target.value,
+                  } as EventRecord["drinks"])
+                }
               />
-              <CellInput
-                value={item.name}
-                onChange={(value) => {
-                  const staff = [...draft.staff];
-                  staff[index] = { ...item, name: value };
-                  update("staff", staff);
-                }}
-              />
-              <CellInput
-                type="number"
-                value={String(item.quantity)}
-                onChange={(value) => {
-                  const staff = [...draft.staff];
-                  staff[index] = { ...item, quantity: Number(value) };
-                  update("staff", staff);
-                }}
-              />
-              <td className="p-2">
-                <select
-                  className={fieldControlClass}
-                  value={item.kind}
-                  onChange={(event) => {
-                    const staff = [...draft.staff];
-                    staff[index] = { ...item, kind: event.target.value as StaffKind };
-                    update("staff", staff);
-                  }}
-                >
-                  {Object.entries(STAFF_KIND_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <CellInput
-                value={item.shift}
-                onChange={(value) => {
-                  const staff = [...draft.staff];
-                  staff[index] = { ...item, shift: value };
-                  update("staff", staff);
-                }}
-              />
-              <CellInput
-                type="number"
-                value={String(item.dailyRate)}
-                onChange={(value) => {
-                  const staff = [...draft.staff];
-                  staff[index] = { ...item, dailyRate: Number(value) };
-                  update("staff", staff);
-                }}
-              />
-              <td className="p-2 text-right">
-                <RemoveButton
-                  onClick={() =>
-                    update(
-                      "staff",
-                      draft.staff.filter((row) => row.id !== item.id),
-                    )
-                  }
-                />
-              </td>
-            </tr>
+            </Field>
           ))}
-        </RowTable>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Materiais e estrutura"
-          hint="Base da Separação, Estoque e Alocação de Materiais."
-        />
-        <RowTable
-          columns={["Item", "Qtd", "Unidade", "Origem", "Obs."]}
-          onAdd={() =>
-            update("materials", [
-              ...draft.materials,
-              {
-                id: uid(),
-                name: "",
-                quantity: 1,
-                unit: "un",
-                source: "estoque",
-                notes: "",
-              },
-            ])
-          }
-        >
-          {draft.materials.map((item, index) => (
-            <tr key={item.id} className="border-t border-forest/8">
-              <CellInput
-                value={item.name}
-                onChange={(value) => {
-                  const materials = [...draft.materials];
-                  materials[index] = { ...item, name: value };
-                  update("materials", materials);
-                }}
-              />
-              <CellInput
-                type="number"
-                value={String(item.quantity)}
-                onChange={(value) => {
-                  const materials = [...draft.materials];
-                  materials[index] = { ...item, quantity: Number(value) };
-                  update("materials", materials);
-                }}
-              />
-              <CellInput
-                value={item.unit}
-                onChange={(value) => {
-                  const materials = [...draft.materials];
-                  materials[index] = { ...item, unit: value };
-                  update("materials", materials);
-                }}
-              />
-              <td className="p-2">
-                <select
-                  className={fieldControlClass}
-                  value={item.source}
-                  onChange={(event) => {
-                    const materials = [...draft.materials];
-                    materials[index] = {
-                      ...item,
-                      source: event.target.value as MaterialSource,
-                    };
-                    update("materials", materials);
-                  }}
-                >
-                  {Object.entries(MATERIAL_SOURCE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <CellInput
-                value={item.notes}
-                onChange={(value) => {
-                  const materials = [...draft.materials];
-                  materials[index] = { ...item, notes: value };
-                  update("materials", materials);
-                }}
-              />
-              <td className="p-2 text-right">
-                <RemoveButton
-                  onClick={() =>
-                    update(
-                      "materials",
-                      draft.materials.filter((row) => row.id !== item.id),
-                    )
-                  }
-                />
-              </td>
-            </tr>
-          ))}
-        </RowTable>
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Veículos" hint="Base do Controle de Uso dos Veículos." />
-        <RowTable
-          columns={["Veículo", "Motorista", "Saída", "Retorno", "Finalidade"]}
-          onAdd={() =>
-            update("vehicles", [
-              ...draft.vehicles,
-              {
-                id: uid(),
-                vehicle: "",
-                driver: "",
-                departure: "",
-                returnTime: "",
-                purpose: "",
-              },
-            ])
-          }
-        >
-          {draft.vehicles.map((item, index) => (
-            <tr key={item.id} className="border-t border-forest/8">
-              <CellInput
-                value={item.vehicle}
-                onChange={(value) => {
-                  const vehicles = [...draft.vehicles];
-                  vehicles[index] = { ...item, vehicle: value };
-                  update("vehicles", vehicles);
-                }}
-              />
-              <CellInput
-                value={item.driver}
-                onChange={(value) => {
-                  const vehicles = [...draft.vehicles];
-                  vehicles[index] = { ...item, driver: value };
-                  update("vehicles", vehicles);
-                }}
-              />
-              <CellInput
-                type="time"
-                value={item.departure}
-                onChange={(value) => {
-                  const vehicles = [...draft.vehicles];
-                  vehicles[index] = { ...item, departure: value };
-                  update("vehicles", vehicles);
-                }}
-              />
-              <CellInput
-                type="time"
-                value={item.returnTime}
-                onChange={(value) => {
-                  const vehicles = [...draft.vehicles];
-                  vehicles[index] = { ...item, returnTime: value };
-                  update("vehicles", vehicles);
-                }}
-              />
-              <CellInput
-                value={item.purpose}
-                onChange={(value) => {
-                  const vehicles = [...draft.vehicles];
-                  vehicles[index] = { ...item, purpose: value };
-                  update("vehicles", vehicles);
-                }}
-              />
-              <td className="p-2 text-right">
-                <RemoveButton
-                  onClick={() =>
-                    update(
-                      "vehicles",
-                      draft.vehicles.filter((row) => row.id !== item.id),
-                    )
-                  }
-                />
-              </td>
-            </tr>
-          ))}
-        </RowTable>
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Financeiro resumido"
-          hint="Depois vira Contas a Receber. A cozinha não vê estes valores no PDF."
-        />
-        <div className="grid gap-4 md:grid-cols-3">
-          <Field label="Valor do contrato">
-            <input
-              type="number"
-              className={fieldControlClass}
-              value={draft.finance.contractValue}
-              onChange={(event) =>
-                update("finance", {
-                  ...draft.finance,
-                  contractValue: Number(event.target.value),
-                })
-              }
-            />
-          </Field>
-          <Field label="Já recebido">
-            <input
-              type="number"
-              className={fieldControlClass}
-              value={draft.finance.paid}
-              onChange={(event) =>
-                update("finance", {
-                  ...draft.finance,
-                  paid: Number(event.target.value),
-                })
-              }
-            />
-          </Field>
-          <Field label="Saldo">
-            <div className={cn(fieldControlClass, "flex items-center bg-cream font-medium")}>
-              {formatBRL(pending)}
+        <SectionTitle title="Fardamentos" hint="Dólmã, bata e avental por tamanho." />
+        <div className="grid gap-6 md:grid-cols-3">
+          {UNIFORM_PIECES.map((piece) => (
+            <div key={piece.key} className="rounded-xl border border-forest/10 p-4">
+              <p className="font-section mb-3 text-[0.7rem] text-forest">{piece.label}</p>
+              <div className="grid grid-cols-4 gap-2">
+                {UNIFORM_SIZES.map((size) => (
+                  <Field key={size} label={UNIFORM_SIZE_LABELS[size]}>
+                    <input
+                      type="number"
+                      min={0}
+                      className={fieldControlClass}
+                      value={draft.uniforms[piece.key][size]}
+                      onChange={(event) =>
+                        update("uniforms", {
+                          ...draft.uniforms,
+                          [piece.key]: {
+                            ...draft.uniforms[piece.key],
+                            [size]: Number(event.target.value),
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+                ))}
+              </div>
             </div>
-          </Field>
-          <Field label="Observações de pagamento" className="md:col-span-3">
-            <textarea
-              className={cn(fieldControlClass, "h-20 py-2")}
-              value={draft.finance.paymentNotes}
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle title="Extras e logística" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Álcool? Quais?" className="md:col-span-2 xl:col-span-3">
+            <input
+              className={fieldControlClass}
+              value={draft.logistics.alcohol}
               onChange={(event) =>
-                update("finance", {
-                  ...draft.finance,
-                  paymentNotes: event.target.value,
-                })
+                update("logistics", { ...draft.logistics, alcohol: event.target.value })
               }
+            />
+          </Field>
+          <YesNoField
+            label="Material dia anterior?"
+            value={draft.logistics.materialPreviousDay}
+            onChange={(value) =>
+              update("logistics", { ...draft.logistics, materialPreviousDay: value })
+            }
+          />
+          <YesNoField
+            label="Mesa cavalete?"
+            value={draft.logistics.trestleTable}
+            onChange={(value) =>
+              update("logistics", { ...draft.logistics, trestleTable: value })
+            }
+          />
+          <YesNoField
+            label="Menu volante?"
+            value={draft.logistics.flyingMenu}
+            onChange={(value) =>
+              update("logistics", { ...draft.logistics, flyingMenu: value })
+            }
+          />
+          <YesNoField
+            label="Local c/ cozinha?"
+            value={draft.logistics.hasKitchen}
+            onChange={(value) =>
+              update("logistics", { ...draft.logistics, hasKitchen: value })
+            }
+          />
+          <YesNoField
+            label="Local c/ freezer?"
+            value={draft.logistics.hasFreezer}
+            onChange={(value) =>
+              update("logistics", { ...draft.logistics, hasFreezer: value })
+            }
+          />
+          <YesNoField
+            label="Local c/ forno?"
+            value={draft.logistics.hasOven}
+            onChange={(value) =>
+              update("logistics", { ...draft.logistics, hasOven: value })
+            }
+          />
+          <YesNoField
+            label="Local c/ microondas?"
+            value={draft.logistics.hasMicrowave}
+            onChange={(value) =>
+              update("logistics", { ...draft.logistics, hasMicrowave: value })
+            }
+          />
+          <Field label="Restrições alimentares" className="md:col-span-2 xl:col-span-3">
+            <textarea
+              className={cn(
+                fieldControlClass,
+                "min-h-24 border-terracotta/30 bg-terracotta/5 py-2",
+              )}
+              value={draft.dietaryNotes}
+              onChange={(event) => update("dietaryNotes", event.target.value)}
             />
           </Field>
         </div>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Briefing e pontos de atenção" />
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Briefing">
-            <textarea
-              className={cn(fieldControlClass, "min-h-32 py-2")}
-              value={draft.briefing}
-              onChange={(event) => update("briefing", event.target.value)}
-            />
-          </Field>
-          <Field label="Pontos de atenção">
-            <textarea
-              className={cn(fieldControlClass, "min-h-32 border-terracotta/25 py-2")}
-              value={draft.attentionPoints}
-              onChange={(event) => update("attentionPoints", event.target.value)}
-            />
-          </Field>
-        </div>
+        <SectionTitle title="Observações cardápio e montagem" />
+        <textarea
+          className={cn(fieldControlClass, "min-h-36 py-3")}
+          value={draft.menuSetupNotes}
+          onChange={(event) => update("menuSetupNotes", event.target.value)}
+        />
       </section>
     </div>
   );
 }
 
-function RowTable({
-  columns,
-  onAdd,
-  children,
-}: {
-  columns: string[];
-  onAdd: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left">
-          <thead>
-            <tr>
-              {columns.map((column) => (
-                <th key={column} className="field-label px-2 pb-2 font-normal">
-                  {column}
-                </th>
-              ))}
-              <th />
-            </tr>
-          </thead>
-          <tbody className="font-list">{children}</tbody>
-        </table>
-      </div>
-      <Button variant="outline" className="mt-3" onClick={onAdd}>
-        <Plus data-icon="inline-start" />
-        Adicionar linha
-      </Button>
-    </div>
-  );
-}
-
-function CellInput({
+function YesNoField({
+  label,
   value,
   onChange,
-  type = "text",
 }: {
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
+  label: string;
+  value: YesNo;
+  onChange: (value: YesNo) => void;
 }) {
   return (
-    <td className="p-2">
-      <input
-        type={type}
+    <Field label={label}>
+      <select
         className={fieldControlClass}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </td>
-  );
-}
-
-function RemoveButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-forest/35 transition-colors hover:text-terracotta"
-      aria-label="Remover"
-    >
-      <Trash2 className="size-4" />
-    </button>
+        onChange={(event) => onChange(event.target.value as YesNo)}
+      >
+        <option value="">—</option>
+        <option value="sim">Sim</option>
+        <option value="nao">Não</option>
+      </select>
+    </Field>
   );
 }
 
@@ -935,46 +520,75 @@ function MenuBlock({
   return (
     <div>
       <h3 className="font-section mb-3 text-[0.7rem] text-forest/55">{title}</h3>
-      <RowTable
-        columns={["Preparação", "Quantidade", "Obs."]}
-        onAdd={() =>
-          onChange([...items, { id: uid(), name: "", quantity: "", notes: "" }])
-        }
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] text-left">
+          <thead>
+            <tr>
+              <th className="field-label w-28 px-2 pb-2 font-normal">Qtd</th>
+              <th className="field-label px-2 pb-2 font-normal">Prato / variação</th>
+              <th className="field-label px-2 pb-2 font-normal">Obs / variação</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody className="font-list">
+            {items.map((item, index) => (
+              <tr key={item.id} className="border-t border-forest/8">
+                <td className="p-2">
+                  <input
+                    className={fieldControlClass}
+                    value={item.quantity}
+                    onChange={(event) => {
+                      const next = [...items];
+                      next[index] = { ...item, quantity: event.target.value };
+                      onChange(next);
+                    }}
+                  />
+                </td>
+                <td className="p-2">
+                  <input
+                    className={fieldControlClass}
+                    value={item.name}
+                    onChange={(event) => {
+                      const next = [...items];
+                      next[index] = { ...item, name: event.target.value };
+                      onChange(next);
+                    }}
+                  />
+                </td>
+                <td className="p-2">
+                  <input
+                    className={fieldControlClass}
+                    value={item.notes}
+                    onChange={(event) => {
+                      const next = [...items];
+                      next[index] = { ...item, notes: event.target.value };
+                      onChange(next);
+                    }}
+                  />
+                </td>
+                <td className="p-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onChange(items.filter((row) => row.id !== item.id))}
+                    className="text-forest/35 transition-colors hover:text-terracotta"
+                    aria-label="Remover"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Button
+        variant="outline"
+        className="mt-3"
+        onClick={() => onChange([...items, menuItem()])}
       >
-        {items.map((item, index) => (
-          <tr key={item.id} className="border-t border-forest/8">
-            <CellInput
-              value={item.name}
-              onChange={(value) => {
-                const next = [...items];
-                next[index] = { ...item, name: value };
-                onChange(next);
-              }}
-            />
-            <CellInput
-              value={item.quantity}
-              onChange={(value) => {
-                const next = [...items];
-                next[index] = { ...item, quantity: value };
-                onChange(next);
-              }}
-            />
-            <CellInput
-              value={item.notes}
-              onChange={(value) => {
-                const next = [...items];
-                next[index] = { ...item, notes: value };
-                onChange(next);
-              }}
-            />
-            <td className="p-2 text-right">
-              <RemoveButton
-                onClick={() => onChange(items.filter((row) => row.id !== item.id))}
-              />
-            </td>
-          </tr>
-        ))}
-      </RowTable>
+        <Plus data-icon="inline-start" />
+        Adicionar {title.toLowerCase()}
+      </Button>
     </div>
   );
 }

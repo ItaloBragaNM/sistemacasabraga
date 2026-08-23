@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function FichaIndex() {
   const { events, ready } = useEvents();
   const sorted = [...events].sort((a, b) =>
-    `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`),
+    `${a.date}${a.invitationTime}`.localeCompare(`${b.date}${b.invitationTime}`),
   );
 
   return (
@@ -25,8 +25,8 @@ export function FichaIndex() {
             Ficha do Evento
           </h1>
           <p className="mt-2 max-w-xl text-sm font-light leading-6 text-forest/65">
-            Cada ficha é o documento vivo do evento. Dela saem cozinha, logística,
-            equipe e financeiro.
+            A ficha da casa: dados do evento, convidados, horários, equipe,
+            cardápio, bebidas, fardamentos e logística.
           </p>
         </div>
         <Link

@@ -2,7 +2,7 @@ import { createBlankEvent, nextEventCode } from "./event-factory";
 import { SEED_EVENTS } from "./seed";
 import type { EventRecord } from "./types";
 
-const STORAGE_KEY = "casa-braga.events.v1";
+const STORAGE_KEY = "casa-braga.events.v2";
 const EVENT_NAME = "casa-braga-events";
 
 let snapshot: EventRecord[] = structuredClone(SEED_EVENTS);

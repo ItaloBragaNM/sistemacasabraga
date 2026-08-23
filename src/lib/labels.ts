@@ -1,10 +1,9 @@
 import type {
   EventStatus,
   EventType,
-  MaterialSource,
-  ServiceStyle,
-  StaffKind,
+  UniformSize,
   VenueKind,
+  YesNo,
 } from "./types";
 
 export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
@@ -29,29 +28,21 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   outro: "Outro",
 };
 
-export const SERVICE_STYLE_LABELS: Record<ServiceStyle, string> = {
-  buffet: "Buffet",
-  empratado: "Empratado",
-  estacoes: "Estações",
-  cocktail: "Cocktail",
-  coffee: "Coffee break",
-  brunch: "Brunch",
-};
-
 export const VENUE_KIND_LABELS: Record<VenueKind, string> = {
   casa_braga: "Casa Braga",
   externo: "Externo",
 };
 
-export const STAFF_KIND_LABELS: Record<StaffKind, string> = {
-  interna: "Interna",
-  externa: "Externa",
+export const YES_NO_LABELS: Record<Exclude<YesNo, "">, string> = {
+  sim: "Sim",
+  nao: "Não",
 };
 
-export const MATERIAL_SOURCE_LABELS: Record<MaterialSource, string> = {
-  estoque: "Estoque",
-  aluguel: "Aluguel",
-  compra: "Compra",
+export const UNIFORM_SIZE_LABELS: Record<UniformSize, string> = {
+  p: "P",
+  m: "M",
+  g: "G",
+  gg: "GG",
 };
 
 export const WEEKDAY_LABELS = [

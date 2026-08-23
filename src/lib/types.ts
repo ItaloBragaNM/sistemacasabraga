@@ -24,47 +24,19 @@ export const EVENT_TYPES = [
 
 export type EventType = (typeof EVENT_TYPES)[number];
 
-export const SERVICE_STYLES = [
-  "buffet",
-  "empratado",
-  "estacoes",
-  "cocktail",
-  "coffee",
-  "brunch",
-] as const;
-
-export type ServiceStyle = (typeof SERVICE_STYLES)[number];
-
 export type VenueKind = "casa_braga" | "externo";
-export type StaffKind = "interna" | "externa";
-export type MaterialSource = "estoque" | "aluguel" | "compra";
-
-export interface Client {
-  name: string;
-  company: string;
-  phone: string;
-  email: string;
-  dayContactName: string;
-  dayContactPhone: string;
-}
+export type YesNo = "sim" | "nao" | "";
 
 export interface Venue {
   kind: VenueKind;
   name: string;
   address: string;
-  notes: string;
 }
 
 export interface Guests {
   adults: number;
   children: number;
-}
-
-export interface TimelineItem {
-  id: string;
-  time: string;
-  activity: string;
-  owner: string;
+  professionals: number;
 }
 
 export interface MenuItem {
@@ -74,62 +46,77 @@ export interface MenuItem {
   notes: string;
 }
 
-export interface Menu {
-  reception: MenuItem[];
-  starters: MenuItem[];
-  mains: MenuItem[];
-  sides: MenuItem[];
-  desserts: MenuItem[];
-  kids: MenuItem[];
-  drinks: MenuItem[];
-  dietaryNotes: string;
-  kitchenNotes: string;
-}
-
 export const MENU_SECTIONS = [
-  { key: "reception", label: "Recepção e canapés" },
-  { key: "starters", label: "Entradas e saladas" },
-  { key: "mains", label: "Pratos quentes" },
-  { key: "sides", label: "Guarnições" },
-  { key: "desserts", label: "Sobremesas" },
-  { key: "kids", label: "Menu infantil" },
-  { key: "drinks", label: "Bebidas" },
+  { key: "paraComecar", label: "Para Começar", rows: 4 },
+  { key: "amuseBouche", label: "Amuse Bouche", rows: 4 },
+  { key: "ramequim", label: "Ramequim", rows: 3 },
+  { key: "menu", label: "Menu", rows: 4 },
+  { key: "mesaBuffet", label: "Mesa e Buffet", rows: 3 },
+  { key: "saladas", label: "Saladas", rows: 2 },
+  { key: "altasHoras", label: "Altas Horas", rows: 2 },
+  { key: "sobremesas", label: "Sobremesas", rows: 2 },
+  { key: "menuKids", label: "Menu Kids", rows: 2 },
+  { key: "acompanhamentos", label: "Acompanhamentos", rows: 2 },
 ] as const;
 
 export type MenuSectionKey = (typeof MENU_SECTIONS)[number]["key"];
 
-export interface StaffMember {
-  id: string;
-  role: string;
-  name: string;
-  quantity: number;
-  kind: StaffKind;
-  shift: string;
-  dailyRate: number;
-}
+export type Menu = Record<MenuSectionKey, MenuItem[]>;
 
-export interface MaterialItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  source: MaterialSource;
-  notes: string;
-}
+export const STAFF_ROLES = [
+  { key: "garcons", label: "Garçons" },
+  { key: "garconetes", label: "Garçonetes" },
+  { key: "copeiros", label: "Copeiros(as)" },
+  { key: "chefes", label: "Chefes/Staff" },
+  { key: "segurancas", label: "Seguranças" },
+  { key: "portaria", label: "Portaria" },
+  { key: "monitor", label: "Monitor" },
+  { key: "gerente", label: "Gerente" },
+  { key: "apoioSalao", label: "Apoio Salão" },
+  { key: "outros", label: "Outros" },
+] as const;
 
-export interface VehicleAssignment {
-  id: string;
-  vehicle: string;
-  driver: string;
-  departure: string;
-  returnTime: string;
-  purpose: string;
-}
+export type StaffRoleKey = (typeof STAFF_ROLES)[number]["key"];
+export type StaffCounts = Record<StaffRoleKey, number>;
 
-export interface FinanceSummary {
-  contractValue: number;
-  paid: number;
-  paymentNotes: string;
+export const DRINK_ITEMS = [
+  { key: "agua", label: "Água" },
+  { key: "refrigerante", label: "Refrigerante" },
+  { key: "suco", label: "Suco" },
+  { key: "espumante", label: "Espumante" },
+  { key: "vinho", label: "Vinho" },
+  { key: "cerveja", label: "Cerveja" },
+  { key: "whisky", label: "Whisky" },
+  { key: "vodka", label: "Vodka" },
+  { key: "cafe", label: "Café" },
+  { key: "licor", label: "Licor" },
+] as const;
+
+export type DrinkKey = (typeof DRINK_ITEMS)[number]["key"];
+export type DrinkQuantities = Record<DrinkKey, string>;
+
+export const UNIFORM_PIECES = [
+  { key: "dolma", label: "Dólmã" },
+  { key: "bata", label: "Bata" },
+  { key: "avental", label: "Avental" },
+] as const;
+
+export const UNIFORM_SIZES = ["p", "m", "g", "gg"] as const;
+
+export type UniformPieceKey = (typeof UNIFORM_PIECES)[number]["key"];
+export type UniformSize = (typeof UNIFORM_SIZES)[number];
+export type UniformSizes = Record<UniformSize, number>;
+export type Uniforms = Record<UniformPieceKey, UniformSizes>;
+
+export interface Logistics {
+  alcohol: string;
+  materialPreviousDay: YesNo;
+  trestleTable: YesNo;
+  hasKitchen: YesNo;
+  hasFreezer: YesNo;
+  hasOven: YesNo;
+  hasMicrowave: YesNo;
+  flyingMenu: YesNo;
 }
 
 export interface EventRecord {
@@ -139,30 +126,33 @@ export interface EventRecord {
   type: EventType;
   status: EventStatus;
   date: string;
-  startTime: string;
-  endTime: string;
-  assemblyTime: string;
-  teardownTime: string;
-  client: Client;
+  materialDeliveryDate: string;
+  foodDeliveryDate: string;
+  perCapita: number;
   venue: Venue;
   guests: Guests;
-  serviceStyle: ServiceStyle;
-  uniform: string;
-  serviceNotes: string;
-  commercialOwner: string;
-  operationalOwner: string;
-  timeline: TimelineItem[];
+  teamArrival: string;
+  invitationTime: string;
+  serviceTime: string;
+  staff: StaffCounts;
   menu: Menu;
-  staff: StaffMember[];
-  materials: MaterialItem[];
-  vehicles: VehicleAssignment[];
-  finance: FinanceSummary;
-  briefing: string;
-  attentionPoints: string;
+  drinks: DrinkQuantities;
+  uniforms: Uniforms;
+  logistics: Logistics;
+  dietaryNotes: string;
+  menuSetupNotes: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export function guestTotal(guests: Guests) {
-  return (guests.adults || 0) + (guests.children || 0);
+  return (guests.adults || 0) + (guests.children || 0) + (guests.professionals || 0);
+}
+
+export function servingTotal(guests: Guests) {
+  return guestTotal(guests);
+}
+
+export function staffTotal(staff: StaffCounts) {
+  return STAFF_ROLES.reduce((sum, role) => sum + (staff[role.key] || 0), 0);
 }

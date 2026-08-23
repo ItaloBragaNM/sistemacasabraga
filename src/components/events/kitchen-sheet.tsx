@@ -6,13 +6,20 @@ import { toast } from "sonner";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
 import { Button } from "@/components/ui/button";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
-import { EVENT_TYPE_LABELS, SERVICE_STYLE_LABELS } from "@/lib/labels";
-import { guestTotal, MENU_SECTIONS, type EventRecord } from "@/lib/types";
+import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
+import {
+  DRINK_ITEMS,
+  guestTotal,
+  MENU_SECTIONS,
+  STAFF_ROLES,
+  UNIFORM_PIECES,
+  UNIFORM_SIZES,
+  type EventRecord,
+} from "@/lib/types";
 
 export function KitchenSheet({ event }: { event: EventRecord }) {
-  const kitchenStaff = event.staff.filter((member) =>
-    /chef|cozin|confeit|aux/i.test(`${member.role} ${member.name}`),
-  );
+  const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
+  const staff = STAFF_ROLES.filter((role) => event.staff[role.key] > 0);
 
   return (
     <div className="min-h-screen bg-[#e8e2da] px-3 py-6 print:bg-white print:p-0">
@@ -25,11 +32,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           Voltar à ficha
         </Link>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => window.print()}
-            className="h-10"
-          >
+          <Button variant="outline" onClick={() => window.print()} className="h-10">
             Imprimir
           </Button>
           <Button
@@ -45,39 +48,41 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
         </div>
       </div>
 
-      <article className="kitchen-sheet mx-auto w-full max-w-[210mm] bg-[#FFFBFA] p-8 shadow-xl print:max-w-none print:shadow-none">
+      <article className="mx-auto w-full max-w-[210mm] bg-[#FFFBFA] p-8 shadow-xl print:max-w-none print:shadow-none">
         <header className="bg-petrol px-6 py-5 text-cream">
           <p className="font-section text-[0.62rem] tracking-[0.22em] text-cream/70">
             Casa Braga · Ficha de Cozinha
           </p>
           <h1 className="font-display mt-2 text-4xl">{event.title}</h1>
           <p className="mt-2 text-sm font-light text-cream/75">
-            {event.code} · {EVENT_TYPE_LABELS[event.type]} ·{" "}
-            {SERVICE_STYLE_LABELS[event.serviceStyle]}
+            {event.code} · {EVENT_TYPE_LABELS[event.type]}
           </p>
         </header>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <Info label="Data" value={`${formatWeekday(event.date)}, ${formatLongDate(event.date)}`} />
-          <Info label="Serviço" value={`${event.startTime} – ${event.endTime}`} />
-          <Info label="Pax" value={`${guestTotal(event.guests)}`} />
-          <Info label="Local" value={event.venue.name} />
           <Info
-            label="Montagem / desmontagem"
-            value={`${event.assemblyTime} / ${event.teardownTime}`}
+            label="Data"
+            value={event.date ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : "—"}
           />
           <Info
+            label="Convite / serviço"
+            value={`${event.invitationTime || "—"} / ${event.serviceTime || "—"}`}
+          />
+          <Info label="A servir" value={`${guestTotal(event.guests)}`} />
+          <Info label="Local" value={event.venue.address || event.venue.name} />
+          <Info label="Chegada equipe" value={event.teamArrival || "—"} />
+          <Info
             label="Público"
-            value={`${event.guests.adults} adultos · ${event.guests.children} crianças`}
+            value={`${event.guests.adults} ad · ${event.guests.children} cr · ${event.guests.professionals} prof`}
           />
         </div>
 
-        {event.menu.dietaryNotes && (
+        {event.dietaryNotes && (
           <div className="mt-5 border border-terracotta bg-[#F8D9D7] px-4 py-3">
             <p className="font-section text-[0.62rem] text-terracotta">
-              Restrições e alergias
+              Restrições alimentares
             </p>
-            <p className="mt-1 text-sm leading-6">{event.menu.dietaryNotes}</p>
+            <p className="mt-1 text-sm leading-6">{event.dietaryNotes}</p>
           </div>
         )}
 
@@ -91,7 +96,10 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
               </h2>
               <ul className="font-list divide-y divide-forest/8">
                 {items.map((item) => (
-                  <li key={item.id} className="grid grid-cols-[1fr_auto_auto] gap-4 py-2 text-sm">
+                  <li
+                    key={item.id}
+                    className="grid grid-cols-[1fr_auto_auto] gap-4 py-2 text-sm"
+                  >
                     <span>{item.name}</span>
                     <span className="text-forest/70">{item.quantity}</span>
                     <span className="text-right text-forest/50">{item.notes}</span>
@@ -102,64 +110,78 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           );
         })}
 
-        {event.timeline.length > 0 && (
+        {drinks.length > 0 && (
           <section className="mt-6">
             <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
-              Cronograma de serviço
+              Bebidas
             </h2>
-            <ul className="font-list divide-y divide-forest/8 text-sm">
-              {event.timeline.map((item) => (
-                <li key={item.id} className="grid grid-cols-[72px_1fr_auto] gap-4 py-2">
-                  <span className="font-medium">{item.time}</span>
-                  <span>{item.activity}</span>
-                  <span className="text-forest/50">{item.owner}</span>
+            <ul className="font-list grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-5">
+              {drinks.map((item) => (
+                <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
+                  <span>{item.label}</span>
+                  <span className="text-forest/60">{event.drinks[item.key]}</span>
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {kitchenStaff.length > 0 && (
+        {staff.length > 0 && (
           <section className="mt-6">
             <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
-              Equipe de cozinha
+              Equipe
             </h2>
-            <ul className="font-list divide-y divide-forest/8 text-sm">
-              {kitchenStaff.map((item) => (
-                <li key={item.id} className="flex justify-between py-2">
-                  <span>
-                    {item.quantity}× {item.role}
-                    {item.name ? ` — ${item.name}` : ""}
-                  </span>
-                  <span className="text-forest/50">{item.shift}</span>
+            <ul className="font-list grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+              {staff.map((item) => (
+                <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
+                  <span>{item.label}</span>
+                  <span>{event.staff[item.key]}</span>
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {event.menu.kitchenNotes && (
+        <section className="mt-6">
+          <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+            Fardamentos
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {UNIFORM_PIECES.map((piece) => (
+              <div key={piece.key} className="border border-forest/10 px-3 py-2 text-sm">
+                <p className="field-label">{piece.label}</p>
+                <p className="font-list mt-1">
+                  {UNIFORM_SIZES.map(
+                    (size) => `${UNIFORM_SIZE_LABELS[size]} ${event.uniforms[piece.key][size]}`,
+                  ).join(" · ")}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {event.logistics.alcohol && (
           <section className="mt-6">
             <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
-              Observações da cozinha
+              Álcool
             </h2>
-            <p className="text-sm leading-6">{event.menu.kitchenNotes}</p>
+            <p className="text-sm leading-6">{event.logistics.alcohol}</p>
           </section>
         )}
 
-        {event.attentionPoints && (
+        {event.menuSetupNotes && (
           <section className="mt-6">
             <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
-              Pontos de atenção
+              Observações cardápio e montagem
             </h2>
-            <p className="text-sm leading-6">{event.attentionPoints}</p>
+            <p className="text-sm leading-6">{event.menuSetupNotes}</p>
           </section>
         )}
 
         <footer className="mt-10 flex items-center justify-between border-t border-forest/10 pt-3 text-xs text-forest/50">
           <p>
-            Operação: {event.operationalOwner || "—"} · Comercial:{" "}
-            {event.commercialOwner || "—"}
+            Material dia anterior: {flag(event.logistics.materialPreviousDay)} · Cavalete:{" "}
+            {flag(event.logistics.trestleTable)}
           </p>
           <p>Casa Braga</p>
         </footer>
@@ -175,4 +197,10 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm font-medium">{value}</p>
     </div>
   );
+}
+
+function flag(value: string) {
+  if (value === "sim") return "Sim";
+  if (value === "nao") return "Não";
+  return "—";
 }
