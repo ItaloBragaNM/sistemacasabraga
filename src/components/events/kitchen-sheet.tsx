@@ -38,8 +38,13 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           <Button
             className="h-10 bg-terracotta text-cream hover:bg-terracotta/90"
             onClick={async () => {
-              await downloadKitchenPdf(event);
-              toast.success("PDF da cozinha gerado.");
+              try {
+                await downloadKitchenPdf(event);
+                toast.success("PDF da cozinha baixado.");
+              } catch (error) {
+                console.error(error);
+                toast.error("Não foi possível gerar o PDF. Use Imprimir nesta página.");
+              }
             }}
           >
             <Download data-icon="inline-start" />

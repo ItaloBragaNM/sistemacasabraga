@@ -39,6 +39,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState(event);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
   const skip = useRef(true);
 
   useEffect(() => {
@@ -100,12 +101,21 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </Link>
           <Button
             className="h-10 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
+            disabled={pdfState === "working"}
             onClick={async () => {
-              await downloadKitchenPdf(draft);
-              toast.success("PDF da cozinha gerado.");
+              try {
+                setPdfState("working");
+                await downloadKitchenPdf(draft);
+                toast.success("PDF da cozinha baixado.");
+              } catch (error) {
+                console.error(error);
+                toast.error("Não foi possível gerar o PDF. Use a ficha da cozinha e imprima.");
+              } finally {
+                setPdfState("idle");
+              }
             }}
           >
-            Gerar PDF
+            {pdfState === "working" ? "Gerando…" : "Gerar PDF"}
           </Button>
           <Button
             variant="outline"

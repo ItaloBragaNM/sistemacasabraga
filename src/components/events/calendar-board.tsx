@@ -148,17 +148,24 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           </h2>
         </div>
         <div className="flex rounded-lg border border-forest/15 bg-white p-1">
-          {(["mes", "semana", "lista"] as ViewMode[]).map((mode) => (
+          {(
+            [
+              ["mes", "Mês"],
+              ["semana", "Semana"],
+              ["lista", "Lista"],
+            ] as const
+          ).map(([mode, label]) => (
             <button
               key={mode}
               type="button"
+              aria-pressed={view === mode}
               onClick={() => setView(mode)}
               className={cn(
-                "font-section rounded-md px-3 py-1.5 text-[0.62rem]",
-                view === mode ? "bg-forest text-cream" : "text-forest/60",
+                "font-section cursor-pointer rounded-md px-3 py-1.5 text-[0.62rem]",
+                view === mode ? "bg-forest text-cream" : "text-forest/60 hover:text-forest",
               )}
             >
-              {mode}
+              {label}
             </button>
           ))}
         </div>
@@ -211,6 +218,39 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
             );
           })}
         </div>
+      ) : view === "semana" ? (
+        <div className="space-y-3">
+          {days.map((day) => {
+            const dayEvents = eventsOnDay(filtered, day);
+            return (
+              <section
+                key={day.toISOString()}
+                className={cn(
+                  "rounded-2xl border border-forest/10 bg-white p-4",
+                  isToday(day) && "border-terracotta/40 bg-terracotta/5",
+                )}
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="font-section text-[0.7rem] text-forest/60">
+                    {formatDayHeading(day)}
+                  </h3>
+                  {isToday(day) && (
+                    <span className="font-section text-[0.58rem] text-terracotta">Hoje</span>
+                  )}
+                </div>
+                {dayEvents.length === 0 ? (
+                  <p className="text-sm font-light text-forest/40">Sem eventos neste dia.</p>
+                ) : (
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {dayEvents.map((event) => (
+                      <EventChip key={event.id} event={event} />
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
           <div className="grid grid-cols-7 border-b border-forest/10 bg-cream/80">
@@ -223,10 +263,10 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
               </p>
             ))}
           </div>
-          <div className={`grid grid-cols-7 ${view === "semana" ? "min-h-[420px]" : ""}`}>
+          <div className="grid grid-cols-7">
             {days.map((day) => {
               const dayEvents = eventsOnDay(filtered, day);
-              const outside = view === "mes" && !isSameMonth(day, cursor);
+              const outside = !isSameMonth(day, cursor);
               return (
                 <div
                   key={day.toISOString()}

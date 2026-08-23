@@ -265,6 +265,8 @@ export async function downloadKitchenPdf(event: EventRecord) {
     .replace(/(^-|-$)/g, "");
   link.href = url;
   link.download = `ficha-cozinha-${event.code.toLowerCase()}-${slug || "evento"}.pdf`;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

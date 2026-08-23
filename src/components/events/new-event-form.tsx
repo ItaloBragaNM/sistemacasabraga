@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { casaBragaVenue } from "@/lib/event-factory";
 import { EVENT_TYPE_LABELS } from "@/lib/labels";
 import { EVENT_TYPES, type EventType } from "@/lib/types";
@@ -20,12 +20,16 @@ export function NewEventForm() {
   const [type, setType] = useState<EventType>("casamento");
   const [adults, setAdults] = useState(80);
   const [address, setAddress] = useState("Casa Braga — Fortaleza, CE");
+  const [saving, setSaving] = useState(false);
 
   return (
     <form
       className="mx-auto max-w-2xl space-y-6"
+      action="#"
       onSubmit={(event) => {
         event.preventDefault();
+        event.stopPropagation();
+        if (saving) return;
         if (!title.trim()) {
           toast.error("Informe o nome do evento.");
           return;
@@ -34,16 +38,23 @@ export function NewEventForm() {
           toast.error("Informe a data do evento.");
           return;
         }
-        const created = create({
-          title: title.trim(),
-          date,
-          type,
-          status: "rascunho",
-          guests: { adults, children: 0, professionals: 0 },
-          venue: { ...casaBragaVenue(), address },
-        });
-        toast.success("Ficha criada. Complete os demais campos.");
-        router.push(`/eventos/${created.id}`);
+        try {
+          setSaving(true);
+          const created = create({
+            title: title.trim(),
+            date,
+            type,
+            status: "rascunho",
+            guests: { adults, children: 0, professionals: 0 },
+            venue: { ...casaBragaVenue(), address },
+          });
+          toast.success("Ficha criada. Complete os demais campos.");
+          router.push(`/eventos/${created.id}`);
+        } catch (error) {
+          console.error(error);
+          setSaving(false);
+          toast.error("Não foi possível criar a ficha. Tente de novo.");
+        }
       }}
     >
       <div>
@@ -108,9 +119,13 @@ export function NewEventForm() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" className="h-10 bg-forest px-5 text-cream hover:bg-petrol">
-          Criar ficha
-        </Button>
+        <button
+          type="submit"
+          disabled={saving}
+          className={cn(buttonVariants(), "h-10 bg-forest px-5 text-cream hover:bg-petrol")}
+        >
+          {saving ? "Criando…" : "Criar ficha"}
+        </button>
         <Link
           href="/eventos"
           className={cn(buttonVariants({ variant: "outline" }), "h-10 px-5")}
