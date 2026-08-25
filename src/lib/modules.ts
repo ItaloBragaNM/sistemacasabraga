@@ -18,7 +18,7 @@ export const APP_MODULES: AppModule[] = [
   {
     id: "comercial",
     label: "Comercial",
-    ready: false,
+    ready: true,
     pages: [
       { href: "/comercial/dashboard", label: "Dashboard Comercial" },
       { href: "/comercial/orcamentos", label: "Orçamentos" },

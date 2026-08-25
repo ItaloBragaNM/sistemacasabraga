@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local agent scratch
 /agent-tools/
+
+# runtime data (uploaded CRM snapshot for the commercial dashboard)
+/.data/

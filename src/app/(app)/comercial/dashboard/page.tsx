@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { ComercialDashboard } from "@/components/comercial/comercial-dashboard";
 
 export default function Page() {
-  return <ComingSoon moduleName="Comercial" pageName="Dashboard Comercial" />;
+  return <ComercialDashboard />;
 }
