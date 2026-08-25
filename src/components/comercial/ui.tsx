@@ -187,16 +187,16 @@ export function ConversionBar({
   return (
     <div className="flex h-6 w-full overflow-hidden rounded-full bg-forest/8 text-[0.62rem] font-semibold">
       <div
-        className="flex items-center justify-center bg-forest text-cream"
+        className="flex min-w-0 items-center justify-center overflow-hidden whitespace-nowrap bg-forest px-1 text-cream"
         style={{ width: `${wonPct * 100}%` }}
       >
-        {wonPct >= 0.12 ? formatPercent(wonPct, 0) : ""}
+        {wonPct >= 0.2 ? formatPercent(wonPct, 0) : ""}
       </div>
       <div
-        className="flex items-center justify-center bg-terracotta text-cream"
+        className="flex min-w-0 items-center justify-center overflow-hidden whitespace-nowrap bg-terracotta px-1 text-cream"
         style={{ width: `${lostPct * 100}%` }}
       >
-        {lostPct >= 0.12 ? formatPercent(lostPct, 0) : ""}
+        {lostPct >= 0.2 ? formatPercent(lostPct, 0) : ""}
       </div>
     </div>
   );

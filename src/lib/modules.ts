@@ -25,6 +25,19 @@ export const APP_MODULES: AppModule[] = [
     ],
   },
   {
+    id: "cadastros",
+    label: "Cadastros",
+    ready: true,
+    pages: [
+      { href: "/cadastros/cardapio", label: "Cardápio" },
+      { href: "/cadastros/materiais", label: "Materiais" },
+      { href: "/cadastros/insumos", label: "Insumos" },
+      { href: "/cadastros/clientes", label: "Clientes" },
+      { href: "/cadastros/veiculos", label: "Veículos" },
+      { href: "/cadastros/configuracoes", label: "Configurações" },
+    ],
+  },
+  {
     id: "cozinha",
     label: "Cozinha",
     ready: false,

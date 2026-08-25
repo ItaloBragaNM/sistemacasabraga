@@ -113,6 +113,8 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     materialDeliveryDate: "",
     foodDeliveryDate: "",
     perCapita: 0,
+    islands: 0,
+    selectedDishIds: [],
     teamArrival: "",
     invitationTime: "",
     serviceTime: "",

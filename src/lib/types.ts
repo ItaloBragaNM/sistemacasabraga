@@ -119,6 +119,27 @@ export interface Logistics {
   flyingMenu: YesNo;
 }
 
+export interface MaterialSeparationOverride {
+  quantity?: number;
+  note?: string;
+  removed?: boolean;
+}
+
+export interface MaterialSeparationExtra {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  note?: string;
+}
+
+export interface MaterialSeparationState {
+  overrides: Record<string, MaterialSeparationOverride>;
+  extras: MaterialSeparationExtra[];
+  updatedAt?: string;
+}
+
 export interface EventRecord {
   id: string;
   code: string;
@@ -131,11 +152,17 @@ export interface EventRecord {
   perCapita: number;
   venue: Venue;
   guests: Guests;
+  /** Quantidade de ilhas (estações) — usada no cálculo de materiais. */
+  islands?: number;
   teamArrival: string;
   invitationTime: string;
   serviceTime: string;
   staff: StaffCounts;
   menu: Menu;
+  /** Pratos do catálogo (cadastro de cardápio) escolhidos para o evento. */
+  selectedDishIds?: string[];
+  /** Ajustes manuais da separação de materiais deste evento. */
+  materialSeparation?: MaterialSeparationState;
   drinks: DrinkQuantities;
   uniforms: Uniforms;
   logistics: Logistics;

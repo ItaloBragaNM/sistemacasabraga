@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Plus, Printer, Trash2 } from "lucide-react";
+import { ArrowLeft, ClipboardList, Plus, Printer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
 import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import type { DishRecord } from "@/lib/cadastros/types";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { menuItem } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
@@ -37,6 +39,7 @@ type Props = {
 
 export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
+  const { data: cadastros } = useCadastros();
   const [draft, setDraft] = useState(event);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
@@ -288,6 +291,15 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             />
           </Field>
+          <Field label="★ Ilhas (estações)">
+            <input
+              type="number"
+              min={0}
+              className={fieldControlClass}
+              value={draft.islands ?? 0}
+              onChange={(event) => update("islands", Number(event.target.value))}
+            />
+          </Field>
           <Field label="Chegada equipe">
             <input
               type="time"
@@ -334,6 +346,31 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               />
             </Field>
           ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle
+          eyebrow="Cadastros"
+          title="Pratos do cardápio (catálogo)"
+          hint="Selecione os pratos do catálogo. Eles definem a lista de materiais da separação."
+        />
+        <CatalogDishPicker
+          dishes={cadastros?.dishes ?? []}
+          selected={draft.selectedDishIds ?? []}
+          onChange={(ids) => update("selectedDishIds", ids)}
+        />
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Link
+            href={`/logistica/separacao-materiais?evento=${draft.id}`}
+            className={cn(buttonVariants({ variant: "outline" }), "h-9 px-4")}
+          >
+            <ClipboardList data-icon="inline-start" />
+            Abrir separação de materiais
+          </Link>
+          <span className="text-xs font-light text-forest/50">
+            {(draft.selectedDishIds ?? []).length} prato(s) selecionado(s)
+          </span>
         </div>
       </section>
 
@@ -490,6 +527,73 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           onChange={(event) => update("menuSetupNotes", event.target.value)}
         />
       </section>
+    </div>
+  );
+}
+
+function CatalogDishPicker({
+  dishes,
+  selected,
+  onChange,
+}: {
+  dishes: DishRecord[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  if (dishes.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+        Nenhum prato no catálogo ainda. Cadastre em Cadastros → Cardápio.
+      </p>
+    );
+  }
+
+  const selectedSet = new Set(selected);
+  const toggle = (id: string) => {
+    const next = new Set(selectedSet);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange([...next]);
+  };
+
+  const groups = MENU_SECTIONS.map((section) => ({
+    section,
+    items: dishes
+      .filter((dish) => dish.category === section.key)
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+  })).filter((group) => group.items.length > 0);
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <div key={group.section.key}>
+          <h3 className="font-section mb-2 text-[0.66rem] text-forest/55">{group.section.label}</h3>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {group.items.map((dish) => {
+              const checked = selectedSet.has(dish.id);
+              return (
+                <label
+                  key={dish.id}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
+                    checked
+                      ? "border-forest/30 bg-forest/8"
+                      : "border-forest/10 hover:bg-forest/[0.03]",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-forest"
+                    checked={checked}
+                    onChange={() => toggle(dish.id)}
+                  />
+                  <span className="font-list text-forest">{dish.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
