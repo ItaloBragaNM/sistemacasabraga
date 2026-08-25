@@ -1,13 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readState, writeState } from "@/lib/store/kv.server";
 import { defaultCadastros } from "./defaults";
 import type { CadastrosData } from "./types";
 
-const DATA_DIR = process.env.CRM_DATA_DIR
-  ? path.resolve(process.env.CRM_DATA_DIR)
-  : path.join(process.cwd(), ".data");
-
-const DATA_FILE = path.join(DATA_DIR, "cadastros.json");
+const KEY = "cadastros";
+const FILE = "cadastros.json";
 
 function normalize(input: Partial<CadastrosData> | null): CadastrosData {
   const base = defaultCadastros();
@@ -24,20 +20,12 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
 }
 
 export async function readCadastros(): Promise<CadastrosData> {
-  try {
-    const raw = await readFile(DATA_FILE, "utf8");
-    return normalize(JSON.parse(raw) as Partial<CadastrosData>);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return defaultCadastros();
-    }
-    throw error;
-  }
+  const stored = await readState<Partial<CadastrosData>>(KEY, FILE);
+  return normalize(stored);
 }
 
 export async function writeCadastros(data: CadastrosData): Promise<CadastrosData> {
   const normalized = normalize(data);
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(DATA_FILE, JSON.stringify(normalized), "utf8");
+  await writeState(KEY, FILE, normalized);
   return normalized;
 }
