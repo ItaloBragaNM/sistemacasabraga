@@ -16,6 +16,13 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
         ? input.materialCategories
         : base.materialCategories,
     bases: Array.isArray(input.bases) && input.bases.length ? input.bases : base.bases,
+    insumos: Array.isArray(input.insumos) ? input.insumos : base.insumos,
+    insumoCategories:
+      Array.isArray(input.insumoCategories) && input.insumoCategories.length
+        ? input.insumoCategories
+        : base.insumoCategories,
+    clientes: Array.isArray(input.clientes) ? input.clientes : base.clientes,
+    veiculos: Array.isArray(input.veiculos) ? input.veiculos : base.veiculos,
   };
 }
 

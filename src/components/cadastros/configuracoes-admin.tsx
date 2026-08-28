@@ -49,11 +49,14 @@ export function ConfiguracoesAdmin() {
       <CadastrosHeader
         eyebrow="Cadastros · Configurações"
         title="Configurações"
-        description="Ajuste as categorias de materiais e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
+        description="Ajuste as categorias de materiais e insumos e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
       />
-      {!ready ? <LoadingBlock /> : !data ? null : (
+      {!ready ? (
+        <LoadingBlock />
+      ) : !data ? null : (
         <>
-          <CategoriesSection />
+          <MaterialCategoriesSection />
+          <InsumoCategoriesSection />
           <BasesSection />
         </>
       )}
@@ -61,14 +64,66 @@ export function ConfiguracoesAdmin() {
   );
 }
 
-function CategoriesSection() {
+function MaterialCategoriesSection() {
   const { data, setCategories, upsertMaterial } = useCadastros();
+  if (!data) return null;
+  return (
+    <CategoriesEditor
+      title="Categorias de materiais"
+      description="Usadas para agrupar os materiais no cadastro, na separação e no estoque."
+      categories={data.materialCategories}
+      onSetCategories={setCategories}
+      usageCount={(name) => data.materials.filter((m) => m.category === name).length}
+      onRename={(oldName, newName) =>
+        data.materials
+          .filter((m) => m.category === oldName)
+          .forEach((m) =>
+            upsertMaterial({ ...m, category: newName, updatedAt: new Date().toISOString() }),
+          )
+      }
+    />
+  );
+}
+
+function InsumoCategoriesSection() {
+  const { data, setInsumoCategories, upsertInsumo } = useCadastros();
+  if (!data) return null;
+  return (
+    <CategoriesEditor
+      title="Categorias de insumos"
+      description="Usadas para agrupar os insumos da cozinha."
+      categories={data.insumoCategories}
+      onSetCategories={setInsumoCategories}
+      usageCount={(name) => data.insumos.filter((i) => i.category === name).length}
+      onRename={(oldName, newName) =>
+        data.insumos
+          .filter((i) => i.category === oldName)
+          .forEach((i) =>
+            upsertInsumo({ ...i, category: newName, updatedAt: new Date().toISOString() }),
+          )
+      }
+    />
+  );
+}
+
+function CategoriesEditor({
+  title,
+  description,
+  categories,
+  onSetCategories,
+  usageCount,
+  onRename,
+}: {
+  title: string;
+  description: string;
+  categories: string[];
+  onSetCategories: (categories: string[]) => void;
+  usageCount: (name: string) => number;
+  onRename: (oldName: string, newName: string) => void;
+}) {
   const [newCategory, setNewCategory] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-
-  if (!data) return null;
-  const categories = data.materialCategories;
 
   const add = () => {
     const value = newCategory.trim();
@@ -77,7 +132,7 @@ function CategoriesSection() {
       toast.error("Categoria já existe.");
       return;
     }
-    setCategories([...categories, value]);
+    onSetCategories([...categories, value]);
     setNewCategory("");
     toast.success("Categoria adicionada.");
   };
@@ -92,12 +147,8 @@ function CategoriesSection() {
       toast.error("Já existe uma categoria com esse nome.");
       return;
     }
-    setCategories(categories.map((item) => (item === oldName ? value : item)));
-    data.materials
-      .filter((material) => material.category === oldName)
-      .forEach((material) =>
-        upsertMaterial({ ...material, category: value, updatedAt: new Date().toISOString() }),
-      );
+    onSetCategories(categories.map((item) => (item === oldName ? value : item)));
+    onRename(oldName, value);
     setEditing(null);
     toast.success("Categoria renomeada.");
   };
@@ -107,26 +158,24 @@ function CategoriesSection() {
       toast.error("Mantenha ao menos uma categoria.");
       return;
     }
-    const used = data.materials.filter((material) => material.category === name).length;
+    const used = usageCount(name);
     if (
       !window.confirm(
         used > 0
-          ? `${used} material(is) usam "${name}". Excluir a categoria mesmo assim?`
+          ? `${used} registro(s) usam "${name}". Excluir a categoria mesmo assim?`
           : `Excluir a categoria "${name}"?`,
       )
     ) {
       return;
     }
-    setCategories(categories.filter((item) => item !== name));
+    onSetCategories(categories.filter((item) => item !== name));
     toast.success("Categoria excluída.");
   };
 
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5">
-      <h2 className="font-section text-[0.82rem] text-forest">Categorias de materiais</h2>
-      <p className="mt-1 text-sm font-light text-forest/55">
-        Usadas para agrupar os materiais no cadastro e na separação.
-      </p>
+      <h2 className="font-section text-[0.82rem] text-forest">{title}</h2>
+      <p className="mt-1 text-sm font-light text-forest/55">{description}</p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {categories.map((category) => (

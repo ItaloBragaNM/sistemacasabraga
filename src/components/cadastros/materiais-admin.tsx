@@ -4,6 +4,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
@@ -49,10 +50,13 @@ export function MateriaisAdmin() {
         title="Materiais"
         description="Base da logística. Cada material tem uma proporção (base × multiplicador) que define a quantidade a separar por evento."
         action={
-          <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
-            <Plus data-icon="inline-start" />
-            Novo material
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ImportExport entity="materials" />
+            <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
+              <Plus data-icon="inline-start" />
+              Novo material
+            </Button>
+          </div>
         }
       />
 

@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { InsumosAdmin } from "@/components/cadastros/insumos-admin";
 
 export default function Page() {
-  return <ComingSoon moduleName="Cadastros" pageName="Insumos" />;
+  return <InsumosAdmin />;
 }

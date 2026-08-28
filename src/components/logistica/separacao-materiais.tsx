@@ -7,6 +7,7 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { useEvents } from "@/components/events/events-provider";
+import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass } from "@/components/events/field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -15,6 +16,9 @@ import {
   separationWarnings,
 } from "@/lib/cadastros/calc";
 import type { CadastrosData } from "@/lib/cadastros/types";
+import { balanceOf, computeBalances } from "@/lib/logistica/calc";
+import type { StockMovement } from "@/lib/logistica/types";
+import { PackageMinus } from "lucide-react";
 import { formatShortDate } from "@/lib/dates";
 import { uid } from "@/lib/event-factory";
 import {
@@ -146,8 +150,14 @@ function SeparationEditor({
   cadastros: CadastrosData;
   onSave: (event: EventRecord) => void;
 }) {
+  const { data: logistica, addMovements } = useLogistica();
   const [sep, setSep] = useState<MaterialSeparationState>(
     () => event.materialSeparation ?? EMPTY_SEP,
+  );
+
+  const balances = useMemo(
+    () => computeBalances(logistica?.movements ?? []),
+    [logistica],
   );
 
   const applySep = useCallback(
@@ -221,6 +231,39 @@ function SeparationEditor({
   );
   const totalPieces = rows.reduce((sum, row) => sum + row.finalQty, 0);
   const editedCount = rows.filter((row) => row.edited).length;
+  const faltaTotal = rows.reduce((sum, row) => {
+    const emEstoque = row.materialId ? balanceOf(balances, row.materialId) : 0;
+    return sum + Math.max(0, row.finalQty - emEstoque);
+  }, 0);
+
+  const giveBaixa = () => {
+    const already = (logistica?.movements ?? []).some(
+      (m) => m.ref === event.id && m.type === "saida",
+    );
+    if (
+      already &&
+      !window.confirm("Este evento já teve baixa no estoque. Registrar baixa novamente?")
+    ) {
+      return;
+    }
+    const movements: StockMovement[] = rows
+      .filter((row) => !row.isExtra && row.materialId && row.finalQty > 0)
+      .map((row) => ({
+        id: uid(),
+        materialId: row.materialId!,
+        type: "saida",
+        quantity: -Math.abs(row.finalQty),
+        date: new Date().toISOString(),
+        note: `Baixa · ${event.code || event.title || "evento"}`,
+        ref: event.id,
+      }));
+    if (!movements.length) {
+      toast.error("Nada para dar baixa no estoque.");
+      return;
+    }
+    addMovements(movements);
+    toast.success(`Baixa registrada no estoque: ${movements.length} materiais.`);
+  };
 
   const setOverride = (
     materialId: string,
@@ -306,6 +349,7 @@ function SeparationEditor({
           <Stat label="Itens" value={String(rows.length)} />
           <Stat label="Peças" value={String(totalPieces)} />
           <Stat label="Editados" value={String(editedCount)} />
+          <Stat label="Falta comprar" value={String(faltaTotal)} />
           {removedCount > 0 ? (
             <button
               type="button"
@@ -335,6 +379,15 @@ function SeparationEditor({
             Restaurar cálculo
           </Button>
           <Button
+            variant="outline"
+            className="h-9 px-4"
+            onClick={giveBaixa}
+            disabled={rows.length === 0}
+          >
+            <PackageMinus data-icon="inline-start" />
+            Dar baixa no estoque
+          </Button>
+          <Button
             className="h-9 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
             onClick={generatePdf}
             disabled={rows.length === 0}
@@ -360,12 +413,15 @@ function SeparationEditor({
               <div className="border-b border-forest/10 bg-forest/[0.02] px-4 py-2.5">
                 <h2 className="font-section text-[0.72rem] text-forest/75">{category}</h2>
               </div>
-              <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-forest/8">
                     <th className="field-label px-4 py-2 font-normal">Material</th>
-                    <th className="field-label w-24 px-2 py-2 text-right font-normal">Calc.</th>
+                    <th className="field-label w-20 px-2 py-2 text-right font-normal">Calc.</th>
+                    <th className="field-label w-24 px-2 py-2 text-right font-normal">Estoque</th>
                     <th className="field-label w-28 px-2 py-2 font-normal">Qtd final</th>
+                    <th className="field-label w-20 px-2 py-2 text-right font-normal">Falta</th>
                     <th className="field-label px-2 py-2 font-normal">Observação</th>
                     <th className="w-10" />
                   </tr>
@@ -401,6 +457,11 @@ function SeparationEditor({
                       <td className="px-2 py-2.5 text-right text-forest/45">
                         {row.isExtra ? "—" : row.computedQty}
                       </td>
+                      <td className="px-2 py-2.5 text-right text-forest/60">
+                        {row.isExtra || !row.materialId
+                          ? "—"
+                          : balanceOf(balances, row.materialId)}
+                      </td>
                       <td className="px-2 py-2.5">
                         <div className="flex items-center gap-1">
                           <input
@@ -416,6 +477,22 @@ function SeparationEditor({
                           />
                           <span className="text-xs text-forest/45">{row.unit}</span>
                         </div>
+                      </td>
+                      <td className="px-2 py-2.5 text-right">
+                        {(() => {
+                          const est = row.materialId ? balanceOf(balances, row.materialId) : 0;
+                          const falta = Math.max(0, row.finalQty - est);
+                          return (
+                            <span
+                              className={cn(
+                                "font-medium",
+                                falta > 0 ? "text-terracotta" : "text-forest/40",
+                              )}
+                            >
+                              {falta > 0 ? falta : "—"}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-2 py-2.5">
                         <input
@@ -460,6 +537,7 @@ function SeparationEditor({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ))}
         </div>

@@ -1,6 +1,24 @@
-import type { CadastrosData, CalcBase, DishRecord, MaterialRecord } from "./types";
+import type {
+  CadastrosData,
+  CalcBase,
+  DishRecord,
+  InsumoRecord,
+  MaterialRecord,
+} from "./types";
 
 const SEED_DATE = "2026-01-01T00:00:00.000Z";
+
+export const DEFAULT_INSUMO_CATEGORIES = [
+  "Carnes",
+  "Aves",
+  "Peixes e Frutos do Mar",
+  "Hortifruti",
+  "Laticínios",
+  "Mercearia",
+  "Bebidas",
+  "Descartáveis",
+  "Outros",
+];
 
 export const DEFAULT_MATERIAL_CATEGORIES = [
   "Bandejas",
@@ -180,11 +198,32 @@ export const DEFAULT_DISHES: DishRecord[] = [
   ]),
 ];
 
+function insumo(
+  id: string,
+  name: string,
+  category: string,
+  unit: string,
+): InsumoRecord {
+  return { id, name, category, unit, notes: "", createdAt: SEED_DATE, updatedAt: SEED_DATE };
+}
+
+export const DEFAULT_INSUMOS: InsumoRecord[] = [
+  insumo("ins-camarao", "Camarão limpo", "Peixes e Frutos do Mar", "kg"),
+  insumo("ins-arroz-arboreo", "Arroz Arbóreo", "Mercearia", "kg"),
+  insumo("ins-parmesao", "Queijo Parmesão", "Laticínios", "kg"),
+  insumo("ins-alface", "Alface Romana", "Hortifruti", "un"),
+  insumo("ins-blend-burger", "Blend de Hambúrguer", "Carnes", "kg"),
+];
+
 export function defaultCadastros(): CadastrosData {
   return {
     materials: structuredClone(DEFAULT_MATERIALS),
     dishes: structuredClone(DEFAULT_DISHES),
     materialCategories: [...DEFAULT_MATERIAL_CATEGORIES],
     bases: structuredClone(DEFAULT_BASES),
+    insumos: structuredClone(DEFAULT_INSUMOS),
+    insumoCategories: [...DEFAULT_INSUMO_CATEGORIES],
+    clientes: [],
+    veiculos: [],
   };
 }

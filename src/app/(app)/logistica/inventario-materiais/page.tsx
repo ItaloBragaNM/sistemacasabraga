@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { InventarioMateriais } from "@/components/logistica/inventario-materiais";
 
 export default function Page() {
-  return <ComingSoon moduleName="Logística" pageName="Inventário de Materiais" />;
+  return <InventarioMateriais />;
 }

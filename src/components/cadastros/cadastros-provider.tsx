@@ -13,8 +13,11 @@ import { toast } from "sonner";
 import type {
   CadastrosData,
   CalcBase,
+  ClienteRecord,
   DishRecord,
+  InsumoRecord,
   MaterialRecord,
+  VeiculoRecord,
 } from "@/lib/cadastros/types";
 
 interface CadastrosContextValue {
@@ -29,6 +32,14 @@ interface CadastrosContextValue {
   upsertBase: (base: CalcBase) => void;
   removeBase: (id: string) => void;
   setCategories: (categories: string[]) => void;
+  upsertInsumo: (insumo: InsumoRecord) => void;
+  removeInsumo: (id: string) => void;
+  setInsumoCategories: (categories: string[]) => void;
+  upsertCliente: (cliente: ClienteRecord) => void;
+  removeCliente: (id: string) => void;
+  upsertVeiculo: (veiculo: VeiculoRecord) => void;
+  removeVeiculo: (id: string) => void;
+  replaceAll: (next: CadastrosData) => void;
 }
 
 const CadastrosContext = createContext<CadastrosContextValue | null>(null);
@@ -126,8 +137,35 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
           bases: current.bases.filter((item) => item.id !== id),
         })),
       setCategories: (categories) => mutate((current) => ({ ...current, materialCategories: categories })),
+      upsertInsumo: (insumo) =>
+        mutate((current) => ({ ...current, insumos: upsert(current.insumos, insumo) })),
+      removeInsumo: (id) =>
+        mutate((current) => ({
+          ...current,
+          insumos: current.insumos.filter((item) => item.id !== id),
+        })),
+      setInsumoCategories: (categories) =>
+        mutate((current) => ({ ...current, insumoCategories: categories })),
+      upsertCliente: (cliente) =>
+        mutate((current) => ({ ...current, clientes: upsert(current.clientes, cliente) })),
+      removeCliente: (id) =>
+        mutate((current) => ({
+          ...current,
+          clientes: current.clientes.filter((item) => item.id !== id),
+        })),
+      upsertVeiculo: (veiculo) =>
+        mutate((current) => ({ ...current, veiculos: upsert(current.veiculos, veiculo) })),
+      removeVeiculo: (id) =>
+        mutate((current) => ({
+          ...current,
+          veiculos: current.veiculos.filter((item) => item.id !== id),
+        })),
+      replaceAll: (next) => {
+        setData(next);
+        persist(next);
+      },
     }),
-    [data, ready, error, saving, mutate],
+    [data, ready, error, saving, mutate, persist],
   );
 
   return <CadastrosContext.Provider value={value}>{children}</CadastrosContext.Provider>;

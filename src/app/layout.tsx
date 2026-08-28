@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Geist_Mono, Montserrat, Oswald } from "next/font/go
 import localFont from "next/font/local";
 import { Toaster } from "sonner";
 import { CadastrosProvider } from "@/components/cadastros/cadastros-provider";
+import { LogisticaProvider } from "@/components/logistica/logistica-provider";
 import { EventsProvider } from "@/components/events/events-provider";
 import "./globals.css";
 
@@ -57,13 +58,15 @@ export default function RootLayout({
       <body className="min-h-full bg-cream text-forest">
         <EventsProvider>
           <CadastrosProvider>
-            {children}
-            <Toaster
-              position="bottom-right"
-              toastOptions={{
-                className: "font-[family-name:var(--font-sauce)]",
-              }}
-            />
+            <LogisticaProvider>
+              {children}
+              <Toaster
+                position="bottom-right"
+                toastOptions={{
+                  className: "font-[family-name:var(--font-sauce)]",
+                }}
+              />
+            </LogisticaProvider>
           </CadastrosProvider>
         </EventsProvider>
       </body>

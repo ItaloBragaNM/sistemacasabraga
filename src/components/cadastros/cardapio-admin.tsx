@@ -4,6 +4,7 @@ import { Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
@@ -52,10 +53,13 @@ export function CardapioAdmin() {
         title="Cardápio"
         description="Catálogo de pratos do buffet. Cada prato reúne os materiais (logística) usados no serviço — e, futuramente, sua ficha técnica de insumos."
         action={
-          <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
-            <Plus data-icon="inline-start" />
-            Novo prato
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ImportExport entity="dishes" />
+            <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
+              <Plus data-icon="inline-start" />
+              Novo prato
+            </Button>
+          </div>
         }
       />
 

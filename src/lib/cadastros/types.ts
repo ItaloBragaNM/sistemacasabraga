@@ -51,11 +51,68 @@ export interface DishRecord {
   updatedAt: string;
 }
 
+export interface InsumoRecord {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ClientKind = "pf" | "pj";
+
+export interface ClienteRecord {
+  id: string;
+  name: string;
+  kind: ClientKind;
+  document: string; // CPF ou CNPJ
+  phone: string;
+  email: string;
+  address: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const CLIENT_KIND_LABELS: Record<ClientKind, string> = {
+  pf: "Pessoa física",
+  pj: "Pessoa jurídica",
+};
+
+export type VehicleKind = "carro" | "van" | "caminhao" | "moto" | "outro";
+
+export interface VeiculoRecord {
+  id: string;
+  name: string; // identificação/apelido
+  plate: string;
+  model: string;
+  year: string;
+  kind: VehicleKind;
+  capacity: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const VEHICLE_KIND_LABELS: Record<VehicleKind, string> = {
+  carro: "Carro",
+  van: "Van",
+  caminhao: "Caminhão",
+  moto: "Moto",
+  outro: "Outro",
+};
+
 export interface CadastrosData {
   materials: MaterialRecord[];
   dishes: DishRecord[];
   materialCategories: string[];
   bases: CalcBase[];
+  insumos: InsumoRecord[];
+  insumoCategories: string[];
+  clientes: ClienteRecord[];
+  veiculos: VeiculoRecord[];
 }
 
 export const MAX_FACTORS = 3;
