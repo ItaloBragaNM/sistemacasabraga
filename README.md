@@ -37,35 +37,46 @@ Abra [http://localhost:43127](http://localhost:43127).
 ## Dados e persistência
 
 - **Eventos**: salvos no navegador (localStorage), por aparelho.
-- **Dados compartilhados** (dashboard comercial e cadastros de cardápio/materiais):
-  gravados pelo backend (Route Handlers). Em desenvolvimento local, sem Supabase
-  configurado, ficam em arquivos JSON dentro de `.data/` (ignorado pelo git).
-  Com o Supabase configurado, ficam na tabela `app_state` e valem para todos.
+- **Dados compartilhados** (dashboard comercial, cadastros e logística): gravados
+  pelo backend (Route Handlers) na tabela `app_state` do **único** projeto
+  Supabase deste app — o mesmo da Vercel ([sistemacasabraga.vercel.app](https://sistemacasabraga.vercel.app)).
+- Sem `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` no `.env.local`, o dev local
+  cai para arquivos JSON em `.data/` (ignorado pelo git). Esse fallback **não**
+  é o banco da casa.
 
-## Supabase (dev)
+Este repositório **não** usa o ERP da Firma (projeto Supabase `eaemkujpydxckwsdqltz`,
+repo `sistemagfirma`). São produtos diferentes. Cursor neste workspace deve usar
+o MCP `supabase-casabraga` em [`.cursor/mcp.json`](.cursor/mcp.json), não o MCP
+global apontado para o ERP.
 
-1. Crie um projeto em [supabase.com](https://supabase.com).
-2. Em **SQL Editor**, rode o conteúdo de [`supabase/schema.sql`](supabase/schema.sql).
-3. Em **Project Settings → API**, copie a **Project URL** e a **service_role key**.
-4. Crie um `.env.local` (veja `.env.example`) com:
+## Supabase (este app)
 
-   ```bash
-   SUPABASE_URL=https://SEU-PROJETO.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-   ```
+O banco canônico já está no ar (Vercel → Settings → Environment Variables).
+Local e Cursor precisam das **mesmas** duas variáveis — não crie outro projeto.
 
-5. Reinicie `npm run dev`. A partir daí, dashboard e cadastros passam a ler/gravar
-   no Supabase. A `service_role key` é usada **somente no servidor** — nunca no cliente.
+1. Em [Vercel / casa-braga / sistemacasabraga](https://vercel.com/casa-braga/sistemacasabraga)
+   copie `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
+2. Cole no `.env.local` (veja [`.env.example`](.env.example)). O arquivo é
+   gitignored; a `service_role` vale **somente no servidor**.
+3. Schema: [`supabase/schema.sql`](supabase/schema.sql) (`public.app_state` + RLS,
+   sem policies públicas). Só rode esse SQL nesse projeto, nunca no ERP da Firma.
+4. Reinicie `npm run dev`. Dashboard e cadastros passam a ler/gravar o mesmo
+   banco da produção. Confira: o CRM local deve ter os mesmos `rowCount` /
+   `uploadedAt` que `https://sistemacasabraga.vercel.app/api/comercial/dashboard`.
 
-## Deploy no Vercel (versão de desenvolvimento)
+O `project_ref` do MCP é o subdomínio de `SUPABASE_URL`
+(`https://xxxxx.supabase.co` → `xxxxx`). Depois do primeiro login no MCP, fixe
+`?project_ref=xxxxx` na URL em `.cursor/mcp.json`.
 
-1. Importe o repositório no [Vercel](https://vercel.com) (framework detectado: Next.js).
-2. Em **Settings → Environment Variables**, adicione `SUPABASE_URL` e
-   `SUPABASE_SERVICE_ROLE_KEY` (mesmos valores do Supabase).
-3. A cada push, o Vercel gera um **Preview Deployment** (a URL de desenvolvimento).
+## Deploy no Vercel
 
-> No Vercel o sistema de arquivos é efêmero: o Supabase é **obrigatório** para os
-> dados compartilhados persistirem. Sem ele, dashboard e cadastros não salvam.
+O repositório [ItaloBragaNM/sistemacasabraga](https://github.com/ItaloBragaNM/sistemacasabraga)
+já está ligado ao projeto Vercel `casa-braga/sistemacasabraga`. Push em `main`
+publica em [sistemacasabraga.vercel.app](https://sistemacasabraga.vercel.app).
+
+Production e Preview devem ter o mesmo par `SUPABASE_URL` /
+`SUPABASE_SERVICE_ROLE_KEY`. Sem essas variáveis o filesystem da Vercel é
+efêmero e os dados compartilhados não persistem.
 
 ## Tipografia
 

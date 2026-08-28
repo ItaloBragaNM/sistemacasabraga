@@ -49,18 +49,40 @@ export function ConfiguracoesAdmin() {
       <CadastrosHeader
         eyebrow="Cadastros · Configurações"
         title="Configurações"
-        description="Ajuste as categorias de materiais e insumos e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
+        description="Ajuste as categorias do cardápio, de materiais e de insumos, e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
       />
       {!ready ? (
         <LoadingBlock />
       ) : !data ? null : (
         <>
+          <DishCategoriesSection />
           <MaterialCategoriesSection />
           <InsumoCategoriesSection />
           <BasesSection />
         </>
       )}
     </div>
+  );
+}
+
+function DishCategoriesSection() {
+  const { data, setDishCategories, upsertDish } = useCadastros();
+  if (!data) return null;
+  return (
+    <CategoriesEditor
+      title="Categorias do cardápio"
+      description="Usadas para agrupar os pratos no catálogo e na ficha do evento."
+      categories={data.dishCategories}
+      onSetCategories={setDishCategories}
+      usageCount={(name) => data.dishes.filter((dish) => dish.category === name).length}
+      onRename={(oldName, newName) =>
+        data.dishes
+          .filter((dish) => dish.category === oldName)
+          .forEach((dish) =>
+            upsertDish({ ...dish, category: newName, updatedAt: new Date().toISOString() }),
+          )
+      }
+    />
   );
 }
 

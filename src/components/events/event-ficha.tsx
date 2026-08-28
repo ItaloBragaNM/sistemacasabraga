@@ -357,6 +357,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         />
         <CatalogDishPicker
           dishes={cadastros?.dishes ?? []}
+          categoryOrder={cadastros?.dishCategories ?? []}
           selected={draft.selectedDishIds ?? []}
           onChange={(ids) => update("selectedDishIds", ids)}
         />
@@ -533,10 +534,12 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
 function CatalogDishPicker({
   dishes,
+  categoryOrder,
   selected,
   onChange,
 }: {
   dishes: DishRecord[];
+  categoryOrder: string[];
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
@@ -556,18 +559,23 @@ function CatalogDishPicker({
     onChange([...next]);
   };
 
-  const groups = MENU_SECTIONS.map((section) => ({
-    section,
-    items: dishes
-      .filter((dish) => dish.category === section.key)
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-  })).filter((group) => group.items.length > 0);
+  const extras = [
+    ...new Set(dishes.map((dish) => dish.category).filter((category) => !categoryOrder.includes(category))),
+  ];
+  const groups = [...categoryOrder, ...extras]
+    .map((category) => ({
+      category,
+      items: dishes
+        .filter((dish) => dish.category === category)
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <div key={group.section.key}>
-          <h3 className="font-section mb-2 text-[0.66rem] text-forest/55">{group.section.label}</h3>
+        <div key={group.category}>
+          <h3 className="font-section mb-2 text-[0.66rem] text-forest/55">{group.category}</h3>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {group.items.map((dish) => {
               const checked = selectedSet.has(dish.id);

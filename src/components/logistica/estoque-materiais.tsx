@@ -10,7 +10,8 @@ import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { balanceOf, computeBalances, getMeta, metaMap, movementsOf } from "@/lib/logistica/calc";
 import { MOVEMENT_LABELS, type MovementType } from "@/lib/logistica/types";
-import type { MaterialRecord } from "@/lib/cadastros/types";
+import type { MaterialKind, MaterialRecord } from "@/lib/cadastros/types";
+import { MATERIAL_KIND_LABELS, MATERIAL_KINDS } from "@/lib/cadastros/types";
 import { formatInt } from "@/lib/crm/format";
 import { exportToXlsx } from "@/lib/cadastros/xlsx";
 import { uid } from "@/lib/event-factory";
@@ -22,6 +23,7 @@ export function EstoqueMateriais() {
   const { data: logistica, ready: logReady, addMovement, upsertMeta } = useLogistica();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [kind, setKind] = useState<MaterialKind | "">("");
   const [selected, setSelected] = useState<MaterialRecord | null>(null);
 
   const balances = useMemo(
@@ -35,7 +37,14 @@ export function EstoqueMateriais() {
     const term = search.trim().toLowerCase();
     return [...cadastros.materials]
       .filter((m) => (category ? m.category === category : true))
-      .filter((m) => (term ? m.name.toLowerCase().includes(term) : true))
+      .filter((m) => (kind ? m.kind === kind : true))
+      .filter((m) => {
+        if (!term) return true;
+        return (
+          m.name.toLowerCase().includes(term) ||
+          m.variants.some((variant) => variant.toLowerCase().includes(term))
+        );
+      })
       .map((m) => {
         const stock = getMeta(meta, m.id);
         const balance = balanceOf(balances, m.id);
@@ -46,7 +55,7 @@ export function EstoqueMateriais() {
           a.material.category.localeCompare(b.material.category, "pt-BR") ||
           a.material.name.localeCompare(b.material.name, "pt-BR"),
       );
-  }, [cadastros, category, search, meta, balances]);
+  }, [cadastros, category, kind, search, meta, balances]);
 
   const belowMin = rows.filter((r) => r.min > 0 && r.balance < r.min).length;
 
@@ -54,10 +63,12 @@ export function EstoqueMateriais() {
 
   const handleExport = async () => {
     if (!cadastros) return;
-    const headers = ["Material", "Categoria", "Unidade", "Saldo", "Mínimo", "Local"];
+    const headers = ["Material", "Categoria", "Tipo", "Variantes", "Unidade", "Saldo", "Mínimo", "Local"];
     const data = rows.map((r) => [
       r.material.name,
       r.material.category,
+      MATERIAL_KIND_LABELS[r.material.kind],
+      r.material.variants.join("; "),
       r.material.unit,
       r.balance,
       r.min,
@@ -77,7 +88,7 @@ export function EstoqueMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Estoque de Materiais"
-        description="Saldo atual de cada material, com mínimo, localização e movimentações (entradas, saídas e ajustes)."
+        description="Saldo atual de cada material, com mínimo, localização e movimentações. Variantes (marca, tipo) vêm do cadastro — o saldo é do material como um todo."
         action={
           <Button variant="outline" className="h-10 px-3" onClick={handleExport} disabled={!cadastros}>
             <Download data-icon="inline-start" />
@@ -114,6 +125,18 @@ export function EstoqueMateriais() {
                   </option>
                 ))}
               </select>
+              <select
+                className={cn(fieldControlClass, "max-w-44")}
+                value={kind}
+                onChange={(e) => setKind(e.target.value as MaterialKind | "")}
+              >
+                <option value="">Todos os tipos</option>
+                {MATERIAL_KINDS.map((item) => (
+                  <option key={item} value={item}>
+                    {MATERIAL_KIND_LABELS[item]}
+                  </option>
+                ))}
+              </select>
             </div>
             {belowMin > 0 ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta">
@@ -147,7 +170,10 @@ export function EstoqueMateriais() {
                     >
                       <td className="py-3 pl-5">
                         <p className="font-list font-medium text-forest">{material.name}</p>
-                        <p className="text-xs font-light text-forest/45">{material.category}</p>
+                        <p className="text-xs font-light text-forest/45">
+                          {material.category} · {MATERIAL_KIND_LABELS[material.kind]}
+                          {material.variants.length > 0 ? ` · ${material.variants.join(", ")}` : ""}
+                        </p>
                       </td>
                       <td className="py-3 text-right">
                         <span
@@ -266,7 +292,13 @@ function MaterialStockPanel({
   return (
     <div className="space-y-6">
       <div className="flex items-baseline justify-between rounded-xl border border-forest/10 bg-forest/[0.02] px-4 py-3">
-        <span className="field-label">Saldo atual</span>
+        <div>
+          <p className="field-label">Saldo atual</p>
+          <p className="mt-1 text-xs font-light text-forest/50">
+            {MATERIAL_KIND_LABELS[material.kind]}
+            {material.variants.length > 0 ? ` · ${material.variants.join(" · ")}` : ""}
+          </p>
+        </div>
         <span className="font-display text-3xl text-forest">
           {formatInt(balance)} <span className="text-base text-forest/50">{material.unit}</span>
         </span>

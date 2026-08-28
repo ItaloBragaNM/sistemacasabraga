@@ -1,0 +1,20 @@
+---
+description: Este app Casa Braga usa só app_state; não misturar com o ERP da Firma
+alwaysApply: true
+---
+
+# Supabase deste repositório
+
+Este app persiste cadastros, CRM e logística na tabela `public.app_state` (veja `supabase/schema.sql` e `src/lib/store/kv.server.ts`). O banco canônico é o projeto configurado na Vercel (`sistemacasabraga.vercel.app`) e em `.env.local`.
+
+## Não fazer
+
+- Não rode `apply_migration` nem DDL no projeto `eaemkujpydxckwsdqltz`. Esse é o ERP da Firma (usuários, propostas, eventos, 34 tabelas), outro produto.
+- Não crie `app_state` nesse ERP. Não copie schema/código de `sistemagfirma` para cá.
+- Não aponte `.env.local` nem a Vercel para `https://eaemkujpydxckwsdqltz.supabase.co`.
+
+## Fazer
+
+- Use o MCP `supabase-casabraga` deste workspace (`.cursor/mcp.json`), não o MCP global `supabase` da Firma.
+- Depois de autenticar, fixe `project_ref` na URL do MCP com o subdomínio de `SUPABASE_URL` (o mesmo da Vercel).
+- Confirme com `list_tables` que existe `app_state` e que não é o schema de 34 tabelas do ERP.

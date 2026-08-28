@@ -9,7 +9,7 @@ import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { basesMap, describeProportion, materialQuantity } from "@/lib/cadastros/calc";
-import { MAX_FACTORS, type MaterialRecord, type ProportionFactor } from "@/lib/cadastros/types";
+import { MAX_FACTORS, MATERIAL_KIND_LABELS, MATERIAL_KINDS, type MaterialKind, type MaterialRecord, type ProportionFactor } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +31,10 @@ export function MateriaisAdmin() {
     if (!term) return list;
     return list.filter(
       (item) =>
-        item.name.toLowerCase().includes(term) || item.category.toLowerCase().includes(term),
+        item.name.toLowerCase().includes(term) ||
+        item.category.toLowerCase().includes(term) ||
+        item.variants.some((variant) => variant.toLowerCase().includes(term)) ||
+        MATERIAL_KIND_LABELS[item.kind].toLowerCase().includes(term),
     );
   }, [data, search]);
 
@@ -48,7 +51,7 @@ export function MateriaisAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Materiais"
-        description="Base da logística. Cada material tem uma proporção (base × multiplicador) que define a quantidade a separar por evento."
+        description="Base da logística e do estoque. Tipo (permanente, descartável ou misto) e variantes (marca, cor, tamanho) identificam o que sai e o que volta do evento."
         action={
           <div className="flex flex-wrap gap-2">
             <ImportExport entity="materials" />
@@ -85,6 +88,7 @@ export function MateriaisAdmin() {
                 <thead>
                   <tr className="border-b border-forest/10">
                     <Th className="pl-5">Material</Th>
+                    <Th>Tipo</Th>
                     <Th>Proporção</Th>
                     <Th>Categoria</Th>
                     <Th align="center">Unid.</Th>
@@ -97,7 +101,28 @@ export function MateriaisAdmin() {
                       key={material.id}
                       className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]"
                     >
-                      <td className="py-3 pl-5 font-list font-medium text-forest">{material.name}</td>
+                      <td className="py-3 pl-5">
+                        <p className="font-list font-medium text-forest">{material.name}</p>
+                        {material.variants.length > 0 ? (
+                          <p className="mt-0.5 text-xs font-light text-forest/45">
+                            {material.variants.join(" · ")}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-xs",
+                            material.kind === "descartavel"
+                              ? "bg-terracotta/10 text-terracotta"
+                              : material.kind === "misto"
+                                ? "bg-forest/8 text-forest/70"
+                                : "bg-petrol/10 text-petrol",
+                          )}
+                        >
+                          {MATERIAL_KIND_LABELS[material.kind]}
+                        </span>
+                      </td>
                       <td className="py-3 pr-3 font-list text-[0.8rem] font-light text-forest/60">
                         {describeProportion(material, bases)}
                       </td>
@@ -216,6 +241,9 @@ function MaterialForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [category, setCategory] = useState(initial?.category ?? categories[0] ?? "Outros");
   const [unit, setUnit] = useState(initial?.unit ?? "un");
+  const [kind, setKind] = useState<MaterialKind>(initial?.kind ?? "permanente");
+  const [variants, setVariants] = useState<string[]>(initial?.variants ?? []);
+  const [newVariant, setNewVariant] = useState("");
   const [factors, setFactors] = useState<ProportionFactor[]>(
     initial?.factors.length ? initial.factors : [{ baseId: bases[0]?.id ?? "", mult: 1 }],
   );
@@ -237,6 +265,8 @@ function MaterialForm({
       name,
       category,
       unit,
+      kind,
+      variants,
       factors,
       createdAt: "",
       updatedAt: "",
@@ -250,7 +280,7 @@ function MaterialForm({
       ilhas: sim.ilhas,
       selectedDishIds: [],
     }, sim.pratos);
-  }, [name, category, unit, factors, basesById, sim]);
+  }, [name, category, unit, kind, variants, factors, basesById, sim]);
 
   const submit = () => {
     if (!name.trim()) {
@@ -267,10 +297,23 @@ function MaterialForm({
       name: name.trim(),
       category,
       unit: unit.trim(),
+      kind,
+      variants,
       factors: factors.map((factor) => ({ baseId: factor.baseId, mult: factor.mult || 0 })),
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     });
+  };
+
+  const addVariant = () => {
+    const value = newVariant.trim();
+    if (!value) return;
+    if (variants.some((item) => item.toLowerCase() === value.toLowerCase())) {
+      toast.error("Essa variante já está na lista.");
+      return;
+    }
+    setVariants([...variants, value]);
+    setNewVariant("");
   };
 
   return (
@@ -305,6 +348,62 @@ function MaterialForm({
             placeholder="un, sachê, kg…"
           />
         </Field>
+        <Field label="Tipo (estoque)" className="sm:col-span-2">
+          <select
+            className={fieldControlClass}
+            value={kind}
+            onChange={(event) => setKind(event.target.value as MaterialKind)}
+          >
+            {MATERIAL_KINDS.map((item) => (
+              <option key={item} value={item}>
+                {MATERIAL_KIND_LABELS[item]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      <p className="-mt-2 text-xs font-light text-forest/45">
+        Permanente volta do evento. Descartável consome-se. Misto é para kits que misturam os dois.
+      </p>
+
+      <div>
+        <p className="field-label mb-2">Variantes (marca, tipo, cor, tamanho)</p>
+        <p className="mb-2 text-xs font-light text-forest/45">
+          SKUs físicos do mesmo material — o estoque conta o total; as variantes dizem o que existe na casa.
+        </p>
+        {variants.length > 0 ? (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {variants.map((variant) => (
+              <span
+                key={variant}
+                className="inline-flex items-center gap-1 rounded-full border border-forest/12 bg-forest/[0.03] py-1 pl-3 pr-1.5 text-sm text-forest/80"
+              >
+                {variant}
+                <button
+                  type="button"
+                  aria-label={`Remover ${variant}`}
+                  onClick={() => setVariants(variants.filter((item) => item !== variant))}
+                  className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <div className="flex gap-2">
+          <input
+            className={cn(fieldControlClass, "max-w-xs")}
+            value={newVariant}
+            onChange={(event) => setNewVariant(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), addVariant())}
+            placeholder="Ex.: Wolff Laço, Prata Oval, Indução…"
+          />
+          <Button type="button" variant="outline" className="h-10 px-4" onClick={addVariant}>
+            <Plus data-icon="inline-start" />
+            Adicionar
+          </Button>
+        </div>
       </div>
 
       <div>

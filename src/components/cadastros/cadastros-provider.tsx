@@ -32,6 +32,7 @@ interface CadastrosContextValue {
   upsertBase: (base: CalcBase) => void;
   removeBase: (id: string) => void;
   setCategories: (categories: string[]) => void;
+  setDishCategories: (categories: string[]) => void;
   upsertInsumo: (insumo: InsumoRecord) => void;
   removeInsumo: (id: string) => void;
   setInsumoCategories: (categories: string[]) => void;
@@ -133,6 +134,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
           bases: current.bases.filter((item) => item.id !== id),
         })),
       setCategories: (categories) => mutate((current) => ({ ...current, materialCategories: categories })),
+      setDishCategories: (categories) => mutate((current) => ({ ...current, dishCategories: categories })),
       upsertInsumo: (insumo) =>
         mutate((current) => ({ ...current, insumos: upsert(current.insumos, insumo) })),
       removeInsumo: (id) =>

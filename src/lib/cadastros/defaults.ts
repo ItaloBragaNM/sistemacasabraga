@@ -1,8 +1,10 @@
+import { MENU_SECTIONS } from "@/lib/types";
 import type {
   CadastrosData,
   CalcBase,
   DishRecord,
   InsumoRecord,
+  MaterialKind,
   MaterialRecord,
 } from "./types";
 
@@ -22,15 +24,25 @@ export const DEFAULT_INSUMO_CATEGORIES = [
 
 export const DEFAULT_MATERIAL_CATEGORIES = [
   "Bandejas",
+  "Café e Bebidas",
+  "Consumíveis",
   "Copos e Taças",
-  "Kit",
-  "Peça de Serviço",
+  "Decoração",
+  "Equipamentos",
+  "Kits",
+  "Logística e Transporte",
+  "Mobiliário",
+  "Peças de Serviço",
   "Pratos e Louças",
   "Ramequins",
+  "Rechauds",
+  "Serviço de Mesa",
   "Talheres",
-  "Utensílios",
+  "Utensílios Cozinha",
   "Outros",
 ];
+
+export const DEFAULT_DISH_CATEGORIES = MENU_SECTIONS.map((section) => section.label);
 
 export const DEFAULT_BASES: CalcBase[] = [
   {
@@ -111,8 +123,20 @@ function material(
   category: string,
   unit: string,
   factors: MaterialRecord["factors"],
+  kind: MaterialKind = "permanente",
+  variants: string[] = [],
 ): MaterialRecord {
-  return { id, name, category, unit, factors, createdAt: SEED_DATE, updatedAt: SEED_DATE };
+  return {
+    id,
+    name,
+    category,
+    unit,
+    kind,
+    variants,
+    factors,
+    createdAt: SEED_DATE,
+    updatedAt: SEED_DATE,
+  };
 }
 
 export const DEFAULT_MATERIALS: MaterialRecord[] = [
@@ -123,34 +147,34 @@ export const DEFAULT_MATERIALS: MaterialRecord[] = [
     { baseId: "base-convidados", mult: 1 },
     { baseId: "base-pratos", mult: 1 },
   ]),
-  material("mat-saladeira", "Saladeira", "Utensílios", "un", [
+  material("mat-saladeira", "Saladeira", "Pratos e Louças", "un", [
     { baseId: "base-pratos", mult: 1 },
     { baseId: "base-ilhas", mult: 1 },
   ]),
-  material("mat-colher-servir", "Colher Grande para Servir", "Peça de Serviço", "un", [
+  material("mat-colher-servir", "Colher Grande para Servir", "Talheres", "un", [
     { baseId: "base-pratos", mult: 1 },
     { baseId: "base-ilhas", mult: 1 },
   ]),
-  material("mat-rechaud", "Rechaud", "Peça de Serviço", "un", [
+  material("mat-rechaud", "Rechaud", "Rechauds", "un", [
     { baseId: "base-pratos", mult: 1 },
   ]),
-  material("mat-palito-cheeseburger", "Palito para Cheeseburger", "Outros", "un", [
+  material("mat-palito-cheeseburger", "Palito para Cheeseburger", "Consumíveis", "un", [
     { baseId: "base-convidados", mult: 1 },
     { baseId: "base-pratos", mult: 1 },
-  ]),
+  ], "descartavel"),
   material("mat-ramequim-vidro", "Ramequim de Vidro", "Ramequins", "un", [
     { baseId: "base-convidados", mult: 1.2 },
   ]),
   material("mat-colher-ramequim", "Colher para Ramequim", "Talheres", "un", [
     { baseId: "base-convidados", mult: 1 },
   ]),
-  material("mat-acucar", "Açúcar", "Outros", "sachê", [
+  material("mat-acucar", "Açúcar", "Consumíveis", "sachê", [
     { baseId: "base-convidados", mult: 1.5 },
-  ]),
-  material("mat-adocante", "Adoçante", "Outros", "sachê", [
+  ], "descartavel"),
+  material("mat-adocante", "Adoçante", "Consumíveis", "sachê", [
     { baseId: "base-convidados", mult: 1.5 },
-  ]),
-  material("mat-bomboniere", "Bomboniere", "Utensílios", "un", [
+  ], "descartavel"),
+  material("mat-bomboniere", "Bomboniere", "Peças de Serviço", "un", [
     { baseId: "base-convidados", mult: 0.02 },
   ]),
 ];
@@ -173,24 +197,24 @@ function dish(
 }
 
 export const DEFAULT_DISHES: DishRecord[] = [
-  dish("dish-salada-caesar", "Salada Caesar", "saladas", [
+  dish("dish-salada-caesar", "Salada Caesar", "Saladas", [
     "mat-saladeira",
     "mat-colher-servir",
     "mat-prato-raso",
   ]),
-  dish("dish-burguer-fries", "Burguer'n'Fries", "menu", [
+  dish("dish-burguer-fries", "Burguer'n'Fries", "Menu", [
     "mat-palito-cheeseburger",
     "mat-prato-raso",
   ]),
-  dish("dish-risoto-camarao", "Risoto de Camarão", "menu", [
+  dish("dish-risoto-camarao", "Risoto de Camarão", "Menu", [
     "mat-rechaud",
     "mat-prato-raso",
   ]),
-  dish("dish-brigadeiro", "Brigadeiro Gourmet", "sobremesas", [
+  dish("dish-brigadeiro", "Brigadeiro Gourmet", "Sobremesas", [
     "mat-ramequim-vidro",
     "mat-colher-ramequim",
   ]),
-  dish("dish-cafe", "Café e Adoçantes", "altasHoras", [
+  dish("dish-cafe", "Café e Adoçantes", "Altas Horas", [
     "mat-copo-dose",
     "mat-acucar",
     "mat-adocante",
@@ -220,6 +244,7 @@ export function defaultCadastros(): CadastrosData {
     materials: structuredClone(DEFAULT_MATERIALS),
     dishes: structuredClone(DEFAULT_DISHES),
     materialCategories: [...DEFAULT_MATERIAL_CATEGORIES],
+    dishCategories: [...DEFAULT_DISH_CATEGORIES],
     bases: structuredClone(DEFAULT_BASES),
     insumos: structuredClone(DEFAULT_INSUMOS),
     insumoCategories: [...DEFAULT_INSUMO_CATEGORIES],

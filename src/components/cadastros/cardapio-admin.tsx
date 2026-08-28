@@ -10,7 +10,6 @@ import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { DishRecord } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
-import { MENU_SECTIONS, type MenuSectionKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function CardapioAdmin() {
@@ -30,12 +29,20 @@ export function CardapioAdmin() {
     const dishes = term
       ? data.dishes.filter((dish) => dish.name.toLowerCase().includes(term))
       : data.dishes;
-    return MENU_SECTIONS.map((section) => ({
-      section,
-      dishes: dishes
-        .filter((dish) => dish.category === section.key)
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    })).filter((group) => group.dishes.length > 0);
+    const order = data.dishCategories;
+    const extras = [
+      ...new Set(
+        dishes.map((dish) => dish.category).filter((category) => !order.includes(category)),
+      ),
+    ];
+    return [...order, ...extras]
+      .map((category) => ({
+        category,
+        dishes: dishes
+          .filter((dish) => dish.category === category)
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+      }))
+      .filter((group) => group.dishes.length > 0);
   }, [data, search]);
 
   const startNew = () => {
@@ -85,9 +92,9 @@ export function CardapioAdmin() {
           ) : (
             <div className="space-y-6">
               {groups.map((group) => (
-                <div key={group.section.key}>
+                <div key={group.category}>
                   <h2 className="font-section mb-3 text-[0.72rem] text-forest/70">
-                    {group.section.label}
+                    {group.category}
                   </h2>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {group.dishes.map((dish) => (
@@ -145,6 +152,7 @@ export function CardapioAdmin() {
             key={editing?.id ?? "new"}
             initial={editing}
             materials={data.materials}
+            categories={data.dishCategories}
             onCancel={() => setOpen(false)}
             onSubmit={(dish) => {
               upsertDish(dish);
@@ -161,18 +169,18 @@ export function CardapioAdmin() {
 function DishForm({
   initial,
   materials,
+  categories,
   onSubmit,
   onCancel,
 }: {
   initial: DishRecord | null;
   materials: import("@/lib/cadastros/types").MaterialRecord[];
+  categories: string[];
   onSubmit: (dish: DishRecord) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [category, setCategory] = useState<MenuSectionKey>(
-    initial?.category ?? MENU_SECTIONS[0].key,
-  );
+  const [category, setCategory] = useState(initial?.category ?? categories[0] ?? "Menu");
   const [materialIds, setMaterialIds] = useState<string[]>(initial?.materialIds ?? []);
   const [materialSearch, setMaterialSearch] = useState("");
 
@@ -228,11 +236,11 @@ function DishForm({
           <select
             className={fieldControlClass}
             value={category}
-            onChange={(event) => setCategory(event.target.value as MenuSectionKey)}
+            onChange={(event) => setCategory(event.target.value)}
           >
-            {MENU_SECTIONS.map((section) => (
-              <option key={section.key} value={section.key}>
-                {section.label}
+            {categories.map((item) => (
+              <option key={item} value={item}>
+                {item}
               </option>
             ))}
           </select>

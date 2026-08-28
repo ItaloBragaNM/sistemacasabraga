@@ -1,9 +1,11 @@
-import { MENU_SECTIONS, type MenuSectionKey } from "@/lib/types";
 import { uid } from "@/lib/event-factory";
 import type { Cell } from "./xlsx";
 import {
   CLIENT_KIND_LABELS,
+  MATERIAL_KIND_LABELS,
   VEHICLE_KIND_LABELS,
+  parseMaterialKind,
+  parseVariants,
   type CadastrosData,
   type ClienteRecord,
   type ClientKind,
@@ -55,7 +57,6 @@ function parseNum(value: string): number {
 export function buildExport(entity: EntityKey, data: CadastrosData): ExportPayload {
   const baseLabel = new Map(data.bases.map((b) => [b.id, b.label]));
   const materialName = new Map(data.materials.map((m) => [m.id, m.name]));
-  const sectionLabel = new Map(MENU_SECTIONS.map((s) => [s.key, s.label] as const));
 
   switch (entity) {
     case "materials": {
@@ -69,6 +70,8 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
         "Mult 2",
         "Base 3",
         "Mult 3",
+        "Tipo",
+        "Variantes (estoque)",
       ];
       const rows = data.materials.map((m) => {
         const f = m.factors;
@@ -82,6 +85,8 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
           f[1] ? f[1].mult : "",
           f[2] ? baseLabel.get(f[2].baseId) ?? "" : "",
           f[2] ? f[2].mult : "",
+          MATERIAL_KIND_LABELS[m.kind],
+          m.variants.join("; "),
         ] as Cell[];
       });
       return { fileName: "materiais", sheetName: "Materiais", headers, rows };
@@ -92,7 +97,7 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
         (d) =>
           [
             d.name,
-            sectionLabel.get(d.category) ?? d.category,
+            d.category,
             d.materialIds.map((id) => materialName.get(id)).filter(Boolean).join("; "),
           ] as Cell[],
       );
@@ -208,10 +213,17 @@ export function applyImport(
           factors.push({ baseId, mult: parseNum(pick(row, `Mult ${i}`)) || 1 });
         }
         const existing = byName.get(name.toLowerCase());
+        const kind = pick(row, "Tipo") ? parseMaterialKind(pick(row, "Tipo")) : existing?.kind ?? "permanente";
+        const variantsRaw = pick(row, "Variantes (estoque)", "Variantes");
+        const variants = variantsRaw
+          ? parseVariants(variantsRaw)
+          : existing?.variants ?? [];
         if (existing) {
           Object.assign(existing, {
             category,
             unit: pick(row, "Unidade") || existing.unit,
+            kind,
+            variants,
             factors: factors.length ? factors : existing.factors,
             updatedAt: now(),
           });
@@ -222,6 +234,8 @@ export function applyImport(
             name,
             category,
             unit: pick(row, "Unidade") || "un",
+            kind,
+            variants,
             factors,
             createdAt: now(),
             updatedAt: now(),
@@ -235,16 +249,14 @@ export function applyImport(
       break;
     }
     case "dishes": {
-      const sectionByLabel = new Map(
-        MENU_SECTIONS.map((s) => [s.label.toLowerCase(), s.key] as const),
-      );
       const materialByName = new Map(next.materials.map((m) => [m.name.toLowerCase(), m.id]));
       const byName = new Map(next.dishes.map((d) => [d.name.toLowerCase(), d]));
+      const categories = new Set(next.dishCategories);
       for (const row of rows) {
         const name = pick(row, "Nome");
         if (!name) continue;
-        const category = (sectionByLabel.get(pick(row, "Categoria").toLowerCase()) ??
-          MENU_SECTIONS[0].key) as MenuSectionKey;
+        const category = pick(row, "Categoria") || next.dishCategories[0] || "Menu";
+        if (!categories.has(category)) categories.add(category);
         const materialIds = pick(row, "Materiais")
           .split(/[;,]/)
           .map((token) => materialByName.get(token.trim().toLowerCase()))
@@ -268,6 +280,7 @@ export function applyImport(
           created += 1;
         }
       }
+      next.dishCategories = [...categories];
       break;
     }
     case "insumos": {

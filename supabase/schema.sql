@@ -1,5 +1,9 @@
 -- Casa Braga — esquema base do Supabase (versão de desenvolvimento)
 --
+-- Aplicar SOMENTE no projeto Supabase deste app (o mesmo da Vercel /
+-- sistemacasabraga.vercel.app). NÃO rodar no ERP da Firma
+-- (eaemkujpydxckwsdqltz): aquele banco é outro produto.
+--
 -- Como aplicar:
 --   Supabase Dashboard → SQL Editor → cole este conteúdo → Run.
 --
