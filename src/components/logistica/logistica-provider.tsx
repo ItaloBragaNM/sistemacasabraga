@@ -78,14 +78,10 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
 
   const mutate = useCallback(
     (mutator: (current: LogisticaData) => LogisticaData) => {
-      setData((current) => {
-        if (!current) return current;
-        const next = mutator(current);
-        persist(next);
-        return next;
-      });
+      if (!data) return;
+      persist(mutator(data));
     },
-    [persist],
+    [data, persist],
   );
 
   const value = useMemo<LogisticaContextValue>(

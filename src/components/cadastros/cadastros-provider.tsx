@@ -99,14 +99,10 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
 
   const mutate = useCallback(
     (mutator: (current: CadastrosData) => CadastrosData) => {
-      setData((current) => {
-        if (!current) return current;
-        const next = mutator(current);
-        persist(next);
-        return next;
-      });
+      if (!data) return;
+      persist(mutator(data));
     },
-    [persist],
+    [data, persist],
   );
 
   const value = useMemo<CadastrosContextValue>(
@@ -160,10 +156,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
           ...current,
           veiculos: current.veiculos.filter((item) => item.id !== id),
         })),
-      replaceAll: (next) => {
-        setData(next);
-        persist(next);
-      },
+      replaceAll: (next) => persist(next),
     }),
     [data, ready, error, saving, mutate, persist],
   );
