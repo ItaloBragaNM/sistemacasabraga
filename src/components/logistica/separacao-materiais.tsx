@@ -232,7 +232,7 @@ function SeparationEditor({
   const totalPieces = rows.reduce((sum, row) => sum + row.finalQty, 0);
   const editedCount = rows.filter((row) => row.edited).length;
   const faltaTotal = rows.reduce((sum, row) => {
-    const emEstoque = row.materialId ? balanceOf(balances, row.materialId) : 0;
+    const emEstoque = row.materialId ? Math.max(0, balanceOf(balances, row.materialId)) : 0;
     return sum + Math.max(0, row.finalQty - emEstoque);
   }, 0);
 
@@ -480,7 +480,9 @@ function SeparationEditor({
                       </td>
                       <td className="px-2 py-2.5 text-right">
                         {(() => {
-                          const est = row.materialId ? balanceOf(balances, row.materialId) : 0;
+                          const est = row.materialId
+                            ? Math.max(0, balanceOf(balances, row.materialId))
+                            : 0;
                           const falta = Math.max(0, row.finalQty - est);
                           return (
                             <span
