@@ -2,8 +2,12 @@ import { MENU_SECTIONS } from "@/lib/types";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { defaultCadastros } from "./defaults";
 import {
+  isKitScale,
   isMaterialKind,
   type CadastrosData,
+  type ExtraCatalogItem,
+  type MaterialKit,
+  type MaterialKitItem,
   type MaterialRecord,
 } from "./types";
 
@@ -27,6 +31,41 @@ function normalizeMaterial(input: Partial<MaterialRecord>, fallbackCategory: str
       ? input.variants.map((item) => item.trim()).filter(Boolean)
       : [],
     factors: Array.isArray(input.factors) ? input.factors : [],
+    createdAt: input.createdAt || new Date().toISOString(),
+    updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeKitItem(input: Partial<MaterialKitItem> | null | undefined): MaterialKitItem | null {
+  if (!input?.materialId) return null;
+  const qty = Number(input.qtyPerKit);
+  return {
+    materialId: input.materialId,
+    qtyPerKit: Number.isFinite(qty) && qty > 0 ? qty : 1,
+  };
+}
+
+function normalizeKit(input: Partial<MaterialKit> | null | undefined): MaterialKit | null {
+  if (!input?.id || !input.name) return null;
+  return {
+    id: input.id,
+    name: input.name,
+    scale: isKitScale(input.scale) ? input.scale : "fixed",
+    items: Array.isArray(input.items)
+      ? input.items
+          .map((item) => normalizeKitItem(item))
+          .filter((item): item is MaterialKitItem => Boolean(item))
+      : [],
+    createdAt: input.createdAt || new Date().toISOString(),
+    updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeExtra(input: Partial<ExtraCatalogItem> | null | undefined): ExtraCatalogItem | null {
+  if (!input?.id || !input.name) return null;
+  return {
+    id: input.id,
+    name: input.name,
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
   };
@@ -79,6 +118,14 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
         : base.insumoCategories,
     clientes: Array.isArray(input.clientes) ? input.clientes : base.clientes,
     veiculos: Array.isArray(input.veiculos) ? input.veiculos : base.veiculos,
+    kits: Array.isArray(input.kits)
+      ? input.kits.map((kit) => normalizeKit(kit)).filter((kit): kit is MaterialKit => Boolean(kit))
+      : base.kits,
+    extras: Array.isArray(input.extras)
+      ? input.extras
+          .map((item) => normalizeExtra(item))
+          .filter((item): item is ExtraCatalogItem => Boolean(item))
+      : base.extras,
   };
 }
 

@@ -218,10 +218,59 @@ export interface MaterialSeparationExtra {
   note?: string;
 }
 
+export interface MaterialKitEventState {
+  /** Number of kits sent to the event. Undefined = use the kit's suggested qty. */
+  quantity?: number;
+  /** Per-item total overrides (after qtyPerKit × kit qty). */
+  itemTotals?: Record<string, number>;
+}
+
+export interface ExtraSelection {
+  included: boolean;
+  quantity: number;
+}
+
 export interface MaterialSeparationState {
   overrides: Record<string, MaterialSeparationOverride>;
   extras: MaterialSeparationExtra[];
+  /** Catalog materials included without being linked to a dish. */
+  addedMaterialIds?: string[];
+  /** Per-kit quantity and proportion overrides for this event. */
+  kits?: Record<string, MaterialKitEventState>;
+  /** Checklist of catalog extras / equipment for this event. */
+  extraSelections?: Record<string, ExtraSelection>;
+  notes?: string;
   updatedAt?: string;
+}
+
+export function emptyMaterialSeparation(): MaterialSeparationState {
+  return {
+    overrides: {},
+    extras: [],
+    addedMaterialIds: [],
+    kits: {},
+    extraSelections: {},
+    notes: "",
+  };
+}
+
+export function normalizeMaterialSeparation(
+  input?: MaterialSeparationState | null,
+): MaterialSeparationState {
+  const base = emptyMaterialSeparation();
+  if (!input) return base;
+  return {
+    overrides: input.overrides ?? {},
+    extras: Array.isArray(input.extras) ? input.extras : [],
+    addedMaterialIds: Array.isArray(input.addedMaterialIds) ? input.addedMaterialIds : [],
+    kits: input.kits && typeof input.kits === "object" ? input.kits : {},
+    extraSelections:
+      input.extraSelections && typeof input.extraSelections === "object"
+        ? input.extraSelections
+        : {},
+    notes: typeof input.notes === "string" ? input.notes : "",
+    updatedAt: input.updatedAt,
+  };
 }
 
 export interface EventRecord {

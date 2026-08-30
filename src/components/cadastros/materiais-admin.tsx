@@ -25,6 +25,7 @@ export function MateriaisAdmin() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
+  const [proportionFilter, setProportionFilter] = useState("");
   const [editing, setEditing] = useState<MaterialRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -40,6 +41,7 @@ export function MateriaisAdmin() {
     return list.filter((item) => {
       if (categoryFilter && item.category !== categoryFilter) return false;
       if (kindFilter && item.kind !== kindFilter) return false;
+      if (proportionFilter === "missing" && item.factors.length > 0) return false;
       if (!term) return true;
       return (
         item.name.toLowerCase().includes(term) ||
@@ -48,7 +50,7 @@ export function MateriaisAdmin() {
         MATERIAL_KIND_LABELS[item.kind].toLowerCase().includes(term)
       );
     });
-  }, [data, search, categoryFilter, kindFilter]);
+  }, [data, search, categoryFilter, kindFilter, proportionFilter]);
 
   const startNew = () => {
     setEditing(null);
@@ -121,6 +123,13 @@ export function MateriaisAdmin() {
                   value: kind,
                   label: MATERIAL_KIND_LABELS[kind],
                 })),
+              },
+              {
+                id: "proportion",
+                label: "Proporção",
+                value: proportionFilter,
+                onChange: setProportionFilter,
+                options: [{ value: "missing", label: "Sem proporção definida" }],
               },
             ]}
           />

@@ -3,6 +3,7 @@ import type {
   CadastrosData,
   CalcBase,
   DishRecord,
+  ExtraCatalogItem,
   InsumoRecord,
   MaterialKind,
   MaterialRecord,
@@ -239,6 +240,22 @@ export const DEFAULT_INSUMOS: InsumoRecord[] = [
   insumo("ins-blend-burger", "Blend de Hambúrguer", "Carnes", "kg"),
 ];
 
+export const DEFAULT_EXTRAS: ExtraCatalogItem[] = [
+  extra("extra-forno", "Forno"),
+  extra("extra-mesa-maleta", "Mesa Maleta"),
+  extra("extra-caixa-termica", "Caixa Térmica"),
+  extra("extra-fogao-inducao", "Fogão de Indução"),
+  extra("extra-microondas", "Micro-ondas"),
+  extra("extra-toalha-retangular", "Toalha de Mesa Retangular"),
+  extra("extra-toalha-apoio", "Toalha de Mesa de Apoio"),
+  extra("extra-mesa-retangular", "Mesa Retangular"),
+  extra("extra-panelas-inducao", "Panelas de Indução"),
+];
+
+function extra(id: string, name: string): ExtraCatalogItem {
+  return { id, name, createdAt: SEED_DATE, updatedAt: SEED_DATE };
+}
+
 export function defaultCadastros(): CadastrosData {
   return {
     materials: structuredClone(DEFAULT_MATERIALS),
@@ -250,5 +267,7 @@ export function defaultCadastros(): CadastrosData {
     insumoCategories: [...DEFAULT_INSUMO_CATEGORIES],
     clientes: [],
     veiculos: [],
+    kits: [],
+    extras: structuredClone(DEFAULT_EXTRAS),
   };
 }

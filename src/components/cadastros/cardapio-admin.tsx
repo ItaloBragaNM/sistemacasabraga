@@ -23,6 +23,7 @@ export function CardapioAdmin() {
   const { data, ready, upsertDish, removeDish, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [materialsFilter, setMaterialsFilter] = useState("");
   const [editing, setEditing] = useState<DishRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -36,6 +37,7 @@ export function CardapioAdmin() {
     const term = search.trim().toLowerCase();
     const dishes = data.dishes.filter((dish) => {
       if (categoryFilter && dish.category !== categoryFilter) return false;
+      if (materialsFilter === "none" && dish.materialIds.length > 0) return false;
       if (term && !dish.name.toLowerCase().includes(term)) return false;
       return true;
     });
@@ -53,7 +55,7 @@ export function CardapioAdmin() {
           .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
       }))
       .filter((group) => group.dishes.length > 0);
-  }, [data, search, categoryFilter]);
+  }, [data, search, categoryFilter, materialsFilter]);
 
   const startNew = () => {
     setEditing(null);
@@ -119,6 +121,13 @@ export function CardapioAdmin() {
                       value: category,
                       label: category,
                     })),
+                  },
+                  {
+                    id: "materials",
+                    label: "Materiais",
+                    value: materialsFilter,
+                    onChange: setMaterialsFilter,
+                    options: [{ value: "none", label: "Sem materiais vinculados" }],
                   },
                 ]}
               />

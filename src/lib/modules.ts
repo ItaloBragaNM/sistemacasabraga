@@ -92,6 +92,7 @@ export const APP_MODULES: AppModule[] = [
     pages: [
       { href: "/cadastros/cardapio", label: "Cardápio" },
       { href: "/cadastros/materiais", label: "Materiais" },
+      { href: "/cadastros/kits", label: "Kits de Materiais" },
       { href: "/cadastros/insumos", label: "Insumos" },
       { href: "/cadastros/clientes", label: "Clientes" },
       { href: "/cadastros/veiculos", label: "Veículos" },

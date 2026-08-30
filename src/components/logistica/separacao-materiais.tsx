@@ -1,42 +1,61 @@
 "use client";
 
-import { AlertTriangle, ClipboardList, FileDown, Plus, RotateCcw, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Bolt,
+  ChevronDown,
+  ClipboardList,
+  FileDown,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import { CatalogFilters } from "@/components/cadastros/ui";
+import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { useEvents } from "@/components/events/events-provider";
-import { useLogistica } from "@/components/logistica/logistica-provider";
+import { StatusBadge } from "@/components/events/status-badge";
 import { fieldControlClass } from "@/components/events/field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   computeSeparationItems,
   eventCalcContext,
   separationWarnings,
+  type QuantityExplanation,
 } from "@/lib/cadastros/calc";
-import type { CadastrosData } from "@/lib/cadastros/types";
-import { balanceOf, computeBalances } from "@/lib/logistica/calc";
-import type { StockMovement } from "@/lib/logistica/types";
-import { PackageMinus } from "lucide-react";
+import { kitItemComputedTotal, kitItemTotal, kitQuantity } from "@/lib/cadastros/kits";
+import type { CadastrosData, KitScale, MaterialKit } from "@/lib/cadastros/types";
+import { KIT_SCALE_LABELS } from "@/lib/cadastros/types";
 import { formatShortDate } from "@/lib/dates";
 import { uid } from "@/lib/event-factory";
+import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
 import {
   guestTotal,
+  normalizeMaterialSeparation,
+  suggestedDrinkQuantities,
+  type DrinkKey,
   type EventRecord,
-  type MaterialSeparationExtra,
   type MaterialSeparationOverride,
   type MaterialSeparationState,
+  type UniformPieceKey,
+  type UniformSize,
 } from "@/lib/types";
-import { downloadSeparationPdf, type SeparationPdfRow } from "@/components/logistica/separacao-pdf";
+import {
+  downloadSeparationPdf,
+  type SeparationPdfExtra,
+  type SeparationPdfKit,
+  type SeparationPdfRow,
+} from "@/components/logistica/separacao-pdf";
 import { cn } from "@/lib/utils";
-
-const EMPTY_SEP: MaterialSeparationState = { overrides: {}, extras: [] };
 
 interface Row {
   key: string;
   materialId?: string;
-  extraId?: string;
   name: string;
   category: string;
   unit: string;
@@ -44,44 +63,65 @@ interface Row {
   finalQty: number;
   note: string;
   edited: boolean;
-  isExtra: boolean;
+  manual?: boolean;
+  explanation?: QuantityExplanation;
 }
 
 export function SeparacaoMateriais() {
-  const { events, ready: eventsReady, getEvent, upsert } = useEvents();
-  const { data: cadastros, ready: cadastrosReady } = useCadastros();
+  const { events, ready } = useEvents();
+  const { data: cadastros } = useCadastros();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const [selectedId, setSelectedId] = useState("");
-
-  const sortedEvents = useMemo(
-    () => [...events].sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [events],
-  );
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
 
   const paramId = searchParams.get("evento") ?? "";
-  const effectiveId = selectedId || paramId || sortedEvents[0]?.id || "";
-  const event = effectiveId ? getEvent(effectiveId) : null;
+  useEffect(() => {
+    if (paramId) router.replace(`/logistica/separacao-materiais/${paramId}`);
+  }, [paramId, router]);
 
-  const ready = eventsReady && cadastrosReady;
+  const clientNames = useMemo(
+    () => new Map((cadastros?.clientes ?? []).map((cliente) => [cliente.id, cliente.name])),
+    [cadastros],
+  );
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return [...events]
+      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.title.localeCompare(b.title, "pt-BR"))
+      .filter((event) => {
+        if (statusFilter && event.status !== statusFilter) return false;
+        if (typeFilter && event.type !== typeFilter) return false;
+        if (!term) return true;
+        const client = event.clientId ? clientNames.get(event.clientId) ?? "" : "";
+        return (
+          event.title.toLowerCase().includes(term) ||
+          event.code.toLowerCase().includes(term) ||
+          EVENT_TYPE_LABELS[event.type].toLowerCase().includes(term) ||
+          event.venue.name.toLowerCase().includes(term) ||
+          event.venue.address.toLowerCase().includes(term) ||
+          client.toLowerCase().includes(term)
+        );
+      });
+  }, [events, search, statusFilter, typeFilter, clientNames]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <header className="flex flex-col gap-4 border-b border-forest/10 pb-6">
-        <div>
-          <p className="font-section text-[0.68rem] text-terracotta">Logística</p>
-          <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">
-            Separação de Materiais
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm font-light text-forest/60">
-            A lista é calculada a partir dos pratos do evento e da proporção de cada material.
-            Ajuste item a item, anote observações e gere o PDF operacional.
-          </p>
-        </div>
+      <header className="border-b border-forest/10 pb-6">
+        <p className="font-section text-[0.68rem] text-terracotta">Logística</p>
+        <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">
+          Separação de Materiais
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm font-light text-forest/60">
+          Escolha o evento para ver a lista calculada a partir dos pratos, kits, extras e da
+          proporção de cada material.
+        </p>
       </header>
 
       {!ready ? (
         <p className="py-16 text-center text-sm font-light text-forest/50">Carregando…</p>
-      ) : sortedEvents.length === 0 ? (
+      ) : events.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
           <h2 className="font-display text-2xl text-forest">Nenhum evento</h2>
           <p className="mt-2 text-sm font-light text-forest/55">
@@ -96,46 +136,141 @@ export function SeparacaoMateriais() {
         </div>
       ) : (
         <>
-          <div className="flex flex-col gap-3 rounded-2xl border border-forest/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-            <label className="flex flex-1 items-center gap-3">
-              <span className="field-label shrink-0">Evento</span>
-              <select
-                className={fieldControlClass}
-                value={effectiveId}
-                onChange={(e) => setSelectedId(e.target.value)}
-              >
-                {sortedEvents.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.code ? `${item.code} · ` : ""}
-                    {item.title || "Evento sem nome"}
-                    {item.date ? ` (${formatShortDate(item.date)})` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {event ? (
-              <Link
-                href={`/eventos/${event.id}`}
-                className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
-              >
-                Abrir ficha
-              </Link>
-            ) : null}
-          </div>
-
-          {event && cadastros ? (
-            <SeparationEditor
-              key={event.id}
-              event={event}
-              cadastros={cadastros}
-              onSave={upsert}
-            />
+          <CatalogFilters
+            search={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar por nome, código, cliente ou local…"
+            facets={[
+              {
+                id: "status",
+                label: "Status",
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: Object.entries(EVENT_STATUS_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+              },
+              {
+                id: "type",
+                label: "Tipo",
+                value: typeFilter,
+                onChange: setTypeFilter,
+                options: Object.entries(EVENT_TYPE_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+              },
+            ]}
+          />
+          {filtered.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
+              <h2 className="font-display text-2xl text-forest">Nenhum evento encontrado</h2>
+              <p className="mt-2 text-sm font-light text-forest/55">
+                Ajuste a busca ou os filtros para localizar a ficha.
+              </p>
+            </div>
           ) : (
-            <p className="py-10 text-center text-sm font-light text-forest/50">
-              Selecione um evento para ver a lista.
-            </p>
+            <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+              {filtered.map((event, index) => {
+                const client = event.clientId ? clientNames.get(event.clientId) : "";
+                return (
+                  <Link
+                    key={event.id}
+                    href={`/logistica/separacao-materiais/${event.id}`}
+                    className={cn(
+                      "grid gap-3 px-5 py-4 transition-colors hover:bg-cream md:grid-cols-[110px_1fr_auto] md:items-center",
+                      index > 0 && "border-t border-forest/8",
+                    )}
+                  >
+                    <p className="font-list text-sm text-forest/60">
+                      {event.date ? formatShortDate(event.date) : "Sem data"}
+                    </p>
+                    <div>
+                      <p className="font-display text-2xl text-forest">
+                        {event.title || "Evento sem nome"}
+                      </p>
+                      <p className="font-list mt-1 text-sm text-forest/55">
+                        {event.code} · {EVENT_TYPE_LABELS[event.type]}
+                        {client ? ` · ${client}` : ""} · {event.venue.name || "Local a definir"} ·{" "}
+                        {guestTotal(event.guests)} pax
+                      </p>
+                    </div>
+                    <StatusBadge status={event.status} />
+                  </Link>
+                );
+              })}
+            </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
+  const { ready: eventsReady, getEvent, upsert } = useEvents();
+  const { data: cadastros, ready: cadastrosReady } = useCadastros();
+  const event = getEvent(eventId);
+  const ready = eventsReady && cadastrosReady;
+
+  if (!ready) {
+    return (
+      <p className="py-16 text-center text-sm font-light text-forest/50">Carregando…</p>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="mx-auto max-w-5xl py-20 text-center">
+        <h1 className="font-display text-4xl text-forest">Evento não encontrado</h1>
+        <p className="mt-2 text-sm font-light text-forest/55">
+          Esta ficha pode ter sido excluída neste aparelho.
+        </p>
+        <Link
+          href="/logistica/separacao-materiais"
+          className={cn(buttonVariants({ variant: "outline" }), "mt-6 h-10 px-4")}
+        >
+          Voltar à lista
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+      <header className="flex flex-col gap-4 border-b border-forest/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <Link
+            href="/logistica/separacao-materiais"
+            className="text-sm font-light text-forest/55 hover:text-forest"
+          >
+            ← Eventos
+          </Link>
+          <p className="font-section mt-3 text-[0.68rem] text-terracotta">Logística</p>
+          <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">
+            Separação de Materiais
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm font-light text-forest/60">
+            {event.code ? `${event.code} · ` : ""}
+            {event.title || "Evento sem nome"}
+            {event.date ? ` · ${formatShortDate(event.date)}` : ""}
+          </p>
+        </div>
+        <Link
+          href={`/eventos/${event.id}`}
+          className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
+        >
+          Abrir ficha
+        </Link>
+      </header>
+
+      {cadastros ? (
+        <SeparationEditor key={event.id} event={event} cadastros={cadastros} onSave={upsert} />
+      ) : (
+        <p className="py-10 text-center text-sm font-light text-forest/50">
+          Não foi possível carregar os cadastros.
+        </p>
       )}
     </div>
   );
@@ -150,30 +285,50 @@ function SeparationEditor({
   cadastros: CadastrosData;
   onSave: (event: EventRecord) => void;
 }) {
-  const { data: logistica, addMovements } = useLogistica();
-  const [sep, setSep] = useState<MaterialSeparationState>(
-    () => event.materialSeparation ?? EMPTY_SEP,
+  const [sep, setSep] = useState<MaterialSeparationState>(() =>
+    normalizeMaterialSeparation(event.materialSeparation),
   );
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+  const [pickMaterialId, setPickMaterialId] = useState("");
 
-  const balances = useMemo(
-    () => computeBalances(logistica?.movements ?? []),
-    [logistica],
+  const persistEvent = useCallback(
+    (patch: Partial<EventRecord>) => {
+      onSave({
+        ...event,
+        ...patch,
+        materialSeparation: patch.materialSeparation
+          ? { ...patch.materialSeparation, updatedAt: new Date().toISOString() }
+          : sep,
+      });
+    },
+    [event, onSave, sep],
   );
 
   const applySep = useCallback(
     (next: MaterialSeparationState) => {
       setSep(next);
-      onSave({ ...event, materialSeparation: { ...next, updatedAt: new Date().toISOString() } });
+      persistEvent({ materialSeparation: next });
     },
-    [event, onSave],
+    [persistEvent],
   );
 
   const ctx = useMemo(() => eventCalcContext(event), [event]);
   const computed = useMemo(
-    () => computeSeparationItems(cadastros, ctx),
-    [cadastros, ctx],
+    () => computeSeparationItems(cadastros, ctx, sep.addedMaterialIds ?? []),
+    [cadastros, ctx, sep.addedMaterialIds],
   );
   const warnings = useMemo(() => separationWarnings(ctx), [ctx]);
+  const kits = cadastros.kits ?? [];
+  const extraCatalog = cadastros.extras ?? [];
+  const materialById = useMemo(
+    () => new Map(cadastros.materials.map((item) => [item.id, item])),
+    [cadastros.materials],
+  );
+
+  const drinks =
+    event.drinksAuto === false
+      ? event.drinks
+      : suggestedDrinkQuantities(guestTotal(event.guests));
 
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = [];
@@ -192,38 +347,62 @@ function SeparationEditor({
         finalQty,
         note,
         edited: (override?.quantity != null && override.quantity !== item.computedQty) || !!note,
-        isExtra: false,
+        manual: item.manual,
+        explanation: item.explanation,
       });
     }
-    for (const extra of sep.extras) {
-      list.push({
-        key: extra.id,
-        extraId: extra.id,
-        name: extra.name,
-        category: extra.category || "Outros",
-        unit: extra.unit,
-        computedQty: 0,
-        finalQty: extra.quantity,
-        note: extra.note ?? "",
-        edited: true,
-        isExtra: true,
-      });
-    }
-    return list;
+    return list.sort(
+      (a, b) =>
+        a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
+    );
   }, [computed, sep]);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Row[]>();
-    for (const row of rows) {
-      const arr = map.get(row.category) ?? [];
-      arr.push(row);
-      map.set(row.category, arr);
-    }
-    for (const arr of map.values()) {
-      arr.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
-  }, [rows]);
+  const listedIds = useMemo(() => new Set(computed.map((item) => item.materialId)), [computed]);
+  const addableMaterials = useMemo(
+    () =>
+      [...cadastros.materials]
+        .filter((item) => !listedIds.has(item.id) && !sep.overrides[item.id]?.removed)
+        .sort(
+          (a, b) =>
+            a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
+        ),
+    [cadastros.materials, listedIds, sep.overrides],
+  );
+
+  const kitPdf: SeparationPdfKit[] = kits.map((kit) => {
+    const qty = kitQuantity(kit, event, sep);
+    return {
+      name: kit.name,
+      kitQty: qty,
+      scaleLabel: kit.scale === "fixed" ? undefined : KIT_SCALE_LABELS[kit.scale],
+      items: kit.items.flatMap((item) => {
+        const material = materialById.get(item.materialId);
+        if (!material) return [];
+        const computedTotal = kitItemComputedTotal(item.qtyPerKit, qty);
+        const total = kitItemTotal(kit, item.materialId, item.qtyPerKit, qty, sep.kits?.[kit.id]);
+        return [
+          {
+            name: material.name,
+            perKit: item.qtyPerKit,
+            total,
+            edited: total !== computedTotal,
+          },
+        ];
+      }),
+    };
+  });
+
+  const extraPdf: SeparationPdfExtra[] = [
+    ...extraCatalog
+      .filter((item) => sep.extraSelections?.[item.id]?.included)
+      .map((item) => ({
+        name: item.name,
+        quantity: sep.extraSelections?.[item.id]?.quantity || 1,
+      })),
+    ...sep.extras
+      .filter((item) => item.name.trim())
+      .map((item) => ({ name: item.name, quantity: item.quantity })),
+  ];
 
   const removedCount = useMemo(
     () => Object.values(sep.overrides).filter((o) => o.removed).length,
@@ -231,38 +410,14 @@ function SeparationEditor({
   );
   const totalPieces = rows.reduce((sum, row) => sum + row.finalQty, 0);
   const editedCount = rows.filter((row) => row.edited).length;
-  const faltaTotal = rows.reduce((sum, row) => {
-    const emEstoque = row.materialId ? Math.max(0, balanceOf(balances, row.materialId)) : 0;
-    return sum + Math.max(0, row.finalQty - emEstoque);
-  }, 0);
 
-  const giveBaixa = () => {
-    const already = (logistica?.movements ?? []).some(
-      (m) => m.ref === event.id && m.type === "saida",
-    );
-    if (
-      already &&
-      !window.confirm("Este evento já teve baixa no estoque. Registrar baixa novamente?")
-    ) {
-      return;
-    }
-    const movements: StockMovement[] = rows
-      .filter((row) => !row.isExtra && row.materialId && row.finalQty > 0)
-      .map((row) => ({
-        id: uid(),
-        materialId: row.materialId!,
-        type: "saida",
-        quantity: -Math.abs(row.finalQty),
-        date: new Date().toISOString(),
-        note: `Baixa · ${event.code || event.title || "evento"}`,
-        ref: event.id,
-      }));
-    if (!movements.length) {
-      toast.error("Nada para dar baixa no estoque.");
-      return;
-    }
-    addMovements(movements);
-    toast.success(`Baixa registrada no estoque: ${movements.length} materiais.`);
+  const toggleOpen = (key: string) => {
+    setOpenKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const setOverride = (
@@ -279,13 +434,6 @@ function SeparationEditor({
     applySep({ ...sep, overrides });
   };
 
-  const updateExtra = (id: string, patch: Partial<MaterialSeparationExtra>) => {
-    applySep({
-      ...sep,
-      extras: sep.extras.map((extra) => (extra.id === id ? { ...extra, ...patch } : extra)),
-    });
-  };
-
   const restoreRemoved = () => {
     const overrides: Record<string, MaterialSeparationOverride> = {};
     for (const [id, override] of Object.entries(sep.overrides)) {
@@ -299,30 +447,35 @@ function SeparationEditor({
     applySep({ ...sep, overrides });
   };
 
-  const addExtra = () => {
-    applySep({
-      ...sep,
-      extras: [...sep.extras, { id: uid(), name: "", category: "Outros", unit: "un", quantity: 1 }],
-    });
+  const addCatalogMaterial = (materialId: string) => {
+    if (!materialId) return;
+    const added = new Set(sep.addedMaterialIds ?? []);
+    added.add(materialId);
+    const overrides = { ...sep.overrides };
+    if (overrides[materialId]?.removed) {
+      const rest = { quantity: overrides[materialId].quantity, note: overrides[materialId].note };
+      if (rest.quantity != null || rest.note) overrides[materialId] = rest;
+      else delete overrides[materialId];
+    }
+    applySep({ ...sep, addedMaterialIds: [...added], overrides });
+    setPickMaterialId("");
   };
 
   const generatePdf = async () => {
-    const pdfRows: SeparationPdfRow[] = rows
-      .slice()
-      .sort(
-        (a, b) =>
-          a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
-      )
-      .map((row) => ({
-        name: row.name,
-        category: row.category,
-        unit: row.unit,
-        quantity: row.finalQty,
-        note: row.note,
-        edited: row.edited,
-      }));
+    const pdfRows: SeparationPdfRow[] = rows.map((row) => ({
+      name: row.name,
+      category: row.category,
+      unit: row.unit,
+      quantity: row.finalQty,
+      note: row.note,
+      edited: row.edited,
+    }));
     try {
-      await downloadSeparationPdf(event, pdfRows);
+      await downloadSeparationPdf(event, pdfRows, {
+        kits: kitPdf.filter((kit) => kit.kitQty > 0 && kit.items.length > 0),
+        extras: extraPdf,
+        notes: sep.notes,
+      });
       toast.success("PDF de separação baixado.");
     } catch (error) {
       console.error(error);
@@ -349,7 +502,6 @@ function SeparationEditor({
           <Stat label="Itens" value={String(rows.length)} />
           <Stat label="Peças" value={String(totalPieces)} />
           <Stat label="Editados" value={String(editedCount)} />
-          <Stat label="Falta comprar" value={String(faltaTotal)} />
           {removedCount > 0 ? (
             <button
               type="button"
@@ -361,16 +513,12 @@ function SeparationEditor({
           ) : null}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="h-9 px-4" onClick={addExtra}>
-            <Plus data-icon="inline-start" />
-            Item avulso
-          </Button>
           <Button
             variant="outline"
             className="h-9 px-4"
             onClick={() => {
-              if (window.confirm("Descartar todos os ajustes e voltar ao cálculo automático?")) {
-                applySep(EMPTY_SEP);
+              if (window.confirm("Descartar os ajustes da lista de pratos e voltar ao cálculo automático?")) {
+                applySep({ ...sep, overrides: {} });
                 toast.success("Cálculo restaurado.");
               }
             }}
@@ -379,18 +527,8 @@ function SeparationEditor({
             Restaurar cálculo
           </Button>
           <Button
-            variant="outline"
-            className="h-9 px-4"
-            onClick={giveBaixa}
-            disabled={rows.length === 0}
-          >
-            <PackageMinus data-icon="inline-start" />
-            Dar baixa no estoque
-          </Button>
-          <Button
             className="h-9 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
             onClick={generatePdf}
-            disabled={rows.length === 0}
           >
             <FileDown data-icon="inline-start" />
             Gerar PDF
@@ -398,152 +536,226 @@ function SeparationEditor({
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block min-w-[220px] flex-1 space-y-1.5">
+          <span className="field-label">Incluir material do cadastro</span>
+          <select
+            className={fieldControlClass}
+            value={pickMaterialId}
+            onChange={(event) => setPickMaterialId(event.target.value)}
+          >
+            <option value="">Material não vinculado aos pratos…</option>
+            {addableMaterials.map((material) => (
+              <option key={material.id} value={material.id}>
+                {material.category} · {material.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button
+          variant="outline"
+          className="h-10 px-4"
+          disabled={!pickMaterialId}
+          onClick={() => addCatalogMaterial(pickMaterialId)}
+        >
+          <Plus data-icon="inline-start" />
+          Incluir
+        </Button>
+      </div>
+
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
           <ClipboardList className="mx-auto mb-3 size-7 text-forest/30" />
           <h3 className="font-display text-2xl text-forest">Lista vazia</h3>
           <p className="mt-2 text-sm font-light text-forest/55">
-            Selecione pratos do catálogo na ficha do evento para gerar a lista de materiais.
+            Selecione pratos na ficha do evento ou inclua um material do cadastro. Kits e extras
+            ficam nas seções abaixo.
           </p>
         </div>
       ) : (
-        <div className="space-y-5">
-          {grouped.map(([category, items]) => (
-            <div key={category} className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-              <div className="border-b border-forest/10 bg-forest/[0.02] px-4 py-2.5">
-                <h2 className="font-section text-[0.72rem] text-forest/75">{category}</h2>
-              </div>
-              <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-forest/8">
-                    <th className="field-label px-4 py-2 font-normal">Material</th>
-                    <th className="field-label w-20 px-2 py-2 text-right font-normal">Calc.</th>
-                    <th className="field-label w-24 px-2 py-2 text-right font-normal">Estoque</th>
-                    <th className="field-label w-28 px-2 py-2 font-normal">Qtd final</th>
-                    <th className="field-label w-20 px-2 py-2 text-right font-normal">Falta</th>
-                    <th className="field-label px-2 py-2 font-normal">Observação</th>
-                    <th className="w-10" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((row) => (
-                    <tr
-                      key={row.key}
-                      className={cn(
-                        "border-b border-forest/5 last:border-0",
-                        row.edited && "bg-[#FEF6D9]",
-                      )}
-                    >
-                      <td className="px-4 py-2.5">
-                        {row.isExtra ? (
+        <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-forest/8">
+                  <th className="field-label px-4 py-2 font-normal">Material</th>
+                  <th className="field-label px-2 py-2 font-normal">Categoria</th>
+                  <th className="field-label w-28 px-2 py-2 text-right font-normal">
+                    Qtd calculada
+                  </th>
+                  <th className="field-label w-32 px-2 py-2 font-normal">Qtd final</th>
+                  <th className="field-label px-2 py-2 font-normal">Observações</th>
+                  <th className="w-10" />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const open = openKeys.has(row.key);
+                  return (
+                    <Fragment key={row.key}>
+                      <tr
+                        className={cn(
+                          "border-b border-forest/5",
+                          row.edited && "bg-[#FEF6D9]",
+                        )}
+                      >
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-start gap-2">
+                            <button
+                              type="button"
+                              aria-expanded={open}
+                              aria-label={open ? "Ocultar cálculo" : "Ver cálculo"}
+                              onClick={() => toggleOpen(row.key)}
+                              className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md text-forest/45 hover:bg-forest/5 hover:text-forest"
+                            >
+                              <ChevronDown
+                                className={cn("size-4 transition-transform", open && "rotate-180")}
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleOpen(row.key)}
+                              className="text-left"
+                            >
+                              <span className="font-list font-medium text-forest">
+                                {row.name}
+                                {row.manual ? (
+                                  <span className="ml-2 rounded-full bg-forest/10 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-forest/70">
+                                    sem prato
+                                  </span>
+                                ) : null}
+                                {row.edited ? (
+                                  <span className="ml-2 rounded-full bg-[#B8860B]/15 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-[#8a6d0b]">
+                                    editado
+                                  </span>
+                                ) : null}
+                              </span>
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2.5 text-forest/70">{row.category}</td>
+                        <td className="px-2 py-2.5 text-right text-forest/55">{row.computedQty}</td>
+                        <td className="px-2 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min={0}
+                              className={cn(fieldControlClass, "h-9 w-20")}
+                              value={row.finalQty}
+                              onChange={(e) =>
+                                setOverride(row.materialId!, { quantity: Number(e.target.value) }, row.computedQty)
+                              }
+                            />
+                            <span className="text-xs text-forest/45">{row.unit}</span>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2.5">
                           <input
                             className={cn(fieldControlClass, "h-9")}
-                            placeholder="Material avulso"
-                            value={row.name}
-                            onChange={(e) => updateExtra(row.extraId!, { name: e.target.value })}
-                          />
-                        ) : (
-                          <span className="font-list font-medium text-forest">
-                            {row.name}
-                            {row.edited ? (
-                              <span className="ml-2 rounded-full bg-[#B8860B]/15 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-[#8a6d0b]">
-                                editado
-                              </span>
-                            ) : null}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-2 py-2.5 text-right text-forest/45">
-                        {row.isExtra ? "—" : row.computedQty}
-                      </td>
-                      <td className="px-2 py-2.5 text-right text-forest/60">
-                        {row.isExtra || !row.materialId
-                          ? "—"
-                          : balanceOf(balances, row.materialId)}
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min={0}
-                            className={cn(fieldControlClass, "h-9 w-20")}
-                            value={row.finalQty}
-                            onChange={(e) => {
-                              const value = Number(e.target.value);
-                              if (row.isExtra) updateExtra(row.extraId!, { quantity: value });
-                              else setOverride(row.materialId!, { quantity: value }, row.computedQty);
-                            }}
-                          />
-                          <span className="text-xs text-forest/45">{row.unit}</span>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2.5 text-right">
-                        {(() => {
-                          const est = row.materialId
-                            ? Math.max(0, balanceOf(balances, row.materialId))
-                            : 0;
-                          const falta = Math.max(0, row.finalQty - est);
-                          return (
-                            <span
-                              className={cn(
-                                "font-medium",
-                                falta > 0 ? "text-terracotta" : "text-forest/40",
-                              )}
-                            >
-                              {falta > 0 ? falta : "—"}
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <input
-                          className={cn(fieldControlClass, "h-9")}
-                          placeholder="—"
-                          value={row.note}
-                          onChange={(e) => {
-                            if (row.isExtra) updateExtra(row.extraId!, { note: e.target.value });
-                            else setOverride(row.materialId!, { note: e.target.value }, row.computedQty);
-                          }}
-                        />
-                      </td>
-                      <td className="px-2 py-2.5 text-right">
-                        <button
-                          type="button"
-                          aria-label="Remover"
-                          onClick={() => {
-                            if (row.isExtra) {
-                              applySep({
-                                ...sep,
-                                extras: sep.extras.filter((x) => x.id !== row.extraId),
-                              });
-                            } else {
-                              applySep({
-                                ...sep,
-                                overrides: {
-                                  ...sep.overrides,
-                                  [row.materialId!]: {
-                                    ...sep.overrides[row.materialId!],
-                                    removed: true,
-                                  },
-                                },
-                              });
+                            placeholder="—"
+                            value={row.note}
+                            onChange={(e) =>
+                              setOverride(row.materialId!, { note: e.target.value }, row.computedQty)
                             }
-                          }}
-                          className="flex size-8 items-center justify-center rounded-lg text-forest/35 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </div>
-          ))}
+                          />
+                        </td>
+                        <td className="px-2 py-2.5 text-right">
+                          <button
+                            type="button"
+                            aria-label="Remover"
+                            onClick={() => {
+                              if (row.manual) {
+                                const overrides = { ...sep.overrides };
+                                delete overrides[row.materialId!];
+                                applySep({
+                                  ...sep,
+                                  addedMaterialIds: (sep.addedMaterialIds ?? []).filter(
+                                    (id) => id !== row.materialId,
+                                  ),
+                                  overrides,
+                                });
+                              } else {
+                                applySep({
+                                  ...sep,
+                                  overrides: {
+                                    ...sep.overrides,
+                                    [row.materialId!]: {
+                                      ...sep.overrides[row.materialId!],
+                                      removed: true,
+                                    },
+                                  },
+                                });
+                              }
+                            }}
+                            className="flex size-8 items-center justify-center rounded-lg text-forest/35 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </td>
+                      </tr>
+                      {open ? (
+                        <tr className="border-b border-forest/5 bg-forest/[0.03]">
+                          <td colSpan={6} className="px-4 py-3 pl-14">
+                            <CalculationDetail row={row} />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      <KitsOnEvent
+        kits={kits}
+        event={event}
+        sep={sep}
+        materialById={materialById}
+        onChange={applySep}
+      />
+
+      <ExtrasOnEvent extras={extraCatalog} sep={sep} onChange={applySep} />
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <h2 className="font-section mb-3 text-[0.82rem] text-forest">Observação geral do evento</h2>
+        <textarea
+          className={cn(fieldControlClass, "h-24 py-2")}
+          placeholder="Observações gerais para este evento…"
+          value={sep.notes ?? ""}
+          onChange={(e) => applySep({ ...sep, notes: e.target.value })}
+        />
+      </section>
+
+      <EventDrinksFields
+        drinks={drinks}
+        onChange={(key: DrinkKey, value: string) =>
+          persistEvent({
+            drinksAuto: false,
+            drinks: { ...drinks, [key]: value },
+          })
+        }
+        onRecalculate={() =>
+          persistEvent({
+            drinksAuto: true,
+            drinks: suggestedDrinkQuantities(guestTotal(event.guests)),
+          })
+        }
+      />
+
+      <EventUniformsFields
+        uniforms={event.uniforms}
+        onChange={(piece: UniformPieceKey, size: UniformSize, value: number) =>
+          persistEvent({
+            uniforms: {
+              ...event.uniforms,
+              [piece]: { ...event.uniforms[piece], [size]: value },
+            },
+          })
+        }
+      />
     </div>
   );
 }
@@ -554,6 +766,75 @@ function Stat({ label, value }: { label: string; value: string }) {
       <span className="font-display text-xl text-forest">{value}</span>
       <span className="field-label">{label}</span>
     </span>
+  );
+}
+
+function formatQty(value: number) {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function CalculationDetail({ row }: { row: Row }) {
+  if (row.manual) {
+    return (
+      <div className="space-y-2 text-sm text-forest/75">
+        <p className="font-light">
+          Incluído na mão, sem vínculo com prato do cardápio. A quantidade calculada usa a
+          proporção cadastrada no material.
+        </p>
+        <ProportionSteps row={row} />
+      </div>
+    );
+  }
+
+  return <ProportionSteps row={row} />;
+}
+
+function ProportionSteps({ row }: { row: Row }) {
+  const explanation = row.explanation;
+  if (!explanation || explanation.missingProportion) {
+    return (
+      <p className="text-sm font-light text-forest/65">
+        Sem proporção definida neste material. A quantidade calculada fica em 0 até o cadastro
+        receber uma fórmula.
+      </p>
+    );
+  }
+
+  const formula = explanation.factors
+    .map((factor) => `(${factor.baseLabel} × ${formatQty(factor.multiplier)})`)
+    .join(" × ");
+
+  return (
+    <div className="space-y-2 text-sm text-forest/75">
+      {row.manual ? null : (
+        <p className="font-light">
+          Aparece nesta lista porque entra em{" "}
+          <span className="font-medium text-forest">{explanation.occurrence}</span>{" "}
+          prato{explanation.occurrence === 1 ? "" : "s"} do cardápio deste evento.
+        </p>
+      )}
+      <ul className="space-y-1">
+        {explanation.factors.map((factor, index) => (
+          <li key={`${factor.baseLabel}-${index}`}>
+            <span className="font-medium text-forest">{factor.baseLabel}</span>
+            {factor.source ? (
+              <span className="font-light text-forest/55"> ({factor.source})</span>
+            ) : null}
+            : {formatQty(factor.baseValue)} neste evento × fator {formatQty(factor.multiplier)} ={" "}
+            {formatQty(factor.product)}
+          </li>
+        ))}
+      </ul>
+      <p className="font-light">
+        Cálculo: {formula} = {formatQty(explanation.product)}
+        {explanation.rounded !== explanation.product
+          ? `, arredondado para cima: ${explanation.rounded}`
+          : ""}
+        {row.unit ? ` ${row.unit}` : ""}.
+      </p>
+    </div>
   );
 }
 
@@ -576,5 +857,291 @@ function EventSummary({ event }: { event: EventRecord }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function ScaleBadge({ scale }: { scale: KitScale }) {
+  const staff = scale === "serviceTeam";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-wide",
+        staff ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800",
+      )}
+    >
+      {staff ? <Users className="size-3" /> : <Bolt className="size-3" />}
+      {KIT_SCALE_LABELS[scale]}
+    </span>
+  );
+}
+
+function KitsOnEvent({
+  kits,
+  event,
+  sep,
+  materialById,
+  onChange,
+}: {
+  kits: MaterialKit[];
+  event: EventRecord;
+  sep: MaterialSeparationState;
+  materialById: Map<string, { name: string; unit: string }>;
+  onChange: (next: MaterialSeparationState) => void;
+}) {
+  const patchKit = (kitId: string, patch: { quantity?: number; itemTotals?: Record<string, number> }) => {
+    const current = sep.kits?.[kitId] ?? {};
+    onChange({
+      ...sep,
+      kits: {
+        ...sep.kits,
+        [kitId]: { ...current, ...patch },
+      },
+    });
+  };
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-section text-[0.82rem] text-forest">Kits de materiais</h2>
+          <p className="mt-1 text-xs font-light text-forest/50">
+            Informe quantos kits vão para o evento. O total de cada item é quantidade por kit ×
+            kits, e pode ser ajustado neste evento.
+          </p>
+        </div>
+        <Link
+          href="/cadastros/kits"
+          className="text-xs font-light text-forest/55 underline-offset-2 hover:text-forest hover:underline"
+        >
+          Gerenciar kits
+        </Link>
+      </div>
+
+      {kits.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-8 text-center">
+          <p className="text-sm font-light text-forest/55">
+            Nenhum kit cadastrado. Crie kits em Cadastros → Kits de Materiais.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {kits.map((kit) => {
+            const qty = kitQuantity(kit, event, sep);
+            const state = sep.kits?.[kit.id];
+            return (
+              <article
+                key={kit.id}
+                className="overflow-hidden rounded-2xl border border-forest/10 bg-white"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-3 bg-petrol px-4 py-3 text-cream">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-section text-[0.78rem]">{kit.name}</h3>
+                    {kit.scale !== "fixed" ? <ScaleBadge scale={kit.scale} /> : null}
+                  </div>
+                  <label className="flex items-center gap-2 text-xs">
+                    <span className="opacity-80">Qtd de kits</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="h-8 w-16 rounded-md border-0 bg-white px-2 text-sm text-forest"
+                      value={qty}
+                      onChange={(e) => patchKit(kit.id, { quantity: Number(e.target.value) })}
+                    />
+                  </label>
+                </header>
+                <p className="border-b border-forest/8 px-4 py-2 text-xs font-light text-forest/50">
+                  Qtd por kit × {qty} kit{qty === 1 ? "" : "s"} = total a separar
+                </p>
+                {kit.items.length === 0 ? (
+                  <p className="px-4 py-3 text-sm font-light text-forest/45">
+                    Este kit ainda não tem materiais.
+                  </p>
+                ) : (
+                  <ul>
+                    {kit.items.map((item, index) => {
+                      const material = materialById.get(item.materialId);
+                      const computedTotal = kitItemComputedTotal(item.qtyPerKit, qty);
+                      const total = kitItemTotal(
+                        kit,
+                        item.materialId,
+                        item.qtyPerKit,
+                        qty,
+                        state,
+                      );
+                      return (
+                        <li
+                          key={`${item.materialId}-${index}`}
+                          className="flex items-center gap-3 border-b border-forest/8 px-4 py-2 last:border-0"
+                        >
+                          <span className="min-w-0 flex-1 text-sm text-forest">
+                            {item.qtyPerKit}x {material?.name ?? "Material removido"}
+                          </span>
+                          <span className="field-label">Total</span>
+                          <input
+                            type="number"
+                            min={0}
+                            className={cn(fieldControlClass, "h-9 w-20")}
+                            value={total}
+                            onChange={(e) => {
+                              const itemTotals = {
+                                ...(state?.itemTotals ?? {}),
+                                [item.materialId]: Number(e.target.value),
+                              };
+                              patchKit(kit.id, { itemTotals });
+                            }}
+                          />
+                          {total !== computedTotal ? (
+                            <button
+                              type="button"
+                              className="text-xs font-light text-forest/45 hover:text-forest"
+                              onClick={() => {
+                                const itemTotals = { ...(state?.itemTotals ?? {}) };
+                                delete itemTotals[item.materialId];
+                                patchKit(kit.id, { itemTotals });
+                              }}
+                            >
+                              restaurar
+                            </button>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ExtrasOnEvent({
+  extras,
+  sep,
+  onChange,
+}: {
+  extras: { id: string; name: string }[];
+  sep: MaterialSeparationState;
+  onChange: (next: MaterialSeparationState) => void;
+}) {
+  const setSelection = (id: string, included: boolean, quantity: number) => {
+    onChange({
+      ...sep,
+      extraSelections: {
+        ...sep.extraSelections,
+        [id]: { included, quantity },
+      },
+    });
+  };
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+      <header className="flex items-center justify-between gap-3 bg-forest/[0.06] px-4 py-3">
+        <h2 className="font-section text-[0.82rem] text-forest">Extras / Equipamentos</h2>
+        <Button
+          variant="outline"
+          className="h-8 px-3"
+          onClick={() =>
+            onChange({
+              ...sep,
+              extras: [
+                ...sep.extras,
+                { id: uid(), name: "", category: "Extras", unit: "un", quantity: 1 },
+              ],
+            })
+          }
+        >
+          <Plus data-icon="inline-start" />
+          Item avulso
+        </Button>
+      </header>
+      {extras.length === 0 && sep.extras.length === 0 ? (
+        <p className="px-4 py-6 text-sm font-light text-forest/50">
+          Cadastre extras em Cadastros → Kits de Materiais, ou adicione um item avulso.
+        </p>
+      ) : (
+        <ul>
+          {extras.map((item) => {
+            const selection = sep.extraSelections?.[item.id];
+            const included = selection?.included ?? false;
+            const quantity = selection?.quantity ?? 1;
+            return (
+              <li
+                key={item.id}
+                className="flex items-center gap-3 border-b border-forest/8 px-4 py-2.5"
+              >
+                <input
+                  type="checkbox"
+                  aria-label={item.name}
+                  className="size-4 accent-forest"
+                  checked={included}
+                  onChange={(e) => setSelection(item.id, e.target.checked, quantity || 1)}
+                />
+                <span className="min-w-0 flex-1 text-sm text-forest">{item.name}</span>
+                <span className="field-label">Qtd.</span>
+                <input
+                  type="number"
+                  min={0}
+                  className={cn(fieldControlClass, "h-9 w-20")}
+                  value={quantity}
+                  disabled={!included}
+                  onChange={(e) => setSelection(item.id, included, Number(e.target.value))}
+                />
+              </li>
+            );
+          })}
+          {sep.extras.map((extra) => (
+            <li
+              key={extra.id}
+              className="flex items-center gap-3 border-b border-forest/8 px-4 py-2.5 last:border-0"
+            >
+              <input
+                className={cn(fieldControlClass, "h-9 flex-1")}
+                placeholder="Material avulso"
+                value={extra.name}
+                onChange={(e) =>
+                  onChange({
+                    ...sep,
+                    extras: sep.extras.map((item) =>
+                      item.id === extra.id ? { ...item, name: e.target.value } : item,
+                    ),
+                  })
+                }
+              />
+              <span className="field-label">Qtd.</span>
+              <input
+                type="number"
+                min={0}
+                className={cn(fieldControlClass, "h-9 w-20")}
+                value={extra.quantity}
+                onChange={(e) =>
+                  onChange({
+                    ...sep,
+                    extras: sep.extras.map((item) =>
+                      item.id === extra.id ? { ...item, quantity: Number(e.target.value) } : item,
+                    ),
+                  })
+                }
+              />
+              <button
+                type="button"
+                aria-label="Remover extra"
+                className="flex size-8 items-center justify-center rounded-lg text-forest/35 hover:bg-terracotta/10 hover:text-terracotta"
+                onClick={() =>
+                  onChange({
+                    ...sep,
+                    extras: sep.extras.filter((item) => item.id !== extra.id),
+                  })
+                }
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

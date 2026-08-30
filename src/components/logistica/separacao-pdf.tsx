@@ -2,7 +2,15 @@
 
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
-import { guestTotal, type EventRecord } from "@/lib/types";
+import { UNIFORM_SIZE_LABELS } from "@/lib/labels";
+import {
+  DRINK_ITEMS,
+  guestTotal,
+  suggestedDrinkQuantities,
+  UNIFORM_PIECES,
+  UNIFORM_SIZES,
+  type EventRecord,
+} from "@/lib/types";
 
 const colors = {
   forest: "#1E443E",
@@ -80,6 +88,31 @@ export interface SeparationPdfRow {
   edited?: boolean;
 }
 
+export interface SeparationPdfKitItem {
+  name: string;
+  perKit: number;
+  total: number;
+  edited?: boolean;
+}
+
+export interface SeparationPdfKit {
+  name: string;
+  kitQty: number;
+  scaleLabel?: string;
+  items: SeparationPdfKitItem[];
+}
+
+export interface SeparationPdfExtra {
+  name: string;
+  quantity: number;
+}
+
+export interface SeparationPdfExtras {
+  kits?: SeparationPdfKit[];
+  extras?: SeparationPdfExtra[];
+  notes?: string;
+}
+
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.meta}>
@@ -89,7 +122,15 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SeparationDocument({ event, rows }: { event: EventRecord; rows: SeparationPdfRow[] }) {
+function SeparationDocument({
+  event,
+  rows,
+  extra,
+}: {
+  event: EventRecord;
+  rows: SeparationPdfRow[];
+  extra?: SeparationPdfExtras;
+}) {
   const categories = Array.from(new Set(rows.map((row) => row.category))).sort((a, b) =>
     a.localeCompare(b, "pt-BR"),
   );
@@ -144,8 +185,86 @@ function SeparationDocument({ event, rows }: { event: EventRecord; rows: Separat
 
         {rows.length === 0 ? (
           <Text style={{ fontSize: 10, color: colors.muted, marginTop: 12 }}>
-            Nenhum material calculado. Verifique os pratos selecionados e os dados da ficha.
+            Nenhum material calculado a partir dos pratos.
           </Text>
+        ) : null}
+
+        {(extra?.kits ?? []).map((kit) => (
+          <View key={kit.name}>
+            <Text style={styles.sectionTitle}>
+              {kit.name}
+              {kit.scaleLabel ? ` · ${kit.scaleLabel}` : ""} · {kit.kitQty} kit
+              {kit.kitQty === 1 ? "" : "s"}
+            </Text>
+            {kit.items.map((item, index) => (
+              <View key={`${item.name}-${index}`} style={styles.row}>
+                <Text style={styles.check}>{"\u2610"}</Text>
+                <Text style={styles.name}>
+                  {item.perKit}x {item.name}
+                  {item.edited ? <Text style={styles.editedTag}> · editado</Text> : null}
+                </Text>
+                <Text style={styles.qty}>{item.total}</Text>
+                <Text style={styles.unit}>un</Text>
+                <Text style={styles.note} />
+              </View>
+            ))}
+          </View>
+        ))}
+
+        {(extra?.extras ?? []).length > 0 ? (
+          <View>
+            <Text style={styles.sectionTitle}>Extras / Equipamentos</Text>
+            {extra!.extras!.map((item, index) => (
+              <View key={`${item.name}-${index}`} style={styles.row}>
+                <Text style={styles.check}>{"\u2610"}</Text>
+                <Text style={styles.name}>{item.name}</Text>
+                <Text style={styles.qty}>{item.quantity}</Text>
+                <Text style={styles.unit}>un</Text>
+                <Text style={styles.note} />
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <Text style={styles.sectionTitle}>Bebidas</Text>
+        {DRINK_ITEMS.map((drink) => {
+          const drinks =
+            event.drinksAuto === false
+              ? event.drinks
+              : suggestedDrinkQuantities(guestTotal(event.guests));
+          return (
+            <View key={drink.key} style={styles.row}>
+              <Text style={styles.check}>{"\u2610"}</Text>
+              <Text style={styles.name}>{drink.label}</Text>
+              <Text style={styles.qty}>{drinks[drink.key] || "—"}</Text>
+              <Text style={styles.unit} />
+              <Text style={styles.note} />
+            </View>
+          );
+        })}
+
+        <Text style={styles.sectionTitle}>Fardamentos</Text>
+        {UNIFORM_PIECES.map((piece) => (
+          <View key={piece.key} style={styles.row}>
+            <Text style={styles.check}>{"\u2610"}</Text>
+            <Text style={styles.name}>{piece.label}</Text>
+            <Text style={styles.qty}>
+              {UNIFORM_SIZES.map(
+                (size) => `${UNIFORM_SIZE_LABELS[size]} ${event.uniforms[piece.key][size] || 0}`,
+              ).join("  ·  ")}
+            </Text>
+            <Text style={styles.unit} />
+            <Text style={styles.note} />
+          </View>
+        ))}
+
+        {extra?.notes?.trim() ? (
+          <View>
+            <Text style={styles.sectionTitle}>Observação geral</Text>
+            <Text style={{ fontSize: 10, color: colors.muted, lineHeight: 1.4 }}>
+              {extra.notes.trim()}
+            </Text>
+          </View>
         ) : null}
 
         <View style={styles.footer}>
@@ -160,8 +279,12 @@ function SeparationDocument({ event, rows }: { event: EventRecord; rows: Separat
   );
 }
 
-export async function downloadSeparationPdf(event: EventRecord, rows: SeparationPdfRow[]) {
-  const blob = await pdf(<SeparationDocument event={event} rows={rows} />).toBlob();
+export async function downloadSeparationPdf(
+  event: EventRecord,
+  rows: SeparationPdfRow[],
+  extra?: SeparationPdfExtras,
+) {
+  const blob = await pdf(<SeparationDocument event={event} rows={rows} extra={extra} />).toBlob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const slug = (event.title || "evento")

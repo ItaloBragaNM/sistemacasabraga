@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ClipboardList, Printer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
 import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
@@ -13,10 +14,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import type { DishRecord } from "@/lib/cadastros/types";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { insertDishesIntoMenu } from "@/lib/event-factory";
-import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
+import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import {
-  DRINK_ITEMS,
   EVENT_STATUSES,
   EVENT_TYPES,
   guestTotal,
@@ -24,8 +24,6 @@ import {
   normalizeEventRecord,
   STAFF_ROLES,
   suggestedDrinkQuantities,
-  UNIFORM_PIECES,
-  UNIFORM_SIZES,
   type EventRecord,
   type Guests,
   type MenuSectionKey,
@@ -442,7 +440,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             Gerar Per Capita
           </Button>
           <Link
-            href={`/logistica/separacao-materiais?evento=${draft.id}`}
+            href={`/logistica/separacao-materiais/${draft.id}`}
             className={cn(buttonVariants({ variant: "outline" }), "h-9 px-4")}
           >
             <ClipboardList data-icon="inline-start" />
@@ -480,81 +478,33 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         )}
       </section>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Bebidas"
-          hint="Logística: água, refrigerante e suco. O cálculo usa o total a servir e pode ser ajustado."
-        />
-        <div className="grid gap-3 sm:grid-cols-3">
-          {DRINK_ITEMS.map((drink) => (
-            <Field key={drink.key} label={drink.label}>
-              <input
-                className={fieldControlClass}
-                value={draft.drinks[drink.key]}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    drinksAuto: false,
-                    drinks: {
-                      ...current.drinks,
-                      [drink.key]: event.target.value,
-                    },
-                  }))
-                }
-              />
-            </Field>
-          ))}
-        </div>
-        <p className="mt-3 text-xs font-light text-forest/50">
-          Água: 1 garrafão de 20 L a cada 50 convidados · Refrigerante: 450 ml por pessoa, em
-          garrafas de 2 L · Suco: 200 ml por pessoa, em litros.
-        </p>
-        <button
-          type="button"
-          className="mt-2 text-xs font-light text-forest/55 underline-offset-2 hover:text-forest hover:underline"
-          onClick={() =>
-            setDraft((current) => ({
-              ...current,
-              drinksAuto: true,
-              drinks: suggestedDrinkQuantities(guestTotal(current.guests)),
-            }))
-          }
-        >
-          Recalcular pelo nº de convidados
-        </button>
-      </section>
+      <EventDrinksFields
+        drinks={draft.drinks}
+        onChange={(key, value) =>
+          setDraft((current) => ({
+            ...current,
+            drinksAuto: false,
+            drinks: { ...current.drinks, [key]: value },
+          }))
+        }
+        onRecalculate={() =>
+          setDraft((current) => ({
+            ...current,
+            drinksAuto: true,
+            drinks: suggestedDrinkQuantities(guestTotal(current.guests)),
+          }))
+        }
+      />
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Fardamentos" hint="Dólmã, bata e avental por tamanho." />
-        <div className="grid gap-6 md:grid-cols-3">
-          {UNIFORM_PIECES.map((piece) => (
-            <div key={piece.key} className="rounded-xl border border-forest/10 p-4">
-              <p className="font-section mb-3 text-[0.7rem] text-forest">{piece.label}</p>
-              <div className="grid grid-cols-4 gap-2">
-                {UNIFORM_SIZES.map((size) => (
-                  <Field key={size} label={UNIFORM_SIZE_LABELS[size]}>
-                    <input
-                      type="number"
-                      min={0}
-                      className={fieldControlClass}
-                      value={draft.uniforms[piece.key][size]}
-                      onChange={(event) =>
-                        update("uniforms", {
-                          ...draft.uniforms,
-                          [piece.key]: {
-                            ...draft.uniforms[piece.key],
-                            [size]: Number(event.target.value),
-                          },
-                        })
-                      }
-                    />
-                  </Field>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <EventUniformsFields
+        uniforms={draft.uniforms}
+        onChange={(piece, size, value) =>
+          update("uniforms", {
+            ...draft.uniforms,
+            [piece]: { ...draft.uniforms[piece], [size]: value },
+          })
+        }
+      />
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle title="Extras e logística" />

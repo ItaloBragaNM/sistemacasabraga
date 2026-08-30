@@ -135,6 +135,47 @@ export const VEHICLE_KIND_LABELS: Record<VehicleKind, string> = {
   outro: "Outro",
 };
 
+/**
+ * How a kit's "Qtd de kits" is suggested on an event.
+ * The user can always override the quantity per event.
+ */
+export const KIT_SCALES = ["fixed", "serviceTeam", "rechauds", "fritadeiras", "islands"] as const;
+export type KitScale = (typeof KIT_SCALES)[number];
+
+export const KIT_SCALE_LABELS: Record<KitScale, string> = {
+  fixed: "quantidade fixa",
+  serviceTeam: "por garçons+garçonetes",
+  rechauds: "por rechauds",
+  fritadeiras: "por fritadeiras",
+  islands: "por ilhas",
+};
+
+export function isKitScale(value: unknown): value is KitScale {
+  return KIT_SCALES.includes(value as KitScale);
+}
+
+export interface MaterialKitItem {
+  materialId: string;
+  qtyPerKit: number;
+}
+
+export interface MaterialKit {
+  id: string;
+  name: string;
+  scale: KitScale;
+  items: MaterialKitItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Extra / equipment items shown as a checklist on the event separation. */
+export interface ExtraCatalogItem {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CadastrosData {
   materials: MaterialRecord[];
   dishes: DishRecord[];
@@ -145,6 +186,8 @@ export interface CadastrosData {
   insumoCategories: string[];
   clientes: ClienteRecord[];
   veiculos: VeiculoRecord[];
+  kits: MaterialKit[];
+  extras: ExtraCatalogItem[];
 }
 
 export const MAX_FACTORS = 3;

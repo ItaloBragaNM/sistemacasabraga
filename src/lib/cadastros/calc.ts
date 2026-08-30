@@ -87,6 +87,22 @@ export function materialOccurrences(
   return counts;
 }
 
+export type QuantityFactorStep = {
+  baseLabel: string;
+  source: string;
+  baseValue: number;
+  multiplier: number;
+  product: number;
+};
+
+export type QuantityExplanation = {
+  missingProportion: boolean;
+  occurrence: number;
+  factors: QuantityFactorStep[];
+  product: number;
+  rounded: number;
+};
+
 export interface SeparationComputedItem {
   materialId: string;
   name: string;
@@ -94,23 +110,31 @@ export interface SeparationComputedItem {
   unit: string;
   occurrence: number;
   computedQty: number;
+  explanation: QuantityExplanation;
+  /** Included from the catalog without being linked to a dish. */
+  manual?: boolean;
 }
 
 /**
  * Builds the deduplicated material list for an event: the union of materials
- * linked to the event's selected dishes, each with its calculated quantity.
+ * linked to the event's selected dishes, plus any catalog materials added by
+ * hand, each with its calculated quantity.
  */
 export function computeSeparationItems(
   cadastros: CadastrosData,
   ctx: EventCalcContext,
+  extraMaterialIds: string[] = [],
 ): SeparationComputedItem[] {
   const occurrences = materialOccurrences(cadastros, ctx.selectedDishIds);
+  const extra = new Set(extraMaterialIds);
   const bases = basesMap(cadastros);
   const items: SeparationComputedItem[] = [];
 
   for (const material of cadastros.materials) {
-    const occurrence = occurrences.get(material.id);
-    if (!occurrence) continue; // material not used by any selected dish
+    const fromDish = occurrences.get(material.id) ?? 0;
+    const manual = extra.has(material.id) && fromDish === 0;
+    if (!fromDish && !manual) continue;
+    const occurrence = fromDish || 1;
     items.push({
       materialId: material.id,
       name: material.name,
@@ -118,6 +142,8 @@ export function computeSeparationItems(
       unit: material.unit,
       occurrence,
       computedQty: materialQuantity(material, bases, ctx, occurrence),
+      explanation: explainMaterialQuantity(material, bases, ctx, occurrence),
+      manual,
     });
   }
 
@@ -163,4 +189,65 @@ function formatMult(value: number): string {
   return Number.isInteger(value)
     ? String(value)
     : value.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+export function describeBaseSource(base: CalcBase): string {
+  switch (base.kind.type) {
+    case "guests":
+      return "convidados do evento";
+    case "staff": {
+      const staffLabel =
+        base.kind.role === "garcons"
+          ? "garçons"
+          : base.kind.role === "garconetes"
+            ? "garçonetes"
+            : base.kind.role === "copeiros"
+              ? "copeiros(as)"
+              : "chefes";
+      return `equipe (${staffLabel})`;
+    }
+    case "islands":
+      return "ilhas do evento";
+    case "serviceTeam":
+      return "garçons + garçonetes";
+    case "perGuests":
+      return `1 a cada ${base.kind.per} convidados`;
+    case "dishes":
+      return "pratos do evento que usam este material";
+    case "fixed":
+      return "quantidade fixa por evento";
+    default:
+      return "";
+  }
+}
+
+export function explainMaterialQuantity(
+  material: MaterialRecord,
+  bases: Map<string, CalcBase>,
+  ctx: EventCalcContext,
+  occurrence: number,
+): QuantityExplanation {
+  if (!material.factors.length) {
+    return { missingProportion: true, occurrence, factors: [], product: 0, rounded: 0 };
+  }
+
+  const factors: QuantityFactorStep[] = [];
+  let product = 1;
+  for (const factor of material.factors) {
+    const base = bases.get(factor.baseId);
+    const value = base ? baseValue(base, ctx, occurrence) : 0;
+    const multiplier = factor.mult || 0;
+    const stepProduct = value * multiplier;
+    product *= stepProduct;
+    factors.push({
+      baseLabel: base?.label ?? "Base desconhecida",
+      source: base ? describeBaseSource(base) : "",
+      baseValue: value,
+      multiplier,
+      product: stepProduct,
+    });
+  }
+
+  const rounded = !Number.isFinite(product) || product <= 0 ? 0 : Math.ceil(product);
+  return { missingProportion: false, occurrence, factors, product, rounded };
 }

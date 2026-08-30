@@ -15,13 +15,22 @@ import type {
   CalcBase,
   ClienteRecord,
   DishRecord,
+  ExtraCatalogItem,
   InsumoRecord,
+  MaterialKit,
   MaterialRecord,
   VeiculoRecord,
 } from "@/lib/cadastros/types";
 import { duplicateManyIn, type NamedRecord } from "@/lib/cadastros/clone";
 
-export type CatalogListKey = "materials" | "dishes" | "insumos" | "clientes" | "veiculos";
+export type CatalogListKey =
+  | "materials"
+  | "dishes"
+  | "insumos"
+  | "clientes"
+  | "veiculos"
+  | "kits"
+  | "extras";
 
 interface CadastrosContextValue {
   data: CadastrosData | null;
@@ -43,6 +52,10 @@ interface CadastrosContextValue {
   removeCliente: (id: string) => void;
   upsertVeiculo: (veiculo: VeiculoRecord) => void;
   removeVeiculo: (id: string) => void;
+  upsertKit: (kit: MaterialKit) => void;
+  removeKit: (id: string) => void;
+  upsertExtra: (extra: ExtraCatalogItem) => void;
+  removeExtra: (id: string) => void;
   removeMany: (key: CatalogListKey, ids: string[]) => void;
   duplicateMany: (key: CatalogListKey, ids: string[]) => void;
   replaceAll: (next: CadastrosData) => void;
@@ -73,7 +86,13 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
         if (res.status === 401 || res.status === 403) return;
         if (!res.ok) throw new Error("load");
         const json = (await res.json()) as { data: CadastrosData };
-        if (active) setData(json.data);
+        if (active) {
+          setData({
+            ...json.data,
+            kits: json.data.kits ?? [],
+            extras: json.data.extras ?? [],
+          });
+        }
       } catch {
         if (active) setError("Não foi possível carregar os cadastros.");
       } finally {
@@ -164,6 +183,19 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
           ...current,
           veiculos: current.veiculos.filter((item) => item.id !== id),
         })),
+      upsertKit: (kit) => mutate((current) => ({ ...current, kits: upsert(current.kits ?? [], kit) })),
+      removeKit: (id) =>
+        mutate((current) => ({
+          ...current,
+          kits: (current.kits ?? []).filter((item) => item.id !== id),
+        })),
+      upsertExtra: (extra) =>
+        mutate((current) => ({ ...current, extras: upsert(current.extras ?? [], extra) })),
+      removeExtra: (id) =>
+        mutate((current) => ({
+          ...current,
+          extras: (current.extras ?? []).filter((item) => item.id !== id),
+        })),
       removeMany: (key, ids) => {
         const drop = new Set(ids);
         mutate((current) => ({
@@ -172,10 +204,19 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
         }));
       },
       duplicateMany: (key, ids) =>
-        mutate((current) => ({
-          ...current,
-          [key]: duplicateManyIn(current[key] as NamedRecord[], ids),
-        })),
+        mutate((current) => {
+          const nextList = duplicateManyIn(current[key] as NamedRecord[], ids);
+          if (key === "kits") {
+            return {
+              ...current,
+              kits: (nextList as MaterialKit[]).map((kit) => ({
+                ...kit,
+                items: kit.items.map((item) => ({ ...item })),
+              })),
+            };
+          }
+          return { ...current, [key]: nextList };
+        }),
       replaceAll: (next) => persist(next),
     }),
     [data, ready, error, saving, mutate, persist],
