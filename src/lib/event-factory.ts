@@ -10,6 +10,7 @@ import type {
   Venue,
 } from "./types";
 import {
+  compactMenu,
   guestTotal,
   MENU_SECTIONS,
   normalizeDrinks,
@@ -30,16 +31,7 @@ export function menuItem(name = "", quantity = "", notes = ""): MenuItem {
 }
 
 export function emptyMenu(filled?: Partial<Record<keyof Menu, MenuItem[]>>): Menu {
-  const menu = {} as Menu;
-  for (const section of MENU_SECTIONS) {
-    const existing = filled?.[section.key] ?? [];
-    const rows = existing.length >= section.rows ? existing : [
-      ...existing,
-      ...Array.from({ length: section.rows - existing.length }, () => menuItem()),
-    ];
-    menu[section.key] = rows;
-  }
-  return menu;
+  return compactMenu(filled);
 }
 
 export function menuSectionForCategory(category: string): MenuSectionKey {
@@ -51,26 +43,22 @@ export function insertDishesIntoMenu(
   menu: Menu,
   dishes: { name: string; category: string }[],
 ): Menu {
-  const incoming = new Map<MenuSectionKey, string[]>();
+  const next = compactMenu();
+  const claimed = new Set<string>();
   for (const dish of dishes) {
     const name = dish.name.trim();
     if (!name) continue;
     const key = menuSectionForCategory(dish.category);
-    const list = incoming.get(key) ?? [];
-    list.push(name);
-    incoming.set(key, list);
-  }
-
-  const next = { ...menu };
-  for (const section of MENU_SECTIONS) {
-    const names = incoming.get(section.key);
-    if (!names?.length) continue;
-    const kept = menu[section.key].filter((item) => item.name.trim());
-    const existing = new Set(kept.map((item) => item.name.trim().toLowerCase()));
-    const added = names
-      .filter((name) => !existing.has(name.toLowerCase()))
-      .map((name) => menuItem(name));
-    next[section.key] = [...kept, ...added];
+    const existing = (menu[key] ?? []).find(
+      (item) =>
+        item.name.trim().toLowerCase() === name.toLowerCase() && !claimed.has(item.id),
+    );
+    if (existing) {
+      claimed.add(existing.id);
+      next[key] = [...next[key], existing];
+    } else {
+      next[key] = [...next[key], menuItem(name)];
+    }
   }
   return next;
 }
@@ -114,7 +102,7 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
   const uniforms = emptyUniforms();
   const guests = { ...emptyGuests(), ...partial.guests };
   const drinks = normalizeDrinks(partial.drinks);
-  const drinksEmpty = !drinks.agua.trim() && !drinks.refrigerante.trim() && !drinks.suco.trim();
+  const drinksAuto = partial.drinksAuto !== false;
   return {
     id: uid(),
     code: "",
@@ -140,7 +128,8 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     guests,
     staff: normalizeStaff(partial.staff),
     menu: emptyMenu(partial.menu),
-    drinks: drinksEmpty ? suggestedDrinkQuantities(guestTotal(guests)) : drinks,
+    drinksAuto,
+    drinks: drinksAuto ? suggestedDrinkQuantities(guestTotal(guests)) : drinks,
     uniforms: {
       dolma: { ...uniforms.dolma, ...partial.uniforms?.dolma },
       bata: { ...uniforms.bata, ...partial.uniforms?.bata },

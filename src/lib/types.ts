@@ -87,6 +87,14 @@ export type MenuSectionKey = (typeof MENU_SECTIONS)[number]["key"];
 
 export type Menu = Record<MenuSectionKey, MenuItem[]>;
 
+export function compactMenu(menu?: Partial<Menu> | null): Menu {
+  const next = {} as Menu;
+  for (const section of MENU_SECTIONS) {
+    next[section.key] = (menu?.[section.key] ?? []).filter((item) => item.name.trim());
+  }
+  return next;
+}
+
 export const STAFF_ROLES = [
   { key: "garcons", label: "Garçons" },
   { key: "garconetes", label: "Garçonetes" },
@@ -242,6 +250,11 @@ export interface EventRecord {
   /** Ajustes manuais da separação de materiais deste evento. */
   materialSeparation?: MaterialSeparationState;
   drinks: DrinkQuantities;
+  /**
+   * Quando verdadeiro (padrão), água/refrigerante/suco acompanham o nº de convidados.
+   * Passa a falso no primeiro ajuste manual dos campos.
+   */
+  drinksAuto?: boolean;
   uniforms: Uniforms;
   logistics: Logistics;
   dietaryNotes: string;
@@ -263,11 +276,16 @@ export function staffTotal(staff: StaffCounts) {
 }
 
 export function normalizeEventRecord(event: EventRecord): EventRecord {
+  const drinksAuto = event.drinksAuto !== false;
   return {
     ...event,
     type: normalizeEventType(event.type),
     staff: normalizeStaff(event.staff),
-    drinks: normalizeDrinks(event.drinks),
     clientId: event.clientId ?? "",
+    menu: compactMenu(event.menu),
+    drinksAuto,
+    drinks: drinksAuto
+      ? suggestedDrinkQuantities(guestTotal(event.guests))
+      : normalizeDrinks(event.drinks),
   };
 }

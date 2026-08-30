@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ClipboardList, Plus, Printer, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ClipboardList, Printer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { DishRecord } from "@/lib/cadastros/types";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
-import { insertDishesIntoMenu, menuItem } from "@/lib/event-factory";
+import { insertDishesIntoMenu } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import {
@@ -21,9 +21,9 @@ import {
   EVENT_TYPES,
   guestTotal,
   MENU_SECTIONS,
+  normalizeEventRecord,
   STAFF_ROLES,
   suggestedDrinkQuantities,
-  syncDrinksToGuests,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
   type EventRecord,
@@ -43,9 +43,10 @@ type Props = {
 export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
   const { data: cadastros } = useCadastros();
-  const [draft, setDraft] = useState(event);
+  const [draft, setDraft] = useState(() => normalizeEventRecord(event));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
+  const [catalogOpen, setCatalogOpen] = useState(true);
   const skip = useRef(true);
   const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
@@ -74,7 +75,10 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
     setDraft((current) => ({
       ...current,
       guests,
-      drinks: syncDrinksToGuests(current.drinks, guestTotal(current.guests), guestTotal(guests)),
+      drinks:
+        current.drinksAuto === false
+          ? current.drinks
+          : suggestedDrinkQuantities(guestTotal(guests)),
     }));
   };
 
@@ -86,6 +90,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       return;
     }
     update("menu", insertDishesIntoMenu(draft.menu, dishes));
+    setCatalogOpen(false);
     toast.success(
       `${dishes.length} prato${dishes.length === 1 ? "" : "s"} no cardápio do evento. Preencha o per capita e as observações.`,
     );
@@ -397,17 +402,41 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          eyebrow="Cadastros"
-          title="Pratos do cardápio (catálogo)"
-          hint="Selecione os pratos e clique em Gerar Per Capita para levá-los ao cardápio do evento."
-        />
-        <CatalogDishPicker
-          dishes={cadastros?.dishes ?? []}
-          categoryOrder={cadastros?.dishCategories ?? []}
-          selected={draft.selectedDishIds ?? []}
-          onChange={(ids) => update("selectedDishIds", ids)}
-        />
+        <button
+          type="button"
+          aria-expanded={catalogOpen}
+          onClick={() => setCatalogOpen((open) => !open)}
+          className="mb-5 flex w-full items-start justify-between gap-3 border-b border-forest/10 pb-3 text-left"
+        >
+          <div>
+            <p className="font-section text-[0.62rem] text-terracotta">Cadastros</p>
+            <h2 className="font-section mt-1 text-[0.82rem] text-forest">
+              Pratos do cardápio (catálogo)
+            </h2>
+            <p className="mt-1 text-xs font-light text-forest/50">
+              Selecione os pratos e clique em Gerar Per Capita. Clique para{" "}
+              {catalogOpen ? "recolher" : "expandir"} o catálogo.
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "mt-1 size-4 shrink-0 text-forest/40 transition-transform",
+              catalogOpen && "rotate-180",
+            )}
+          />
+        </button>
+        {catalogOpen ? (
+          <CatalogDishPicker
+            dishes={cadastros?.dishes ?? []}
+            categoryOrder={cadastros?.dishCategories ?? []}
+            selected={draft.selectedDishIds ?? []}
+            onChange={(ids) => update("selectedDishIds", ids)}
+          />
+        ) : (
+          <p className="text-sm font-light text-forest/50">
+            {(draft.selectedDishIds ?? []).length} prato(s) selecionado(s) no catálogo.
+          </p>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button className="h-9 bg-forest px-4 text-cream hover:bg-petrol" onClick={generatePerCapita}>
             Gerar Per Capita
@@ -419,29 +448,36 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <ClipboardList data-icon="inline-start" />
             Abrir separação de materiais
           </Link>
-          <span className="text-xs font-light text-forest/50">
-            {(draft.selectedDishIds ?? []).length} prato(s) selecionado(s)
-          </span>
         </div>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle
           title="Cardápio do evento"
-          hint="Use Gerar Per Capita para trazer os pratos do catálogo. Preencha o per capita e as observações."
+          hint="Só entram pratos gerados a partir do catálogo. Preencha o per capita e as observações."
         />
-        <div className="space-y-7">
-          {MENU_SECTIONS.map((section) => (
-            <MenuBlock
-              key={section.key}
-              title={section.label}
-              items={draft.menu[section.key]}
-              onChange={(items) =>
-                update("menu", { ...draft.menu, [section.key]: items })
-              }
-            />
-          ))}
-        </div>
+        {MENU_SECTIONS.every((section) => !draft.menu[section.key]?.some((item) => item.name.trim())) ? (
+          <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+            Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita.
+          </p>
+        ) : (
+          <div className="space-y-7">
+            {MENU_SECTIONS.map((section) => {
+              const items = draft.menu[section.key].filter((item) => item.name.trim());
+              if (items.length === 0) return null;
+              return (
+                <MenuBlock
+                  key={section.key}
+                  title={section.label}
+                  items={items}
+                  onChange={(nextItems) =>
+                    update("menu", { ...draft.menu, [section.key]: nextItems })
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
@@ -456,10 +492,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                 className={fieldControlClass}
                 value={draft.drinks[drink.key]}
                 onChange={(event) =>
-                  update("drinks", {
-                    ...draft.drinks,
-                    [drink.key]: event.target.value,
-                  })
+                  setDraft((current) => ({
+                    ...current,
+                    drinksAuto: false,
+                    drinks: {
+                      ...current.drinks,
+                      [drink.key]: event.target.value,
+                    },
+                  }))
                 }
               />
             </Field>
@@ -472,7 +512,13 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         <button
           type="button"
           className="mt-2 text-xs font-light text-forest/55 underline-offset-2 hover:text-forest hover:underline"
-          onClick={() => update("drinks", suggestedDrinkQuantities(guestTotal(draft.guests)))}
+          onClick={() =>
+            setDraft((current) => ({
+              ...current,
+              drinksAuto: true,
+              drinks: suggestedDrinkQuantities(guestTotal(current.guests)),
+            }))
+          }
         >
           Recalcular pelo nº de convidados
         </button>
@@ -767,14 +813,6 @@ function MenuBlock({
           </tbody>
         </table>
       </div>
-      <Button
-        variant="outline"
-        className="mt-3"
-        onClick={() => onChange([...items, menuItem()])}
-      >
-        <Plus data-icon="inline-start" />
-        Adicionar {title.toLowerCase()}
-      </Button>
     </div>
   );
 }
