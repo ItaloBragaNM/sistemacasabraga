@@ -161,4 +161,16 @@
   .print\:hidden {
     display: none !important;
   }
+
+  .kitchen-print-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+  }
+
+  .kitchen-print-sheet {
+    padding-top: 11.75rem;
+  }
 }

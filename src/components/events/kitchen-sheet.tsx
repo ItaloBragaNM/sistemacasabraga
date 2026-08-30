@@ -53,8 +53,8 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
         </div>
       </div>
 
-      <article className="mx-auto w-full max-w-[210mm] bg-[#FFFBFA] p-8 shadow-xl print:max-w-none print:shadow-none">
-        <header className="bg-petrol px-6 py-5 text-cream">
+      <article className="kitchen-print-sheet mx-auto w-full max-w-[210mm] bg-[#FFFBFA] shadow-xl print:max-w-none print:shadow-none">
+        <header className="kitchen-print-header bg-petrol px-6 py-5 text-cream">
           <p className="font-section text-[0.62rem] tracking-[0.22em] text-cream/70">
             Casa Braga · Ficha de Cozinha
           </p>
@@ -62,9 +62,17 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           <p className="mt-2 text-sm font-light text-cream/75">
             {event.code} · {EVENT_TYPE_LABELS[event.type]}
           </p>
+          <p className="mt-2 text-sm font-light text-cream/80">
+            {event.date
+              ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}`
+              : "Data a definir"}
+          </p>
+          <p className="mt-1 text-sm font-light text-cream/80">
+            {event.venue.address?.trim() || event.venue.name || "Local a definir"}
+          </p>
         </header>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="p-8 pt-5">
+        <div className="grid gap-3 sm:grid-cols-3">
           <Info
             label="Data"
             value={event.date ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : "—"}
@@ -190,6 +198,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           </p>
           <p>Casa Braga</p>
         </footer>
+        </div>
       </article>
     </div>
   );

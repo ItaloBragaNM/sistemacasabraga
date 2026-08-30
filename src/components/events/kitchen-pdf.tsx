@@ -25,26 +25,33 @@ const colors = {
 const styles = StyleSheet.create({
   page: {
     backgroundColor: colors.cream,
-    paddingTop: 28,
-    paddingBottom: 36,
+    paddingTop: 148,
+    paddingBottom: 40,
     paddingHorizontal: 32,
     fontFamily: "Helvetica",
     color: colors.forest,
   },
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     backgroundColor: colors.petrol,
     color: colors.cream,
-    padding: 16,
-    marginBottom: 14,
+    paddingTop: 16,
+    paddingBottom: 14,
+    paddingHorizontal: 32,
   },
   brand: {
-    fontSize: 10,
+    fontSize: 9,
     letterSpacing: 2,
     textTransform: "uppercase",
-    marginBottom: 6,
+    marginBottom: 5,
+    opacity: 0.85,
   },
-  title: { fontSize: 22, fontFamily: "Times-Bold" },
-  subtitle: { fontSize: 10, marginTop: 4, color: colors.cream },
+  title: { fontSize: 18, fontFamily: "Times-Bold" },
+  subtitle: { fontSize: 9, marginTop: 4, color: colors.cream },
+  headerMeta: { fontSize: 9, marginTop: 3, color: colors.cream, opacity: 0.9 },
   metaRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   meta: { flex: 1, borderWidth: 1, borderColor: colors.line, padding: 8 },
   metaLabel: {
@@ -110,6 +117,14 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
+function eventDateLabel(event: EventRecord) {
+  return event.date ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : "Data a definir";
+}
+
+function eventPlaceLabel(event: EventRecord) {
+  return event.venue.address?.trim() || event.venue.name || "Local a definir";
+}
+
 export function KitchenDocument({ event }: { event: EventRecord }) {
   const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
   const staff = STAFF_ROLES.filter((role) => event.staff[role.key] > 0);
@@ -117,12 +132,14 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
+        <View style={styles.header} fixed wrap={false}>
           <Text style={styles.brand}>Casa Braga · Ficha de Cozinha</Text>
-          <Text style={styles.title}>{event.title}</Text>
+          <Text style={styles.title}>{event.title || "Evento sem nome"}</Text>
           <Text style={styles.subtitle}>
             {event.code} · {EVENT_TYPE_LABELS[event.type]}
           </Text>
+          <Text style={styles.headerMeta}>{eventDateLabel(event)}</Text>
+          <Text style={styles.headerMeta}>{eventPlaceLabel(event)}</Text>
         </View>
 
         <View style={styles.metaRow}>
@@ -167,7 +184,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           const items = event.menu[section.key].filter((item) => item.name.trim());
           if (!items.length) return null;
           return (
-            <View key={section.key} wrap={false}>
+            <View key={section.key}>
               <Text style={styles.sectionTitle}>{section.label}</Text>
               {items.map((item) => (
                 <View key={item.id} style={styles.item}>
@@ -232,15 +249,16 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           </View>
         ) : null}
 
-        <View style={styles.footer}>
+        <View style={styles.footer} fixed wrap={false}>
           <Text>
             Material dia anterior: {flag(event.logistics.materialPreviousDay)} · Cavalete:{" "}
             {flag(event.logistics.trestleTable)}
           </Text>
-          <Text>
-            Impresso em{" "}
-            {new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-          </Text>
+          <Text
+            render={({ pageNumber, totalPages }) =>
+              `Pág. ${pageNumber} de ${totalPages} · ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
+            }
+          />
         </View>
       </Page>
     </Document>
