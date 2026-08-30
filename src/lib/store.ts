@@ -1,6 +1,6 @@
 import { createBlankEvent, nextEventCode } from "./event-factory";
 import { SEED_EVENTS } from "./seed";
-import type { EventRecord } from "./types";
+import { normalizeEventRecord, type EventRecord } from "./types";
 
 const STORAGE_KEY = "casa-braga.events.v2";
 const EVENT_NAME = "casa-braga-events";
@@ -17,7 +17,7 @@ function readStorage(): EventRecord[] {
     }
     const parsed = JSON.parse(raw) as EventRecord[];
     if (!Array.isArray(parsed)) throw new Error("invalid store");
-    return parsed;
+    return parsed.map((event) => normalizeEventRecord(event));
   } catch {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_EVENTS));
     return structuredClone(SEED_EVENTS);
@@ -62,7 +62,7 @@ export function persistEvents(events: EventRecord[]) {
 export function saveEvent(events: EventRecord[], next: EventRecord) {
   const index = events.findIndex((item) => item.id === next.id);
   const updated = [...events];
-  const stamped = { ...next, updatedAt: new Date().toISOString() };
+  const stamped = normalizeEventRecord({ ...next, updatedAt: new Date().toISOString() });
   if (index >= 0) updated[index] = stamped;
   else updated.unshift(stamped);
   persistEvents(updated);

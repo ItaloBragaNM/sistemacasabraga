@@ -19,6 +19,9 @@ import type {
   MaterialRecord,
   VeiculoRecord,
 } from "@/lib/cadastros/types";
+import { duplicateManyIn, type NamedRecord } from "@/lib/cadastros/clone";
+
+export type CatalogListKey = "materials" | "dishes" | "insumos" | "clientes" | "veiculos";
 
 interface CadastrosContextValue {
   data: CadastrosData | null;
@@ -40,6 +43,8 @@ interface CadastrosContextValue {
   removeCliente: (id: string) => void;
   upsertVeiculo: (veiculo: VeiculoRecord) => void;
   removeVeiculo: (id: string) => void;
+  removeMany: (key: CatalogListKey, ids: string[]) => void;
+  duplicateMany: (key: CatalogListKey, ids: string[]) => void;
   replaceAll: (next: CadastrosData) => void;
 }
 
@@ -157,6 +162,18 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
         mutate((current) => ({
           ...current,
           veiculos: current.veiculos.filter((item) => item.id !== id),
+        })),
+      removeMany: (key, ids) => {
+        const drop = new Set(ids);
+        mutate((current) => ({
+          ...current,
+          [key]: current[key].filter((item) => !drop.has(item.id)),
+        }));
+      },
+      duplicateMany: (key, ids) =>
+        mutate((current) => ({
+          ...current,
+          [key]: duplicateManyIn(current[key] as NamedRecord[], ids),
         })),
       replaceAll: (next) => persist(next),
     }),

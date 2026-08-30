@@ -1,9 +1,16 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import {
+  BulkBar,
+  confirmBulkDelete,
+  ItemCheckbox,
+  RecordRowActions,
+  useItemSelection,
+} from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
@@ -14,7 +21,7 @@ import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
 export function MateriaisAdmin() {
-  const { data, ready, upsertMaterial, removeMaterial } = useCadastros();
+  const { data, ready, upsertMaterial, removeMaterial, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<MaterialRecord | null>(null);
   const [open, setOpen] = useState(false);
@@ -47,6 +54,22 @@ export function MateriaisAdmin() {
     setOpen(true);
   };
 
+  const selection = useItemSelection(filtered.map((item) => item.id));
+
+  const duplicate = (ids: string[]) => {
+    if (ids.length === 0) return;
+    duplicateMany("materials", ids);
+    toast.success(ids.length === 1 ? "Material duplicado." : `${ids.length} materiais duplicados.`);
+    selection.clear();
+  };
+
+  const removeSelected = () => {
+    if (!confirmBulkDelete(selection.selectedVisible.length)) return;
+    removeMany("materials", selection.selectedVisible);
+    toast.success("Materiais excluídos.");
+    selection.clear();
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
@@ -70,7 +93,13 @@ export function MateriaisAdmin() {
       ) : (
         <>
           <SearchInput value={search} onChange={setSearch} placeholder="Buscar material…" />
-
+          <BulkBar
+            count={selection.selectedVisible.length}
+            noun="material"
+            onDuplicate={() => duplicate(selection.selectedVisible)}
+            onDelete={removeSelected}
+            onClear={selection.clear}
+          />
           {filtered.length === 0 ? (
             <EmptyBlock
               title="Nenhum material"
@@ -87,7 +116,15 @@ export function MateriaisAdmin() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-forest/10">
-                    <Th className="pl-5">Material</Th>
+                    <Th className="w-10 pl-5">
+                      <ItemCheckbox
+                        label="Selecionar todos"
+                        checked={selection.allVisibleSelected}
+                        indeterminate={selection.someVisibleSelected}
+                        onChange={selection.toggleAllVisible}
+                      />
+                    </Th>
+                    <Th>Material</Th>
                     <Th>Tipo</Th>
                     <Th>Proporção</Th>
                     <Th>Categoria</Th>
@@ -102,6 +139,13 @@ export function MateriaisAdmin() {
                       className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]"
                     >
                       <td className="py-3 pl-5">
+                        <ItemCheckbox
+                          label={`Selecionar ${material.name}`}
+                          checked={selection.selected.has(material.id)}
+                          onChange={() => selection.toggle(material.id)}
+                        />
+                      </td>
+                      <td className="py-3">
                         <p className="font-list font-medium text-forest">{material.name}</p>
                         {material.variants.length > 0 ? (
                           <p className="mt-0.5 text-xs font-light text-forest/45">
@@ -133,29 +177,17 @@ export function MateriaisAdmin() {
                       </td>
                       <td className="py-3 text-center text-forest/70">{material.unit || "—"}</td>
                       <td className="py-3 pr-5">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            aria-label="Editar"
-                            onClick={() => startEdit(material)}
-                            className="flex size-8 items-center justify-center rounded-lg text-forest/50 transition-colors hover:bg-forest/5 hover:text-forest"
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Excluir"
-                            onClick={() => {
-                              if (window.confirm(`Excluir "${material.name}"?`)) {
-                                removeMaterial(material.id);
-                                toast.success("Material excluído.");
-                              }
-                            }}
-                            className="flex size-8 items-center justify-center rounded-lg text-forest/40 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </div>
+                        <RecordRowActions
+                          label={material.name}
+                          onEdit={() => startEdit(material)}
+                          onDuplicate={() => duplicate([material.id])}
+                          onDelete={() => {
+                            if (window.confirm(`Excluir "${material.name}"?`)) {
+                              removeMaterial(material.id);
+                              toast.success("Material excluído.");
+                            }
+                          }}
+                        />
                       </td>
                     </tr>
                   ))}

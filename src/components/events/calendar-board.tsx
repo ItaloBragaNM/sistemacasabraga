@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { formatDayHeading, formatMonthTitle, monthGrid, weekDays } from "@/lib/dates";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
 import { EVENT_STATUSES, EVENT_TYPES, guestTotal, type EventRecord } from "@/lib/types";
@@ -46,6 +47,11 @@ function EventChip({ event }: { event: EventRecord }) {
 }
 
 export function CalendarBoard({ events }: { events: EventRecord[] }) {
+  const { data: cadastros } = useCadastros();
+  const clientNames = useMemo(
+    () => new Map((cadastros?.clientes ?? []).map((cliente) => [cliente.id, cliente.name])),
+    [cadastros],
+  );
   const [cursor, setCursor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("mes");
   const [query, setQuery] = useState("");
@@ -54,13 +60,14 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
 
   const filtered = useMemo(() => {
     return events.filter((event) => {
-      const hay = `${event.title} ${event.code} ${event.venue.name} ${event.venue.address}`.toLowerCase();
+      const clientName = event.clientId ? (clientNames.get(event.clientId) ?? "") : "";
+      const hay = `${event.title} ${event.code} ${event.venue.name} ${event.venue.address} ${clientName}`.toLowerCase();
       const matchesQuery = hay.includes(query.trim().toLowerCase());
       const matchesStatus = status === "todos" || event.status === status;
       const matchesType = type === "todos" || event.type === type;
       return matchesQuery && matchesStatus && matchesType;
     });
-  }, [events, query, status, type]);
+  }, [events, query, status, type, clientNames]);
 
   const days = view === "mes" ? monthGrid(cursor) : weekDays(cursor);
   const listDays = useMemo(() => {

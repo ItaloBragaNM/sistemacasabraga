@@ -1,9 +1,16 @@
 "use client";
 
-import { Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
+import { Plus, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import {
+  BulkBar,
+  confirmBulkDelete,
+  ItemCheckbox,
+  RecordRowActions,
+  useItemSelection,
+} from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
@@ -13,7 +20,7 @@ import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
 export function CardapioAdmin() {
-  const { data, ready, upsertDish, removeDish } = useCadastros();
+  const { data, ready, upsertDish, removeDish, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<DishRecord | null>(null);
   const [open, setOpen] = useState(false);
@@ -54,6 +61,23 @@ export function CardapioAdmin() {
     setOpen(true);
   };
 
+  const visibleIds = groups.flatMap((group) => group.dishes.map((dish) => dish.id));
+  const selection = useItemSelection(visibleIds);
+
+  const duplicate = (ids: string[]) => {
+    if (ids.length === 0) return;
+    duplicateMany("dishes", ids);
+    toast.success(ids.length === 1 ? "Prato duplicado." : `${ids.length} pratos duplicados.`);
+    selection.clear();
+  };
+
+  const removeSelected = () => {
+    if (!confirmBulkDelete(selection.selectedVisible.length)) return;
+    removeMany("dishes", selection.selectedVisible);
+    toast.success("Pratos excluídos.");
+    selection.clear();
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
@@ -76,7 +100,27 @@ export function CardapioAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar prato…" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <SearchInput value={search} onChange={setSearch} placeholder="Buscar prato…" />
+            {groups.length > 0 ? (
+              <label className="flex items-center gap-2 text-sm font-light text-forest/60">
+                <ItemCheckbox
+                  label="Selecionar todos"
+                  checked={selection.allVisibleSelected}
+                  indeterminate={selection.someVisibleSelected}
+                  onChange={selection.toggleAllVisible}
+                />
+                Selecionar todos
+              </label>
+            ) : null}
+          </div>
+          <BulkBar
+            count={selection.selectedVisible.length}
+            noun="prato"
+            onDuplicate={() => duplicate(selection.selectedVisible)}
+            onDelete={removeSelected}
+            onClear={selection.clear}
+          />
 
           {groups.length === 0 ? (
             <EmptyBlock
@@ -102,40 +146,35 @@ export function CardapioAdmin() {
                         key={dish.id}
                         className="flex items-start justify-between gap-3 rounded-xl border border-forest/10 bg-white p-4"
                       >
-                        <div className="min-w-0">
-                          <p className="font-list font-medium text-forest">{dish.name}</p>
-                          <p className="mt-1 text-xs font-light text-forest/55">
-                            {dish.materialIds.length > 0
-                              ? dish.materialIds
-                                  .map((id) => materialName.get(id))
-                                  .filter(Boolean)
-                                  .join(", ")
-                              : "Sem materiais vinculados"}
-                          </p>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <ItemCheckbox
+                            label={`Selecionar ${dish.name}`}
+                            checked={selection.selected.has(dish.id)}
+                            onChange={() => selection.toggle(dish.id)}
+                          />
+                          <div className="min-w-0">
+                            <p className="font-list font-medium text-forest">{dish.name}</p>
+                            <p className="mt-1 text-xs font-light text-forest/55">
+                              {dish.materialIds.length > 0
+                                ? dish.materialIds
+                                    .map((id) => materialName.get(id))
+                                    .filter(Boolean)
+                                    .join(", ")
+                                : "Sem materiais vinculados"}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex shrink-0 gap-1">
-                          <button
-                            type="button"
-                            aria-label="Editar"
-                            onClick={() => startEdit(dish)}
-                            className="flex size-8 items-center justify-center rounded-lg text-forest/50 transition-colors hover:bg-forest/5 hover:text-forest"
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Excluir"
-                            onClick={() => {
-                              if (window.confirm(`Excluir "${dish.name}"?`)) {
-                                removeDish(dish.id);
-                                toast.success("Prato excluído.");
-                              }
-                            }}
-                            className="flex size-8 items-center justify-center rounded-lg text-forest/40 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </div>
+                        <RecordRowActions
+                          label={dish.name}
+                          onEdit={() => startEdit(dish)}
+                          onDuplicate={() => duplicate([dish.id])}
+                          onDelete={() => {
+                            if (window.confirm(`Excluir "${dish.name}"?`)) {
+                              removeDish(dish.id);
+                              toast.success("Prato excluído.");
+                            }
+                          }}
+                        />
                       </div>
                     ))}
                   </div>

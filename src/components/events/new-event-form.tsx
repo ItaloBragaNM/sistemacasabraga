@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,12 +16,17 @@ import { cn } from "@/lib/utils";
 export function NewEventForm() {
   const router = useRouter();
   const { create } = useEvents();
+  const { data: cadastros } = useCadastros();
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<EventType>("casamento");
+  const [clientId, setClientId] = useState("");
   const [adults, setAdults] = useState(80);
   const [address, setAddress] = useState("Casa Braga — Fortaleza, CE");
   const [saving, setSaving] = useState(false);
+  const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR"),
+  );
 
   return (
     <form
@@ -44,6 +50,7 @@ export function NewEventForm() {
             title: title.trim(),
             date,
             type,
+            clientId,
             status: "rascunho",
             guests: { adults, children: 0, professionals: 0 },
             venue: { ...casaBragaVenue(), address },
@@ -95,6 +102,20 @@ export function NewEventForm() {
               {EVENT_TYPES.map((item) => (
                 <option key={item} value={item}>
                   {EVENT_TYPE_LABELS[item]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Cliente">
+            <select
+              className={fieldControlClass}
+              value={clientId}
+              onChange={(event) => setClientId(event.target.value)}
+            >
+              <option value="">Sem cliente vinculado</option>
+              {clientes.map((cliente) => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.name}
                 </option>
               ))}
             </select>

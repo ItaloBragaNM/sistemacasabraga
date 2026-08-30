@@ -1,5 +1,5 @@
-import { ConfiguracoesAdmin } from "@/components/cadastros/configuracoes-admin";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ConfiguracoesAdmin />;
+  redirect("/configuracoes/cadastros");
 }

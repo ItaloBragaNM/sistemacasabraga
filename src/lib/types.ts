@@ -9,20 +9,44 @@ export const EVENT_STATUSES = [
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
 export const EVENT_TYPES = [
-  "casamento",
   "aniversario",
+  "casamento",
   "corporativo",
-  "coffee",
-  "brunch",
-  "formatura",
-  "quinze_anos",
-  "cha",
-  "coquetel",
-  "tematico",
-  "outro",
+  "social",
+  "encomenda",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
+
+const LEGACY_EVENT_TYPES: Record<string, EventType> = {
+  aniversario: "aniversario",
+  casamento: "casamento",
+  corporativo: "corporativo",
+  social: "social",
+  encomenda: "encomenda",
+  coffee: "corporativo",
+  brunch: "social",
+  formatura: "social",
+  quinze_anos: "aniversario",
+  cha: "social",
+  coquetel: "social",
+  tematico: "social",
+  outro: "social",
+};
+
+export function normalizeEventType(value: unknown): EventType {
+  if (typeof value !== "string" || !value.trim()) return "social";
+  const key = value.trim();
+  const mapped = LEGACY_EVENT_TYPES[key] ?? LEGACY_EVENT_TYPES[key.toLowerCase()];
+  if (mapped) return mapped;
+  const lower = key.toLowerCase();
+  if (lower.startsWith("anivers")) return "aniversario";
+  if (lower.startsWith("casamento")) return "casamento";
+  if (lower.startsWith("corpor")) return "corporativo";
+  if (lower.startsWith("encomend")) return "encomenda";
+  if (lower.startsWith("social")) return "social";
+  return "social";
+}
 
 export type VenueKind = "casa_braga" | "externo";
 export type YesNo = "sim" | "nao" | "";
@@ -67,17 +91,30 @@ export const STAFF_ROLES = [
   { key: "garcons", label: "Garçons" },
   { key: "garconetes", label: "Garçonetes" },
   { key: "copeiros", label: "Copeiros(as)" },
-  { key: "chefes", label: "Chefes/Staff" },
-  { key: "segurancas", label: "Seguranças" },
-  { key: "portaria", label: "Portaria" },
-  { key: "monitor", label: "Monitor" },
-  { key: "gerente", label: "Gerente" },
-  { key: "apoioSalao", label: "Apoio Salão" },
+  { key: "chefes", label: "Chefes / staff" },
   { key: "outros", label: "Outros" },
 ] as const;
 
 export type StaffRoleKey = (typeof STAFF_ROLES)[number]["key"];
 export type StaffCounts = Record<StaffRoleKey, number>;
+
+export function emptyStaff(): StaffCounts {
+  return Object.fromEntries(STAFF_ROLES.map((role) => [role.key, 0])) as StaffCounts;
+}
+
+export function normalizeStaff(input: unknown): StaffCounts {
+  const next = emptyStaff();
+  if (!input || typeof input !== "object") return next;
+  const known = new Set<string>(STAFF_ROLES.map((role) => role.key));
+  let extra = 0;
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    const amount = typeof value === "number" && Number.isFinite(value) ? value : Number(value) || 0;
+    if (known.has(key)) next[key as StaffRoleKey] = amount;
+    else extra += amount;
+  }
+  if (extra) next.outros += extra;
+  return next;
+}
 
 export const DRINK_ITEMS = [
   { key: "agua", label: "Água" },
@@ -154,6 +191,8 @@ export interface EventRecord {
   guests: Guests;
   /** Quantidade de ilhas (estações) — usada no cálculo de materiais. */
   islands?: number;
+  /** Cliente da base de Cadastros → Clientes. */
+  clientId?: string;
   teamArrival: string;
   invitationTime: string;
   serviceTime: string;
@@ -182,4 +221,13 @@ export function servingTotal(guests: Guests) {
 
 export function staffTotal(staff: StaffCounts) {
   return STAFF_ROLES.reduce((sum, role) => sum + (staff[role.key] || 0), 0);
+}
+
+export function normalizeEventRecord(event: EventRecord): EventRecord {
+  return {
+    ...event,
+    type: normalizeEventType(event.type),
+    staff: normalizeStaff(event.staff),
+    clientId: event.clientId ?? "",
+  };
 }

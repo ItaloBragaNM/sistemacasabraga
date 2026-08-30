@@ -72,7 +72,7 @@ export interface MaterialRecord {
 export interface DishRecord {
   id: string;
   name: string;
-  /** Nome da categoria do catálogo (configurável em Cadastros → Configurações). */
+  /** Nome da categoria do catálogo (configurável em Configurações do Módulo de Cadastros). */
   category: string;
   /** Materiais (logística) vinculados ao prato. */
   materialIds: string[];

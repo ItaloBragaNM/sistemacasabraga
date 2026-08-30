@@ -47,8 +47,8 @@ export function ConfiguracoesAdmin() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-16">
       <CadastrosHeader
-        eyebrow="Cadastros · Configurações"
-        title="Configurações"
+        eyebrow="Configurações do Sistema"
+        title="Configurações do Módulo de Cadastros"
         description="Ajuste as categorias do cardápio, de materiais e de insumos, e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
       />
       {!ready ? (

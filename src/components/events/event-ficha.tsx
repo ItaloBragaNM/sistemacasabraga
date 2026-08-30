@@ -44,6 +44,11 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
   const skip = useRef(true);
+  const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR"),
+  );
+  const clientName = clientes.find((cliente) => cliente.id === draft.clientId)?.name;
+  const clientMissing = Boolean(draft.clientId) && !clientName;
 
   useEffect(() => {
     if (skip.current) {
@@ -89,6 +94,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </h1>
           <p className="mt-2 text-sm font-light text-forest/60">
             {draft.date ? `${formatWeekday(draft.date)}, ${formatLongDate(draft.date)}` : "Data a definir"}
+            {clientName ? ` · ${clientName}` : ""}
             {draft.invitationTime ? ` · convite ${draft.invitationTime}` : ""}
             {draft.serviceTime ? ` · serviço ${draft.serviceTime}` : ""}
             {` · ${guestTotal(draft.guests)} a servir`}
@@ -159,6 +165,23 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               {EVENT_TYPES.map((item) => (
                 <option key={item} value={item}>
                   {EVENT_TYPE_LABELS[item]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Cliente">
+            <select
+              className={fieldControlClass}
+              value={draft.clientId ?? ""}
+              onChange={(event) => update("clientId", event.target.value)}
+            >
+              <option value="">Sem cliente vinculado</option>
+              {clientMissing ? (
+                <option value={draft.clientId}>Cliente removido da base</option>
+              ) : null}
+              {clientes.map((cliente) => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.name}
                 </option>
               ))}
             </select>

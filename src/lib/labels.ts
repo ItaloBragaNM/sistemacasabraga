@@ -15,17 +15,11 @@ export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
 };
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  casamento: "Casamento",
   aniversario: "Aniversário",
+  casamento: "Casamento",
   corporativo: "Corporativo",
-  coffee: "Coffee break",
-  brunch: "Brunch",
-  formatura: "Formatura",
-  quinze_anos: "15 anos",
-  cha: "Chá",
-  coquetel: "Coquetel",
-  tematico: "Temático",
-  outro: "Outro",
+  social: "Social",
+  encomenda: "Encomenda",
 };
 
 export const VENUE_KIND_LABELS: Record<VenueKind, string> = {

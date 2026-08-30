@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { useEvents } from "@/components/events/events-provider";
 import { StatusBadge } from "@/components/events/status-badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import { cn } from "@/lib/utils";
 
 export function FichaIndex() {
   const { events, ready } = useEvents();
+  const { data: cadastros } = useCadastros();
+  const clientNames = new Map((cadastros?.clientes ?? []).map((cliente) => [cliente.id, cliente.name]));
   const sorted = [...events].sort((a, b) =>
     `${a.date}${a.invitationTime}`.localeCompare(`${b.date}${b.invitationTime}`),
   );
@@ -62,8 +65,11 @@ export function FichaIndex() {
               <div>
                 <p className="font-display text-2xl text-forest">{event.title}</p>
                 <p className="font-list mt-1 text-sm text-forest/55">
-                  {event.code} · {EVENT_TYPE_LABELS[event.type]} · {event.venue.name} ·{" "}
-                  {guestTotal(event.guests)} pax
+                  {event.code} · {EVENT_TYPE_LABELS[event.type]}
+                  {event.clientId && clientNames.get(event.clientId)
+                    ? ` · ${clientNames.get(event.clientId)}`
+                    : ""}{" "}
+                  · {event.venue.name} · {guestTotal(event.guests)} pax
                 </p>
               </div>
               <StatusBadge status={event.status} />

@@ -34,7 +34,17 @@ export const APP_MODULES: AppModule[] = [
       { href: "/cadastros/insumos", label: "Insumos" },
       { href: "/cadastros/clientes", label: "Clientes" },
       { href: "/cadastros/veiculos", label: "Veículos" },
-      { href: "/cadastros/configuracoes", label: "Configurações" },
+    ],
+  },
+  {
+    id: "configuracoes",
+    label: "Configurações do Sistema",
+    ready: true,
+    pages: [
+      {
+        href: "/configuracoes/cadastros",
+        label: "Configurações do Módulo de Cadastros",
+      },
     ],
   },
   {
@@ -98,11 +108,18 @@ export const APP_MODULES: AppModule[] = [
 ];
 
 export function findPageLabel(pathname: string) {
+  let best: { module: AppModule; page: AppModule["pages"][number]; length: number } | null = null;
   for (const group of APP_MODULES) {
-    const page = group.pages.find(
-      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
-    );
-    if (page) return { module: group, page };
+    for (const page of group.pages) {
+      const match = pathname === page.href || pathname.startsWith(`${page.href}/`);
+      if (match && (!best || page.href.length > best.length)) {
+        best = { module: group, page, length: page.href.length };
+      }
+    }
   }
+  if (best) return { module: best.module, page: best.page };
+  const segment = pathname.split("/").filter(Boolean)[0];
+  const group = APP_MODULES.find((item) => item.id === segment);
+  if (group) return { module: group, page: group.pages[0] };
   return null;
 }

@@ -1,9 +1,16 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import {
+  BulkBar,
+  confirmBulkDelete,
+  ItemCheckbox,
+  RecordRowActions,
+  useItemSelection,
+} from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
@@ -13,7 +20,7 @@ import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
 export function VeiculosAdmin() {
-  const { data, ready, upsertVeiculo, removeVeiculo } = useCadastros();
+  const { data, ready, upsertVeiculo, removeVeiculo, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<VeiculoRecord | null>(null);
   const [open, setOpen] = useState(false);
@@ -31,9 +38,25 @@ export function VeiculosAdmin() {
     );
   }, [data, search]);
 
+  const selection = useItemSelection(filtered.map((item) => item.id));
+
   const startNew = () => {
     setEditing(null);
     setOpen(true);
+  };
+
+  const duplicate = (ids: string[]) => {
+    if (ids.length === 0) return;
+    duplicateMany("veiculos", ids);
+    toast.success(ids.length === 1 ? "Veículo duplicado." : `${ids.length} veículos duplicados.`);
+    selection.clear();
+  };
+
+  const removeSelected = () => {
+    if (!confirmBulkDelete(selection.selectedVisible.length)) return;
+    removeMany("veiculos", selection.selectedVisible);
+    toast.success("Veículos excluídos.");
+    selection.clear();
   };
 
   return (
@@ -59,6 +82,13 @@ export function VeiculosAdmin() {
       ) : (
         <>
           <SearchInput value={search} onChange={setSearch} placeholder="Buscar por identificação, placa ou modelo…" />
+          <BulkBar
+            count={selection.selectedVisible.length}
+            noun="veículo"
+            onDuplicate={() => duplicate(selection.selectedVisible)}
+            onDelete={removeSelected}
+            onClear={selection.clear}
+          />
           {filtered.length === 0 ? (
             <EmptyBlock
               title="Nenhum veículo"
@@ -75,7 +105,15 @@ export function VeiculosAdmin() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-forest/10">
-                    <th className="field-label py-3 pl-5 font-normal">Veículo</th>
+                    <th className="w-10 py-3 pl-5">
+                      <ItemCheckbox
+                        label="Selecionar todos"
+                        checked={selection.allVisibleSelected}
+                        indeterminate={selection.someVisibleSelected}
+                        onChange={selection.toggleAllVisible}
+                      />
+                    </th>
+                    <th className="field-label py-3 font-normal">Veículo</th>
                     <th className="field-label py-3 font-normal">Placa</th>
                     <th className="field-label py-3 font-normal">Tipo</th>
                     <th className="field-label py-3 font-normal">Capacidade</th>
@@ -89,6 +127,13 @@ export function VeiculosAdmin() {
                       className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]"
                     >
                       <td className="py-3 pl-5">
+                        <ItemCheckbox
+                          label={`Selecionar ${item.name}`}
+                          checked={selection.selected.has(item.id)}
+                          onChange={() => selection.toggle(item.id)}
+                        />
+                      </td>
+                      <td className="py-3">
                         <p className="font-list font-medium text-forest">{item.name}</p>
                         {item.model || item.year ? (
                           <p className="text-xs font-light text-forest/45">
@@ -100,32 +145,20 @@ export function VeiculosAdmin() {
                       <td className="py-3 text-forest/70">{VEHICLE_KIND_LABELS[item.kind]}</td>
                       <td className="py-3 text-forest/70">{item.capacity || "—"}</td>
                       <td className="py-3 pr-5">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            aria-label="Editar"
-                            onClick={() => {
-                              setEditing(item);
-                              setOpen(true);
-                            }}
-                            className="flex size-8 items-center justify-center rounded-lg text-forest/50 transition-colors hover:bg-forest/5 hover:text-forest"
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Excluir"
-                            onClick={() => {
-                              if (window.confirm(`Excluir "${item.name}"?`)) {
-                                removeVeiculo(item.id);
-                                toast.success("Veículo excluído.");
-                              }
-                            }}
-                            className="flex size-8 items-center justify-center rounded-lg text-forest/40 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </div>
+                        <RecordRowActions
+                          label={item.name}
+                          onEdit={() => {
+                            setEditing(item);
+                            setOpen(true);
+                          }}
+                          onDuplicate={() => duplicate([item.id])}
+                          onDelete={() => {
+                            if (window.confirm(`Excluir "${item.name}"?`)) {
+                              removeVeiculo(item.id);
+                              toast.success("Veículo excluído.");
+                            }
+                          }}
+                        />
                       </td>
                     </tr>
                   ))}

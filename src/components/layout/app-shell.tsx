@@ -2,47 +2,75 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { CasaBragaMark } from "@/components/brand/mark";
-import { APP_MODULES } from "@/lib/modules";
+import { APP_MODULES, findPageLabel } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  return <ModuleNav key={pathname} pathname={pathname} onNavigate={onNavigate} />;
+}
+
+function ModuleNav({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  const activeModuleId = findPageLabel(pathname)?.module.id ?? null;
+  const [openId, setOpenId] = useState<string | null>(activeModuleId);
 
   return (
-    <nav className="space-y-6">
-      {APP_MODULES.map((group) => (
-        <div key={group.id}>
-          <p className="font-section mb-2 px-3 text-[0.62rem] text-cream/45">
-            {group.label}
-          </p>
-          <ul className="space-y-0.5">
-            {group.pages.map((page) => {
-              const active =
-                pathname === page.href ||
-                (page.href !== "/eventos" && pathname.startsWith(page.href));
-              return (
-                <li key={page.href}>
-                  <Link
-                    href={page.href}
-                    onClick={onNavigate}
-                    className={cn(
-                      "font-list block rounded-md px-3 py-2 text-[0.82rem] transition-colors",
-                      active
-                        ? "bg-terracotta text-cream"
-                        : "text-cream/75 hover:bg-white/10 hover:text-cream",
-                    )}
-                  >
-                    {page.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+    <nav className="space-y-1">
+      {APP_MODULES.map((group) => {
+        const open = openId === group.id;
+        return (
+          <div key={group.id}>
+            <button
+              type="button"
+              aria-expanded={open}
+              onClick={() => setOpenId((current) => (current === group.id ? null : group.id))}
+              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-white/8"
+            >
+              <span className="font-section text-[0.62rem] text-cream/45">{group.label}</span>
+              <ChevronDown
+                className={cn(
+                  "size-3.5 text-cream/35 transition-transform",
+                  open && "rotate-180",
+                )}
+              />
+            </button>
+            {open ? (
+              <ul className="mb-3 space-y-0.5">
+                {group.pages.map((page) => {
+                  const active =
+                    pathname === page.href ||
+                    (page.href !== "/eventos" && pathname.startsWith(`${page.href}/`));
+                  return (
+                    <li key={page.href}>
+                      <Link
+                        href={page.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "font-list block rounded-md px-3 py-2 text-[0.82rem] transition-colors",
+                          active
+                            ? "bg-terracotta text-cream"
+                            : "text-cream/75 hover:bg-white/10 hover:text-cream",
+                        )}
+                      >
+                        {page.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -58,13 +86,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="flex-1 px-3 py-6">
           <NavList />
-        </div>
-        <div className="border-t border-white/10 px-5 py-4">
-          <p className="font-list text-[0.7rem] leading-5 text-cream/45">
-            Primeira fase: módulo de Eventos.
-            <br />
-            Os demais módulos entram depois da validação.
-          </p>
         </div>
       </aside>
 

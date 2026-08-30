@@ -1,5 +1,5 @@
 import { createBlankEvent, menuItem } from "./event-factory";
-import type { EventRecord, MenuItem } from "./types";
+import { emptyStaff, type EventRecord, type MenuItem } from "./types";
 
 function stamp(id: string, code: string, createdAt: string): Pick<
   EventRecord,
@@ -36,12 +36,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 4,
       copeiros: 3,
       chefes: 2,
-      segurancas: 2,
-      portaria: 1,
-      monitor: 1,
-      gerente: 1,
-      apoioSalao: 2,
-      outros: 0,
+      outros: 7,
     },
     menu: {
       paraComecar: items(
@@ -117,7 +112,7 @@ export const SEED_EVENTS: EventRecord[] = [
   createBlankEvent({
     ...stamp("evt-coffee-bnb", "CB-2026-0084", "2026-07-28T11:00:00.000Z"),
     title: "Coffee break — Encontro de Gestores BNB",
-    type: "coffee",
+    type: "corporativo",
     status: "em_preparacao",
     date: "2026-08-25",
     materialDeliveryDate: "2026-08-25",
@@ -137,12 +132,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 1,
-      segurancas: 0,
-      portaria: 0,
-      monitor: 0,
-      gerente: 0,
-      apoioSalao: 1,
-      outros: 0,
+      outros: 1,
     },
     menu: {
       paraComecar: items(
@@ -213,12 +203,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 2,
       chefes: 1,
-      segurancas: 1,
-      portaria: 1,
-      monitor: 0,
-      gerente: 1,
-      apoioSalao: 1,
-      outros: 0,
+      outros: 4,
     },
     menu: {
       paraComecar: items(
@@ -268,7 +253,7 @@ export const SEED_EVENTS: EventRecord[] = [
   createBlankEvent({
     ...stamp("evt-brunch-domingo", "CB-2026-0085", "2026-08-04T09:00:00.000Z"),
     title: "Brunch de domingo na Casa",
-    type: "brunch",
+    type: "social",
     status: "confirmado",
     date: "2026-08-24",
     materialDeliveryDate: "2026-08-24",
@@ -284,12 +269,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 1,
-      segurancas: 0,
-      portaria: 0,
-      monitor: 0,
-      gerente: 0,
-      apoioSalao: 1,
-      outros: 0,
+      outros: 1,
     },
     menu: {
       paraComecar: items(["Cesta de pães e geleias", "45", ""], ["Iogurte com granola e manga", "45", ""]),
@@ -336,7 +316,7 @@ export const SEED_EVENTS: EventRecord[] = [
   createBlankEvent({
     ...stamp("evt-cha-clara", "CB-2026-0088", "2026-08-08T18:00:00.000Z"),
     title: "Chá de bebê — Clara Albuquerque",
-    type: "cha",
+    type: "social",
     status: "confirmado",
     date: "2026-08-30",
     materialDeliveryDate: "2026-08-30",
@@ -356,11 +336,6 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 0,
-      segurancas: 0,
-      portaria: 0,
-      monitor: 0,
-      gerente: 0,
-      apoioSalao: 0,
       outros: 0,
     },
     menu: {
@@ -412,7 +387,7 @@ export const SEED_EVENTS: EventRecord[] = [
   createBlankEvent({
     ...stamp("evt-coquetel-joia", "CB-2026-0086", "2026-08-01T10:00:00.000Z"),
     title: "Coquetel de lançamento — Joalheria Lumen",
-    type: "coquetel",
+    type: "social",
     status: "em_preparacao",
     date: "2026-08-28",
     materialDeliveryDate: "2026-08-28",
@@ -432,12 +407,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 3,
       copeiros: 1,
       chefes: 1,
-      segurancas: 0,
-      portaria: 0,
-      monitor: 0,
-      gerente: 1,
-      apoioSalao: 1,
-      outros: 0,
+      outros: 2,
     },
     menu: {
       paraComecar: items(
@@ -488,7 +458,7 @@ export const SEED_EVENTS: EventRecord[] = [
   createBlankEvent({
     ...stamp("evt-feijoada", "CB-2026-0081", "2026-07-18T13:00:00.000Z"),
     title: "Feijoada de sábado",
-    type: "tematico",
+    type: "social",
     status: "realizado",
     date: "2026-08-22",
     materialDeliveryDate: "2026-08-21",
@@ -504,12 +474,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 2,
       chefes: 1,
-      segurancas: 0,
-      portaria: 1,
-      monitor: 0,
-      gerente: 1,
-      apoioSalao: 1,
-      outros: 0,
+      outros: 3,
     },
     menu: {
       paraComecar: items(["Torresmo e aipim", "110", ""]),
@@ -556,7 +521,7 @@ export const SEED_EVENTS: EventRecord[] = [
   createBlankEvent({
     ...stamp("evt-formatura-ufc", "CB-2026-0091", "2026-08-10T15:00:00.000Z"),
     title: "Formatura Medicina UFC 2026.1",
-    type: "formatura",
+    type: "social",
     status: "rascunho",
     date: "2026-09-05",
     materialDeliveryDate: "",
@@ -567,7 +532,7 @@ export const SEED_EVENTS: EventRecord[] = [
     teamArrival: "",
     invitationTime: "20:00",
     serviceTime: "",
-    staff: emptyishStaff(),
+    staff: emptyStaff(),
     menu: {
       paraComecar: items(["Canapés — cardápio B (a confirmar)", "", ""]),
       amuseBouche: [],
@@ -618,12 +583,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 1,
       chefes: 2,
-      segurancas: 0,
-      portaria: 0,
-      monitor: 0,
-      gerente: 1,
-      apoioSalao: 1,
-      outros: 0,
+      outros: 2,
     },
     menu: {
       paraComecar: items(["Amuse-bouche de abacaxi e queijo de coalho", "70", ""]),
@@ -670,7 +630,7 @@ export const SEED_EVENTS: EventRecord[] = [
   createBlankEvent({
     ...stamp("evt-15-beatriz", "CB-2026-0092", "2026-08-14T17:40:00.000Z"),
     title: "15 anos — Beatriz Fontenele",
-    type: "quinze_anos",
+    type: "aniversario",
     status: "confirmado",
     date: "2026-09-19",
     materialDeliveryDate: "2026-09-18",
@@ -686,12 +646,7 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 3,
       copeiros: 2,
       chefes: 1,
-      segurancas: 1,
-      portaria: 1,
-      monitor: 2,
-      gerente: 1,
-      apoioSalao: 1,
-      outros: 0,
+      outros: 6,
     },
     menu: {
       paraComecar: items(["Salgados fritos e assados", "300", ""], ["Canapé doce de morango", "140", ""]),
@@ -742,20 +697,5 @@ function casaInternal(extra = ""): EventRecord["venue"] {
     kind: "casa_braga",
     name: "Casa Braga",
     address: extra ? `Casa Braga — Fortaleza, CE. ${extra}` : "Casa Braga — Fortaleza, CE",
-  };
-}
-
-function emptyishStaff(): EventRecord["staff"] {
-  return {
-    garcons: 0,
-    garconetes: 0,
-    copeiros: 0,
-    chefes: 0,
-    segurancas: 0,
-    portaria: 0,
-    monitor: 0,
-    gerente: 0,
-    apoioSalao: 0,
-    outros: 0,
   };
 }

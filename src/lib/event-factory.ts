@@ -6,11 +6,10 @@ import type {
   Logistics,
   Menu,
   MenuItem,
-  StaffCounts,
   Uniforms,
   Venue,
 } from "./types";
-import { MENU_SECTIONS } from "./types";
+import { MENU_SECTIONS, normalizeEventType, normalizeStaff } from "./types";
 
 export function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -34,21 +33,6 @@ export function emptyMenu(filled?: Partial<Record<keyof Menu, MenuItem[]>>): Men
     menu[section.key] = rows;
   }
   return menu;
-}
-
-export function emptyStaff(): StaffCounts {
-  return {
-    garcons: 0,
-    garconetes: 0,
-    copeiros: 0,
-    chefes: 0,
-    segurancas: 0,
-    portaria: 0,
-    monitor: 0,
-    gerente: 0,
-    apoioSalao: 0,
-    outros: 0,
-  };
 }
 
 export function emptyDrinks(): DrinkQuantities {
@@ -107,7 +91,6 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     id: uid(),
     code: "",
     title: "",
-    type: "outro",
     status: "rascunho",
     date: now.slice(0, 10),
     materialDeliveryDate: "",
@@ -123,9 +106,11 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     createdAt: now,
     updatedAt: now,
     ...partial,
+    type: normalizeEventType(partial.type ?? "social"),
+    clientId: partial.clientId ?? "",
     venue: { ...casaBragaVenue(), ...partial.venue },
     guests: { ...emptyGuests(), ...partial.guests },
-    staff: { ...emptyStaff(), ...partial.staff },
+    staff: normalizeStaff(partial.staff),
     menu: emptyMenu(partial.menu),
     drinks: { ...emptyDrinks(), ...partial.drinks },
     uniforms: {

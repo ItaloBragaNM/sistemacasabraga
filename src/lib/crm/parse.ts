@@ -171,7 +171,9 @@ function normalizeEventType(value: string | null): CrmEventType | null {
           ? "Corporativo"
           : lower.startsWith("social")
             ? "Social"
-            : null)
+            : lower.startsWith("encomend")
+              ? "Encomenda"
+              : null)
   );
 }
 
