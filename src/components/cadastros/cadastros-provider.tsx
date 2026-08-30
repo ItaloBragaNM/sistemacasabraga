@@ -70,6 +70,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const res = await fetch("/api/cadastros", { cache: "no-store" });
+        if (res.status === 401 || res.status === 403) return;
         if (!res.ok) throw new Error("load");
         const json = (await res.json()) as { data: CadastrosData };
         if (active) setData(json.data);

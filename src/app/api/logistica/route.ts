@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireModule } from "@/lib/auth/server";
 import { readLogistica, writeLogistica } from "@/lib/logistica/store.server";
 import type { LogisticaData } from "@/lib/logistica/types";
 
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const { error } = await requireModule("logistica");
+  if (error) return error;
   try {
     const data = await readLogistica();
     return NextResponse.json({ data });
@@ -16,6 +19,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const { error } = await requireModule("logistica");
+  if (error) return error;
   let payload: LogisticaData;
   try {
     payload = (await request.json()) as LogisticaData;

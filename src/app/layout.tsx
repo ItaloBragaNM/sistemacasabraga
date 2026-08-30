@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Geist_Mono, Montserrat, Oswald } from "next/font/google";
 import localFont from "next/font/local";
 import { Toaster } from "sonner";
-import { CadastrosProvider } from "@/components/cadastros/cadastros-provider";
-import { LogisticaProvider } from "@/components/logistica/logistica-provider";
 import { EventsProvider } from "@/components/events/events-provider";
 import "./globals.css";
 
@@ -57,17 +55,13 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-cream text-forest">
         <EventsProvider>
-          <CadastrosProvider>
-            <LogisticaProvider>
-              {children}
-              <Toaster
-                position="bottom-right"
-                toastOptions={{
-                  className: "font-[family-name:var(--font-sauce)]",
-                }}
-              />
-            </LogisticaProvider>
-          </CadastrosProvider>
+          {children}
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              className: "font-[family-name:var(--font-sauce)]",
+            }}
+          />
         </EventsProvider>
       </body>
     </html>

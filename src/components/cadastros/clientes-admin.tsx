@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { CLIENT_KIND_LABELS, type ClienteRecord, type ClientKind } from "@/lib/cadastros/types";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 export function ClientesAdmin() {
   const { data, ready, upsertCliente, removeCliente, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState("");
   const [editing, setEditing] = useState<ClienteRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -29,14 +30,17 @@ export function ClientesAdmin() {
     if (!data) return [];
     const term = search.trim().toLowerCase();
     const list = [...data.clientes].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    if (!term) return list;
-    return list.filter(
-      (item) =>
+    return list.filter((item) => {
+      if (kindFilter && item.kind !== kindFilter) return false;
+      if (!term) return true;
+      return (
         item.name.toLowerCase().includes(term) ||
         item.document.toLowerCase().includes(term) ||
-        item.email.toLowerCase().includes(term),
-    );
-  }, [data, search]);
+        item.email.toLowerCase().includes(term) ||
+        item.phone.toLowerCase().includes(term)
+      );
+    });
+  }, [data, search, kindFilter]);
 
   const selection = useItemSelection(filtered.map((item) => item.id));
 
@@ -81,7 +85,23 @@ export function ClientesAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nome, documento ou e-mail…" />
+          <CatalogFilters
+            search={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar por nome, documento ou e-mail…"
+            facets={[
+              {
+                id: "kind",
+                label: "Tipo",
+                value: kindFilter,
+                onChange: setKindFilter,
+                options: [
+                  { value: "pf", label: CLIENT_KIND_LABELS.pf },
+                  { value: "pj", label: CLIENT_KIND_LABELS.pj },
+                ],
+              },
+            ]}
+          />
           <BulkBar
             count={selection.selectedVisible.length}
             noun="cliente"

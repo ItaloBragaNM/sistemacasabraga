@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireModule } from "@/lib/auth/server";
 import { parseCrmWorkbook } from "@/lib/crm/parse";
 import { readSnapshot, writeSnapshot } from "@/lib/crm/store.server";
 import type { CrmSnapshot } from "@/lib/crm/types";
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const { error } = await requireModule("comercial");
+  if (error) return error;
   try {
     const snapshot = await readSnapshot();
     return NextResponse.json({ snapshot });
@@ -20,6 +23,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { error } = await requireModule("comercial");
+  if (error) return error;
   let form: FormData;
   try {
     form = await request.formData();

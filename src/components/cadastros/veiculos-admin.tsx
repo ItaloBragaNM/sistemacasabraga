@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { VEHICLE_KIND_LABELS, type VehicleKind, type VeiculoRecord } from "@/lib/cadastros/types";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 export function VeiculosAdmin() {
   const { data, ready, upsertVeiculo, removeVeiculo, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState("");
   const [editing, setEditing] = useState<VeiculoRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -29,14 +30,16 @@ export function VeiculosAdmin() {
     if (!data) return [];
     const term = search.trim().toLowerCase();
     const list = [...data.veiculos].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    if (!term) return list;
-    return list.filter(
-      (item) =>
+    return list.filter((item) => {
+      if (kindFilter && item.kind !== kindFilter) return false;
+      if (!term) return true;
+      return (
         item.name.toLowerCase().includes(term) ||
         item.plate.toLowerCase().includes(term) ||
-        item.model.toLowerCase().includes(term),
-    );
-  }, [data, search]);
+        item.model.toLowerCase().includes(term)
+      );
+    });
+  }, [data, search, kindFilter]);
 
   const selection = useItemSelection(filtered.map((item) => item.id));
 
@@ -81,7 +84,23 @@ export function VeiculosAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar por identificação, placa ou modelo…" />
+          <CatalogFilters
+            search={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar por identificação, placa ou modelo…"
+            facets={[
+              {
+                id: "kind",
+                label: "Tipo",
+                value: kindFilter,
+                onChange: setKindFilter,
+                options: Object.entries(VEHICLE_KIND_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+              },
+            ]}
+          />
           <BulkBar
             count={selection.selectedVisible.length}
             noun="veículo"

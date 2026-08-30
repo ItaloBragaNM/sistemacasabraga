@@ -50,6 +50,67 @@ export function SearchInput({
   );
 }
 
+export type FilterFacet = {
+  id: string;
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+};
+
+export function CatalogFilters({
+  search,
+  onSearch,
+  searchPlaceholder = "Buscar…",
+  facets = [],
+}: {
+  search: string;
+  onSearch: (value: string) => void;
+  searchPlaceholder?: string;
+  facets?: FilterFacet[];
+}) {
+  const active = Boolean(search.trim()) || facets.some((facet) => facet.value);
+
+  const clear = () => {
+    onSearch("");
+    for (const facet of facets) facet.onChange("");
+  };
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="min-w-[200px] flex-1">
+        <SearchInput value={search} onChange={onSearch} placeholder={searchPlaceholder} />
+      </div>
+      {facets.map((facet) => (
+        <label key={facet.id} className="block min-w-[160px] space-y-1.5">
+          <span className="field-label">{facet.label}</span>
+          <select
+            className={fieldControlClass}
+            value={facet.value}
+            onChange={(event) => facet.onChange(event.target.value)}
+          >
+            <option value="">Todos</option>
+            {facet.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+      {active ? (
+        <button
+          type="button"
+          onClick={clear}
+          className="h-10 shrink-0 text-sm font-light text-forest/55 hover:text-forest"
+        >
+          Limpar filtros
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function Modal({
   open,
   onClose,

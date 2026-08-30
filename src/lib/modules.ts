@@ -1,3 +1,6 @@
+import { canAccessModule } from "@/lib/auth/roles";
+import type { UserRole } from "@/lib/auth/types";
+
 export type AppModule = {
   id: string;
   label: string;
@@ -22,29 +25,6 @@ export const APP_MODULES: AppModule[] = [
     pages: [
       { href: "/comercial/dashboard", label: "Dashboard Comercial" },
       { href: "/comercial/orcamentos", label: "Orçamentos" },
-    ],
-  },
-  {
-    id: "cadastros",
-    label: "Cadastros",
-    ready: true,
-    pages: [
-      { href: "/cadastros/cardapio", label: "Cardápio" },
-      { href: "/cadastros/materiais", label: "Materiais" },
-      { href: "/cadastros/insumos", label: "Insumos" },
-      { href: "/cadastros/clientes", label: "Clientes" },
-      { href: "/cadastros/veiculos", label: "Veículos" },
-    ],
-  },
-  {
-    id: "configuracoes",
-    label: "Configurações do Sistema",
-    ready: true,
-    pages: [
-      {
-        href: "/configuracoes/cadastros",
-        label: "Configurações do Módulo de Cadastros",
-      },
     ],
   },
   {
@@ -74,15 +54,12 @@ export const APP_MODULES: AppModule[] = [
     ],
   },
   {
-    id: "financeiro",
-    label: "Financeiro",
+    id: "veiculos",
+    label: "Veículos",
     ready: false,
     pages: [
-      { href: "/financeiro/contas-a-receber", label: "Contas a Receber" },
-      {
-        href: "/financeiro/pagamento-mao-de-obra",
-        label: "Pagamento de Mão de Obra Externa",
-      },
+      { href: "/veiculos/uso", label: "Controle de Uso dos Veículos" },
+      { href: "/veiculos/multas", label: "Controle de Multas" },
     ],
   },
   {
@@ -97,12 +74,42 @@ export const APP_MODULES: AppModule[] = [
     ],
   },
   {
-    id: "veiculos",
-    label: "Veículos",
+    id: "financeiro",
+    label: "Financeiro",
     ready: false,
     pages: [
-      { href: "/veiculos/uso", label: "Controle de Uso dos Veículos" },
-      { href: "/veiculos/multas", label: "Controle de Multas" },
+      { href: "/financeiro/contas-a-receber", label: "Contas a Receber" },
+      {
+        href: "/financeiro/pagamento-mao-de-obra",
+        label: "Pagamento de Mão de Obra Externa",
+      },
+    ],
+  },
+  {
+    id: "cadastros",
+    label: "Cadastros",
+    ready: true,
+    pages: [
+      { href: "/cadastros/cardapio", label: "Cardápio" },
+      { href: "/cadastros/materiais", label: "Materiais" },
+      { href: "/cadastros/insumos", label: "Insumos" },
+      { href: "/cadastros/clientes", label: "Clientes" },
+      { href: "/cadastros/veiculos", label: "Veículos" },
+    ],
+  },
+  {
+    id: "configuracoes",
+    label: "Configurações do Sistema",
+    ready: true,
+    pages: [
+      {
+        href: "/configuracoes/cadastros",
+        label: "Configurações do Módulo de Cadastros",
+      },
+      {
+        href: "/configuracoes/usuarios",
+        label: "Cadastro de Usuários",
+      },
     ],
   },
 ];
@@ -122,4 +129,8 @@ export function findPageLabel(pathname: string) {
   const group = APP_MODULES.find((item) => item.id === segment);
   if (group) return { module: group, page: group.pages[0] };
   return null;
+}
+
+export function modulesVisibleTo(role: UserRole) {
+  return APP_MODULES.filter((group) => canAccessModule(role, group.id));
 }

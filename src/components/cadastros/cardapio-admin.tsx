@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { DishRecord } from "@/lib/cadastros/types";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 export function CardapioAdmin() {
   const { data, ready, upsertDish, removeDish, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [editing, setEditing] = useState<DishRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -33,9 +34,11 @@ export function CardapioAdmin() {
   const groups = useMemo(() => {
     if (!data) return [];
     const term = search.trim().toLowerCase();
-    const dishes = term
-      ? data.dishes.filter((dish) => dish.name.toLowerCase().includes(term))
-      : data.dishes;
+    const dishes = data.dishes.filter((dish) => {
+      if (categoryFilter && dish.category !== categoryFilter) return false;
+      if (term && !dish.name.toLowerCase().includes(term)) return false;
+      return true;
+    });
     const order = data.dishCategories;
     const extras = [
       ...new Set(
@@ -50,7 +53,7 @@ export function CardapioAdmin() {
           .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
       }))
       .filter((group) => group.dishes.length > 0);
-  }, [data, search]);
+  }, [data, search, categoryFilter]);
 
   const startNew = () => {
     setEditing(null);
@@ -100,8 +103,26 @@ export function CardapioAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <SearchInput value={search} onChange={setSearch} placeholder="Buscar prato…" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <CatalogFilters
+                search={search}
+                onSearch={setSearch}
+                searchPlaceholder="Buscar prato…"
+                facets={[
+                  {
+                    id: "category",
+                    label: "Categoria",
+                    value: categoryFilter,
+                    onChange: setCategoryFilter,
+                    options: data.dishCategories.map((category) => ({
+                      value: category,
+                      label: category,
+                    })),
+                  },
+                ]}
+              />
+            </div>
             {groups.length > 0 ? (
               <label className="flex items-center gap-2 text-sm font-light text-forest/60">
                 <ItemCheckbox

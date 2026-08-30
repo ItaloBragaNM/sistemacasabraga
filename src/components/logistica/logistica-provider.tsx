@@ -43,6 +43,7 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const res = await fetch("/api/logistica", { cache: "no-store" });
+        if (res.status === 401 || res.status === 403) return;
         if (!res.ok) throw new Error("load");
         const json = (await res.json()) as { data: LogisticaData };
         if (active) setData(json.data);

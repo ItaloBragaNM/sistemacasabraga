@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { basesMap, describeProportion, materialQuantity } from "@/lib/cadastros/calc";
@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 export function MateriaisAdmin() {
   const { data, ready, upsertMaterial, removeMaterial, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [kindFilter, setKindFilter] = useState("");
   const [editing, setEditing] = useState<MaterialRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -35,15 +37,18 @@ export function MateriaisAdmin() {
       (a, b) =>
         a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
     );
-    if (!term) return list;
-    return list.filter(
-      (item) =>
+    return list.filter((item) => {
+      if (categoryFilter && item.category !== categoryFilter) return false;
+      if (kindFilter && item.kind !== kindFilter) return false;
+      if (!term) return true;
+      return (
         item.name.toLowerCase().includes(term) ||
         item.category.toLowerCase().includes(term) ||
         item.variants.some((variant) => variant.toLowerCase().includes(term)) ||
-        MATERIAL_KIND_LABELS[item.kind].toLowerCase().includes(term),
-    );
-  }, [data, search]);
+        MATERIAL_KIND_LABELS[item.kind].toLowerCase().includes(term)
+      );
+    });
+  }, [data, search, categoryFilter, kindFilter]);
 
   const startNew = () => {
     setEditing(null);
@@ -92,7 +97,33 @@ export function MateriaisAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar material…" />
+          <CatalogFilters
+            search={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar material…"
+            facets={[
+              {
+                id: "category",
+                label: "Categoria",
+                value: categoryFilter,
+                onChange: setCategoryFilter,
+                options: data.materialCategories.map((category) => ({
+                  value: category,
+                  label: category,
+                })),
+              },
+              {
+                id: "kind",
+                label: "Tipo",
+                value: kindFilter,
+                onChange: setKindFilter,
+                options: MATERIAL_KINDS.map((kind) => ({
+                  value: kind,
+                  label: MATERIAL_KIND_LABELS[kind],
+                })),
+              },
+            ]}
+          />
           <BulkBar
             count={selection.selectedVisible.length}
             noun="material"

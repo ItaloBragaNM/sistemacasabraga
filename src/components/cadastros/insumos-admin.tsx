@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { InsumoRecord } from "@/lib/cadastros/types";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 export function InsumosAdmin() {
   const { data, ready, upsertInsumo, removeInsumo, removeMany, duplicateMany } = useCadastros();
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [editing, setEditing] = useState<InsumoRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -32,12 +33,14 @@ export function InsumosAdmin() {
       (a, b) =>
         a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
     );
-    if (!term) return list;
-    return list.filter(
-      (item) =>
-        item.name.toLowerCase().includes(term) || item.category.toLowerCase().includes(term),
-    );
-  }, [data, search]);
+    return list.filter((item) => {
+      if (categoryFilter && item.category !== categoryFilter) return false;
+      if (!term) return true;
+      return (
+        item.name.toLowerCase().includes(term) || item.category.toLowerCase().includes(term)
+      );
+    });
+  }, [data, search, categoryFilter]);
 
   const selection = useItemSelection(filtered.map((item) => item.id));
 
@@ -82,7 +85,23 @@ export function InsumosAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar insumo…" />
+          <CatalogFilters
+            search={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar insumo…"
+            facets={[
+              {
+                id: "category",
+                label: "Categoria",
+                value: categoryFilter,
+                onChange: setCategoryFilter,
+                options: data.insumoCategories.map((category) => ({
+                  value: category,
+                  label: category,
+                })),
+              },
+            ]}
+          />
           <BulkBar
             count={selection.selectedVisible.length}
             noun="insumo"

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireModule } from "@/lib/auth/server";
 import { readCadastros, writeCadastros } from "@/lib/cadastros/store.server";
 import type { CadastrosData } from "@/lib/cadastros/types";
 
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const { error } = await requireModule("cadastros");
+  if (error) return error;
   try {
     const data = await readCadastros();
     return NextResponse.json({ data });
@@ -19,6 +22,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const { error } = await requireModule("cadastros");
+  if (error) return error;
   let payload: CadastrosData;
   try {
     payload = (await request.json()) as CadastrosData;
