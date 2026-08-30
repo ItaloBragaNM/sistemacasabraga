@@ -1,15 +1,22 @@
 import type {
-  DrinkQuantities,
   EventRecord,
   EventType,
   Guests,
   Logistics,
   Menu,
   MenuItem,
+  MenuSectionKey,
   Uniforms,
   Venue,
 } from "./types";
-import { MENU_SECTIONS, normalizeEventType, normalizeStaff } from "./types";
+import {
+  guestTotal,
+  MENU_SECTIONS,
+  normalizeDrinks,
+  normalizeEventType,
+  normalizeStaff,
+  suggestedDrinkQuantities,
+} from "./types";
 
 export function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -35,19 +42,37 @@ export function emptyMenu(filled?: Partial<Record<keyof Menu, MenuItem[]>>): Men
   return menu;
 }
 
-export function emptyDrinks(): DrinkQuantities {
-  return {
-    agua: "",
-    refrigerante: "",
-    suco: "",
-    espumante: "",
-    vinho: "",
-    cerveja: "",
-    whisky: "",
-    vodka: "",
-    cafe: "",
-    licor: "",
-  };
+export function menuSectionForCategory(category: string): MenuSectionKey {
+  const lower = category.trim().toLowerCase();
+  return MENU_SECTIONS.find((section) => section.label.toLowerCase() === lower)?.key ?? "menu";
+}
+
+export function insertDishesIntoMenu(
+  menu: Menu,
+  dishes: { name: string; category: string }[],
+): Menu {
+  const incoming = new Map<MenuSectionKey, string[]>();
+  for (const dish of dishes) {
+    const name = dish.name.trim();
+    if (!name) continue;
+    const key = menuSectionForCategory(dish.category);
+    const list = incoming.get(key) ?? [];
+    list.push(name);
+    incoming.set(key, list);
+  }
+
+  const next = { ...menu };
+  for (const section of MENU_SECTIONS) {
+    const names = incoming.get(section.key);
+    if (!names?.length) continue;
+    const kept = menu[section.key].filter((item) => item.name.trim());
+    const existing = new Set(kept.map((item) => item.name.trim().toLowerCase()));
+    const added = names
+      .filter((name) => !existing.has(name.toLowerCase()))
+      .map((name) => menuItem(name));
+    next[section.key] = [...kept, ...added];
+  }
+  return next;
 }
 
 export function emptyUniforms(): Uniforms {
@@ -87,6 +112,9 @@ export function emptyGuests(): Guests {
 export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecord {
   const now = new Date().toISOString();
   const uniforms = emptyUniforms();
+  const guests = { ...emptyGuests(), ...partial.guests };
+  const drinks = normalizeDrinks(partial.drinks);
+  const drinksEmpty = !drinks.agua.trim() && !drinks.refrigerante.trim() && !drinks.suco.trim();
   return {
     id: uid(),
     code: "",
@@ -109,10 +137,10 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     type: normalizeEventType(partial.type ?? "social"),
     clientId: partial.clientId ?? "",
     venue: { ...casaBragaVenue(), ...partial.venue },
-    guests: { ...emptyGuests(), ...partial.guests },
+    guests,
     staff: normalizeStaff(partial.staff),
     menu: emptyMenu(partial.menu),
-    drinks: { ...emptyDrinks(), ...partial.drinks },
+    drinks: drinksEmpty ? suggestedDrinkQuantities(guestTotal(guests)) : drinks,
     uniforms: {
       dolma: { ...uniforms.dolma, ...partial.uniforms?.dolma },
       bata: { ...uniforms.bata, ...partial.uniforms?.bata },

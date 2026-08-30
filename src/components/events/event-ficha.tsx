@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { DishRecord } from "@/lib/cadastros/types";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
-import { menuItem } from "@/lib/event-factory";
+import { insertDishesIntoMenu, menuItem } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import {
@@ -22,9 +22,12 @@ import {
   guestTotal,
   MENU_SECTIONS,
   STAFF_ROLES,
+  suggestedDrinkQuantities,
+  syncDrinksToGuests,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
   type EventRecord,
+  type Guests,
   type MenuSectionKey,
   type VenueKind,
   type YesNo,
@@ -65,6 +68,27 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
   const update = <K extends keyof EventRecord>(key: K, value: EventRecord[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const setGuests = (guests: Guests) => {
+    setDraft((current) => ({
+      ...current,
+      guests,
+      drinks: syncDrinksToGuests(current.drinks, guestTotal(current.guests), guestTotal(guests)),
+    }));
+  };
+
+  const generatePerCapita = () => {
+    const selected = new Set(draft.selectedDishIds ?? []);
+    const dishes = (cadastros?.dishes ?? []).filter((dish) => selected.has(dish.id));
+    if (dishes.length === 0) {
+      toast.error("Selecione ao menos um prato do catálogo.");
+      return;
+    }
+    update("menu", insertDishesIntoMenu(draft.menu, dishes));
+    toast.success(
+      `${dishes.length} prato${dishes.length === 1 ? "" : "s"} no cardápio do evento. Preencha o per capita e as observações.`,
+    );
   };
 
   return (
@@ -285,7 +309,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               className={fieldControlClass}
               value={draft.guests.adults}
               onChange={(event) =>
-                update("guests", { ...draft.guests, adults: Number(event.target.value) })
+                setGuests({ ...draft.guests, adults: Number(event.target.value) })
               }
             />
           </Field>
@@ -296,7 +320,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               className={fieldControlClass}
               value={draft.guests.children}
               onChange={(event) =>
-                update("guests", { ...draft.guests, children: Number(event.target.value) })
+                setGuests({ ...draft.guests, children: Number(event.target.value) })
               }
             />
           </Field>
@@ -307,7 +331,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               className={fieldControlClass}
               value={draft.guests.professionals}
               onChange={(event) =>
-                update("guests", {
+                setGuests({
                   ...draft.guests,
                   professionals: Number(event.target.value),
                 })
@@ -376,7 +400,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         <SectionTitle
           eyebrow="Cadastros"
           title="Pratos do cardápio (catálogo)"
-          hint="Selecione os pratos do catálogo. Eles definem a lista de materiais da separação."
+          hint="Selecione os pratos e clique em Gerar Per Capita para levá-los ao cardápio do evento."
         />
         <CatalogDishPicker
           dishes={cadastros?.dishes ?? []}
@@ -385,6 +409,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           onChange={(ids) => update("selectedDishIds", ids)}
         />
         <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button className="h-9 bg-forest px-4 text-cream hover:bg-petrol" onClick={generatePerCapita}>
+            Gerar Per Capita
+          </Button>
           <Link
             href={`/logistica/separacao-materiais?evento=${draft.id}`}
             className={cn(buttonVariants({ variant: "outline" }), "h-9 px-4")}
@@ -401,7 +428,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle
           title="Cardápio do evento"
-          hint="Categoria, quantidade, prato/variação e observação — a base da lista de materiais."
+          hint="Use Gerar Per Capita para trazer os pratos do catálogo. Preencha o per capita e as observações."
         />
         <div className="space-y-7">
           {MENU_SECTIONS.map((section) => (
@@ -418,10 +445,13 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Bebidas" hint="Quantidade e unidade de cada item da casa." />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <SectionTitle
+          title="Bebidas"
+          hint="Logística: água, refrigerante e suco. O cálculo usa o total a servir e pode ser ajustado."
+        />
+        <div className="grid gap-3 sm:grid-cols-3">
           {DRINK_ITEMS.map((drink) => (
-            <Field key={drink.key} label={`${drink.label} · qtd/unid`}>
+            <Field key={drink.key} label={drink.label}>
               <input
                 className={fieldControlClass}
                 value={draft.drinks[drink.key]}
@@ -429,12 +459,23 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                   update("drinks", {
                     ...draft.drinks,
                     [drink.key]: event.target.value,
-                  } as EventRecord["drinks"])
+                  })
                 }
               />
             </Field>
           ))}
         </div>
+        <p className="mt-3 text-xs font-light text-forest/50">
+          Água: 1 garrafão de 20 L a cada 50 convidados · Refrigerante: 450 ml por pessoa, em
+          garrafas de 2 L · Suco: 200 ml por pessoa, em litros.
+        </p>
+        <button
+          type="button"
+          className="mt-2 text-xs font-light text-forest/55 underline-offset-2 hover:text-forest hover:underline"
+          onClick={() => update("drinks", suggestedDrinkQuantities(guestTotal(draft.guests)))}
+        >
+          Recalcular pelo nº de convidados
+        </button>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
@@ -669,7 +710,7 @@ function MenuBlock({
         <table className="w-full min-w-[680px] text-left">
           <thead>
             <tr>
-              <th className="field-label w-28 px-2 pb-2 font-normal">Qtd</th>
+              <th className="field-label w-36 px-2 pb-2 font-normal">Per capita</th>
               <th className="field-label px-2 pb-2 font-normal">Prato / variação</th>
               <th className="field-label px-2 pb-2 font-normal">Obs / variação</th>
               <th />

@@ -120,17 +120,56 @@ export const DRINK_ITEMS = [
   { key: "agua", label: "Água" },
   { key: "refrigerante", label: "Refrigerante" },
   { key: "suco", label: "Suco" },
-  { key: "espumante", label: "Espumante" },
-  { key: "vinho", label: "Vinho" },
-  { key: "cerveja", label: "Cerveja" },
-  { key: "whisky", label: "Whisky" },
-  { key: "vodka", label: "Vodka" },
-  { key: "cafe", label: "Café" },
-  { key: "licor", label: "Licor" },
 ] as const;
 
 export type DrinkKey = (typeof DRINK_ITEMS)[number]["key"];
 export type DrinkQuantities = Record<DrinkKey, string>;
+
+export function emptyDrinks(): DrinkQuantities {
+  return { agua: "", refrigerante: "", suco: "" };
+}
+
+export function normalizeDrinks(input: unknown): DrinkQuantities {
+  const next = emptyDrinks();
+  if (!input || typeof input !== "object") return next;
+  const record = input as Record<string, unknown>;
+  for (const item of DRINK_ITEMS) {
+    const value = record[item.key];
+    next[item.key] = typeof value === "string" ? value : value == null ? "" : String(value);
+  }
+  return next;
+}
+
+function countLabel(n: number, singular: string, plural: string) {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** Bebidas da logística a partir do total de convidados (a servir). */
+export function suggestedDrinkQuantities(guests: number): DrinkQuantities {
+  const n = Math.max(0, Math.floor(Number(guests)) || 0);
+  if (n <= 0) return emptyDrinks();
+  return {
+    agua: `${countLabel(Math.ceil(n / 50), "garrafão", "garrafões")} de 20 L`,
+    refrigerante: `${countLabel(Math.ceil((n * 450) / 2000), "garrafa", "garrafas")} de 2 L`,
+    suco: `${Math.ceil((n * 200) / 1000)} L`,
+  };
+}
+
+export function syncDrinksToGuests(
+  drinks: DrinkQuantities,
+  previousGuests: number,
+  nextGuests: number,
+): DrinkQuantities {
+  const previous = suggestedDrinkQuantities(previousGuests);
+  const next = suggestedDrinkQuantities(nextGuests);
+  const current = normalizeDrinks(drinks);
+  const result = emptyDrinks();
+  for (const item of DRINK_ITEMS) {
+    const value = current[item.key] ?? "";
+    result[item.key] = !value.trim() || value === previous[item.key] ? next[item.key] : value;
+  }
+  return result;
+}
 
 export const UNIFORM_PIECES = [
   { key: "dolma", label: "Dólmã" },
@@ -228,6 +267,7 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     ...event,
     type: normalizeEventType(event.type),
     staff: normalizeStaff(event.staff),
+    drinks: normalizeDrinks(event.drinks),
     clientId: event.clientId ?? "",
   };
 }

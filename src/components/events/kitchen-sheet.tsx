@@ -120,7 +120,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
             <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
               Bebidas
             </h2>
-            <ul className="font-list grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-5">
+            <ul className="font-list grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-3">
               {drinks.map((item) => (
                 <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
                   <span>{item.label}</span>
