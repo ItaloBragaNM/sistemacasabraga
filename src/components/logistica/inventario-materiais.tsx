@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ClipboardCheck, Eye, FileDown, Plus, X } from "lucide-react";
+import { ArrowLeft, ClipboardCheck, Eye, FileDown, Pencil, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -17,6 +17,7 @@ import {
   stockSkusForMaterial,
 } from "@/lib/logistica/calc";
 import type { InventorySession } from "@/lib/logistica/types";
+import type { MaterialRecord } from "@/lib/cadastros/types";
 import { formatInt } from "@/lib/crm/format";
 import { uid } from "@/lib/event-factory";
 import { formatShortDate } from "@/lib/dates";
@@ -28,8 +29,9 @@ function todayIsoDate() {
 
 export function InventarioMateriais() {
   const { data: cadastros, ready: cadReady } = useCadastros();
-  const { data: logistica, ready: logReady, concludeInventory } = useLogistica();
+  const { data: logistica, ready: logReady, concludeInventory, updateInventory } = useLogistica();
   const [mode, setMode] = useState<"list" | "new">("list");
+  const [editing, setEditing] = useState<InventorySession | null>(null);
   const [viewing, setViewing] = useState<InventorySession | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
 
@@ -42,6 +44,10 @@ export function InventarioMateriais() {
     () => new Map((cadastros?.stockLocations ?? []).map((item) => [item.id, item.name])),
     [cadastros],
   );
+  const balancesWithoutEdit = useMemo(() => {
+    if (!logistica || !editing) return balances;
+    return computeBalances(logistica.movements.filter((movement) => movement.ref !== editing.id));
+  }, [logistica, editing, balances]);
 
   const ready = cadReady && logReady;
 
@@ -63,18 +69,30 @@ export function InventarioMateriais() {
     );
   }
 
-  if (mode === "new") {
+  if (mode === "new" || editing) {
     return (
-      <NewInventory
+      <InventoryForm
         materials={cadastros.materials}
+        materialById={materialById}
         locations={cadastros.stockLocations ?? []}
         locationName={locationName}
-        balances={balances}
-        onCancel={() => setMode("list")}
-        onConclude={(session) => {
-          concludeInventory(session);
+        balances={editing ? balancesWithoutEdit : balances}
+        initial={editing}
+        onCancel={() => {
           setMode("list");
-          toast.success("Inventário concluído — estoque atualizado.");
+          setEditing(null);
+        }}
+        onConclude={(session) => {
+          if (editing) {
+            updateInventory({ ...session, id: editing.id, createdAt: editing.createdAt });
+            setEditing(null);
+            setMode("list");
+            toast.success("Inventário atualizado — estoque ajustado.");
+          } else {
+            concludeInventory(session);
+            setMode("list");
+            toast.success("Inventário concluído — estoque atualizado.");
+          }
         }}
       />
     );
@@ -150,11 +168,24 @@ export function InventarioMateriais() {
                     <td className="py-3 text-forest/70">{people.length ? people.join(", ") : "—"}</td>
                     <td className="py-3 text-right text-forest/70">{session.items.length}</td>
                     <td className="py-3 text-right text-forest/70">{changed}</td>
-                    <td className="py-3 pr-5 text-right">
-                      <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => setViewing(session)}>
-                        <Eye data-icon="inline-start" />
-                        Ver
-                      </Button>
+                    <td className="py-3 pr-5">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => setViewing(session)}>
+                          <Eye data-icon="inline-start" />
+                          Ver
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-8 px-3 text-xs"
+                          onClick={() => {
+                            setViewing(null);
+                            setEditing(session);
+                          }}
+                        >
+                          <Pencil data-icon="inline-start" />
+                          Editar
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -213,6 +244,18 @@ export function InventarioMateriais() {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+                onClick={() => {
+                  setViewing(null);
+                  setEditing(viewing);
+                }}
+              >
+                <Pencil data-icon="inline-start" />
+                Editar inventário
+              </Button>
             </div>
           </div>
         </Modal>
@@ -417,54 +460,92 @@ function CountSheetModal({
   );
 }
 
-function NewInventory({
+function InventoryForm({
   materials,
+  materialById,
   locations,
   locationName,
   balances,
+  initial,
   onConclude,
   onCancel,
 }: {
-  materials: import("@/lib/cadastros/types").MaterialRecord[];
+  materials: MaterialRecord[];
+  materialById: Map<string, MaterialRecord>;
   locations: { id: string; name: string }[];
   locationName: Map<string, string>;
   balances: Map<string, number>;
+  initial: InventorySession | null;
   onConclude: (session: InventorySession) => void;
   onCancel: () => void;
 }) {
-  const skus = useMemo(
-    () =>
-      materials.flatMap((material) =>
-        stockSkusForMaterial(material, {
-          unclassifiedQty: skuBalance(balances, material.id, ""),
-        }).map((sku) => ({
-          ...sku,
-          category: material.category,
-          unit: material.unit,
-          locationId: material.locationId,
-        })),
-      ),
-    [materials, balances],
-  );
-  const [date, setDate] = useState(todayIsoDate());
-  const [responsible, setResponsible] = useState("");
+  const recorded = useMemo(() => {
+    const map = new Map<string, { previous: number; counted: number }>();
+    for (const item of initial?.items ?? []) {
+      map.set(stockKey(item.materialId, item.variant), {
+        previous: item.previous,
+        counted: item.counted,
+      });
+    }
+    return map;
+  }, [initial]);
+
+  const previousOf = (materialId: string, variant: string) => {
+    const key = stockKey(materialId, variant);
+    if (recorded.has(key)) return recorded.get(key)!.previous;
+    return skuBalance(balances, materialId, variant);
+  };
+
+  const skus = useMemo(() => {
+    const catalog = materials.flatMap((material) =>
+      stockSkusForMaterial(material, {
+        unclassifiedQty:
+          skuBalance(balances, material.id, "") ||
+          (recorded.has(stockKey(material.id, "")) ? 1 : 0),
+      }).map((sku) => ({
+        ...sku,
+        category: material.category,
+        unit: material.unit,
+        locationId: material.locationId,
+      })),
+    );
+    const seen = new Set(catalog.map((sku) => stockKey(sku.materialId, sku.variant)));
+    const extras = (initial?.items ?? [])
+      .filter((item) => !seen.has(stockKey(item.materialId, item.variant)))
+      .map((item) => {
+        const material = materialById.get(item.materialId);
+        return {
+          materialId: item.materialId,
+          variant: item.variant ?? "",
+          label: inventoryItemLabel(material, item.variant, item.materialId),
+          category: material?.category ?? "Outros",
+          unit: material?.unit ?? "",
+          locationId: material?.locationId,
+        };
+      });
+    return [...catalog, ...extras];
+  }, [materials, balances, recorded, initial, materialById]);
+
+  const [date, setDate] = useState(initial?.date.slice(0, 10) || todayIsoDate());
+  const [responsible, setResponsible] = useState(initial?.responsible ?? "");
   const [participantDraft, setParticipantDraft] = useState("");
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [note, setNote] = useState("");
+  const [participants, setParticipants] = useState<string[]>(initial?.participants ?? []);
+  const [note, setNote] = useState(initial?.note ?? "");
   const [category, setCategory] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [counts, setCounts] = useState<Record<string, number>>(() =>
-    Object.fromEntries(
-      materials.flatMap((material) =>
-        stockSkusForMaterial(material, {
-          unclassifiedQty: skuBalance(balances, material.id, ""),
-        }).map((sku) => [
-          stockKey(sku.materialId, sku.variant),
-          skuBalance(balances, sku.materialId, sku.variant),
-        ]),
-      ),
-    ),
-  );
+  const [counts, setCounts] = useState<Record<string, number>>(() => {
+    const next: Record<string, number> = {};
+    for (const [key, item] of recorded) next[key] = item.counted;
+    for (const material of materials) {
+      for (const sku of stockSkusForMaterial(material, {
+        unclassifiedQty: skuBalance(balances, material.id, ""),
+      })) {
+        const key = stockKey(sku.materialId, sku.variant);
+        if (next[key] == null) next[key] = skuBalance(balances, sku.materialId, sku.variant);
+      }
+    }
+    return next;
+  });
 
   const categories = useMemo(
     () => [...new Set(materials.map((m) => m.category))].sort((a, b) => a.localeCompare(b, "pt-BR")),
@@ -489,7 +570,7 @@ function NewInventory({
 
   const changedCount = skus.filter((sku) => {
     const key = stockKey(sku.materialId, sku.variant);
-    return (counts[key] ?? 0) !== skuBalance(balances, sku.materialId, sku.variant);
+    return (counts[key] ?? 0) !== previousOf(sku.materialId, sku.variant);
   }).length;
 
   const addParticipant = () => {
@@ -507,17 +588,17 @@ function NewInventory({
     const items = skus.map((sku) => ({
       materialId: sku.materialId,
       variant: sku.variant,
-      previous: skuBalance(balances, sku.materialId, sku.variant),
+      previous: previousOf(sku.materialId, sku.variant),
       counted: counts[stockKey(sku.materialId, sku.variant)] ?? 0,
     }));
     onConclude({
-      id: uid(),
+      id: initial?.id ?? uid(),
       date,
       responsible: responsible.trim(),
       participants,
       note: note.trim(),
       items,
-      createdAt: new Date().toISOString(),
+      createdAt: initial?.createdAt ?? new Date().toISOString(),
     });
   };
 
@@ -532,10 +613,13 @@ function NewInventory({
           <ArrowLeft className="size-4" />
           Voltar ao histórico
         </button>
-        <h1 className="font-display mt-3 text-4xl text-forest sm:text-5xl">Novo inventário</h1>
+        <h1 className="font-display mt-3 text-4xl text-forest sm:text-5xl">
+          {initial ? "Editar inventário" : "Novo inventário"}
+        </h1>
         <p className="mt-2 text-sm font-light text-forest/60">
-          Preencha a data, o responsável e quem participou da contagem. Cada variação é um item.
-          A diferença aparece ao lado; ao concluir, o saldo é ajustado.
+          {initial
+            ? "Altere a data, quem participou ou as quantidades. Ao salvar, o estoque é recalculado a partir desta contagem."
+            : "Preencha a data, o responsável e quem participou da contagem. Cada variação é um item. A diferença aparece ao lado; ao concluir, o saldo é ajustado."}
         </p>
       </div>
 
@@ -628,7 +712,7 @@ function NewInventory({
         </p>
         <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={conclude}>
           <ClipboardCheck data-icon="inline-start" />
-          Concluir inventário
+          {initial ? "Salvar alterações" : "Concluir inventário"}
         </Button>
       </div>
 
@@ -645,7 +729,9 @@ function NewInventory({
             <tr className="border-b border-forest/10">
               <th className="field-label py-3 pl-5 font-normal">Material / variação</th>
               <th className="field-label py-3 font-normal">Local</th>
-              <th className="field-label py-3 text-right font-normal">Saldo atual</th>
+              <th className="field-label py-3 text-right font-normal">
+                {initial ? "Saldo anterior" : "Saldo atual"}
+              </th>
               <th className="field-label py-3 font-normal">Contagem</th>
               <th className="field-label py-3 pr-5 text-right font-normal">Diferença</th>
             </tr>
@@ -653,7 +739,7 @@ function NewInventory({
           <tbody>
             {visible.map((sku) => {
               const key = stockKey(sku.materialId, sku.variant);
-              const previous = skuBalance(balances, sku.materialId, sku.variant);
+              const previous = previousOf(sku.materialId, sku.variant);
               const counted = counts[key] ?? 0;
               const diff = counted - previous;
               return (

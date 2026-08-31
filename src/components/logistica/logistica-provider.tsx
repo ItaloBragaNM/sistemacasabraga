@@ -27,6 +27,22 @@ interface LogisticaContextValue {
   addMovements: (movements: StockMovement[]) => void;
   upsertMeta: (meta: StockMeta) => void;
   concludeInventory: (session: InventorySession) => void;
+  updateInventory: (session: InventorySession) => void;
+}
+
+function movementsFromInventory(session: InventorySession): StockMovement[] {
+  return session.items
+    .filter((item) => item.counted - item.previous !== 0)
+    .map((item) => ({
+      id: uid(),
+      materialId: item.materialId,
+      variant: item.variant ?? "",
+      type: "inventario" as const,
+      quantity: item.counted - item.previous,
+      date: session.date,
+      note: `Inventário ${session.date}`,
+      ref: session.id,
+    }));
 }
 
 const LogisticaContext = createContext<LogisticaContextValue | null>(null);
@@ -104,25 +120,20 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
           return { ...current, meta: next };
         }),
       concludeInventory: (session) =>
-        mutate((current) => {
-          const movements: StockMovement[] = session.items
-            .filter((item) => item.counted - item.previous !== 0)
-            .map((item) => ({
-              id: uid(),
-              materialId: item.materialId,
-              variant: item.variant ?? "",
-              type: "inventario",
-              quantity: item.counted - item.previous,
-              date: session.date,
-              note: `Inventário ${session.date}`,
-              ref: session.id,
-            }));
-          return {
-            ...current,
-            movements: [...current.movements, ...movements],
-            inventories: [...current.inventories, session],
-          };
-        }),
+        mutate((current) => ({
+          ...current,
+          movements: [...current.movements, ...movementsFromInventory(session)],
+          inventories: [...current.inventories, session],
+        })),
+      updateInventory: (session) =>
+        mutate((current) => ({
+          ...current,
+          movements: [
+            ...current.movements.filter((movement) => movement.ref !== session.id),
+            ...movementsFromInventory(session),
+          ],
+          inventories: current.inventories.map((item) => (item.id === session.id ? session : item)),
+        })),
     }),
     [data, ready, error, saving, mutate],
   );
