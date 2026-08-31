@@ -15,7 +15,6 @@ import type { DishRecord } from "@/lib/cadastros/types";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { insertDishesIntoMenu } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
-import { formatBRL } from "@/lib/money";
 import {
   EVENT_STATUSES,
   EVENT_TYPES,
@@ -289,14 +288,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             />
           </Field>
         </div>
-        {draft.perCapita > 0 && (
-          <p className="mt-4 text-sm font-light text-forest/55">
-            Per capita {formatBRL(draft.perCapita)} · {guestTotal(draft.guests)} a servir
-            {draft.guests.adults
-              ? ` · referência ${formatBRL(draft.perCapita * draft.guests.adults)} nos adultos`
-              : ""}
-          </p>
-        )}
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
