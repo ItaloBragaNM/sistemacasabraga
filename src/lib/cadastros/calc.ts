@@ -9,9 +9,25 @@ export interface EventCalcContext {
   chefes: number;
   ilhas: number;
   selectedDishIds: string[];
+  rechauds: number;
+  fritadeiras: number;
 }
 
-export function eventCalcContext(event: EventRecord): EventCalcContext {
+export function eventCalcContext(
+  event: EventRecord,
+  cadastros?: Pick<CadastrosData, "dishes">,
+): EventCalcContext {
+  const selectedDishIds = event.selectedDishIds ?? [];
+  let rechauds = 0;
+  let fritadeiras = 0;
+  if (cadastros) {
+    const selected = new Set(selectedDishIds);
+    for (const dish of cadastros.dishes) {
+      if (!selected.has(dish.id)) continue;
+      if (dish.hasRechaud) rechauds += 1;
+      if (dish.hasFritadeira) fritadeiras += 1;
+    }
+  }
   return {
     convidados: guestTotal(event.guests),
     garcons: event.staff.garcons || 0,
@@ -19,7 +35,9 @@ export function eventCalcContext(event: EventRecord): EventCalcContext {
     copeiros: event.staff.copeiros || 0,
     chefes: event.staff.chefes || 0,
     ilhas: event.islands || 0,
-    selectedDishIds: event.selectedDishIds ?? [],
+    selectedDishIds,
+    rechauds,
+    fritadeiras,
   };
 }
 
@@ -39,6 +57,8 @@ export function baseValue(base: CalcBase, ctx: EventCalcContext, occurrence: num
       return kind.per > 0 ? Math.ceil(ctx.convidados / kind.per) : 0;
     case "dishes":
       return occurrence;
+    case "dishesWith":
+      return kind.tag === "fritadeira" ? ctx.fritadeiras : ctx.rechauds;
     case "fixed":
       return 1;
     default:
@@ -214,6 +234,10 @@ export function describeBaseSource(base: CalcBase): string {
       return `1 a cada ${base.kind.per} convidados`;
     case "dishes":
       return "pratos do evento que usam este material";
+    case "dishesWith":
+      return base.kind.tag === "fritadeira"
+        ? "pratos do cardápio com fritadeira"
+        : "pratos do cardápio com rechaud";
     case "fixed":
       return "quantidade fixa por evento";
     default:

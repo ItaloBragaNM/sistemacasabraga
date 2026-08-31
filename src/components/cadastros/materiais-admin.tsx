@@ -250,6 +250,7 @@ export function MateriaisAdmin() {
             initial={editing}
             categories={data.materialCategories}
             bases={data.bases}
+            locations={data.stockLocations ?? []}
             onCancel={() => setOpen(false)}
             onSubmit={(material) => {
               upsertMaterial(material);
@@ -293,6 +294,8 @@ const SIM_FIELDS = [
   { key: "chefes", label: "Chefes" },
   { key: "ilhas", label: "Ilhas" },
   { key: "pratos", label: "Nº pratos" },
+  { key: "rechauds", label: "Rechauds" },
+  { key: "fritadeiras", label: "Fritadeiras" },
 ] as const;
 
 type SimKey = (typeof SIM_FIELDS)[number]["key"];
@@ -301,12 +304,14 @@ function MaterialForm({
   initial,
   categories,
   bases,
+  locations,
   onSubmit,
   onCancel,
 }: {
   initial: MaterialRecord | null;
   categories: string[];
   bases: import("@/lib/cadastros/types").CalcBase[];
+  locations: { id: string; name: string }[];
   onSubmit: (material: MaterialRecord) => void;
   onCancel: () => void;
 }) {
@@ -316,6 +321,7 @@ function MaterialForm({
   const [kind, setKind] = useState<MaterialKind>(initial?.kind ?? "permanente");
   const [variants, setVariants] = useState<string[]>(initial?.variants ?? []);
   const [newVariant, setNewVariant] = useState("");
+  const [locationId, setLocationId] = useState(initial?.locationId ?? "");
   const [factors, setFactors] = useState<ProportionFactor[]>(
     initial?.factors.length ? initial.factors : [{ baseId: bases[0]?.id ?? "", mult: 1 }],
   );
@@ -327,6 +333,8 @@ function MaterialForm({
     chefes: 2,
     ilhas: 2,
     pratos: 1,
+    rechauds: 2,
+    fritadeiras: 1,
   });
 
   const basesById = useMemo(() => new Map(bases.map((base) => [base.id, base])), [bases]);
@@ -351,6 +359,8 @@ function MaterialForm({
       chefes: sim.chefes,
       ilhas: sim.ilhas,
       selectedDishIds: [],
+      rechauds: sim.rechauds,
+      fritadeiras: sim.fritadeiras,
     }, sim.pratos);
   }, [name, category, unit, kind, variants, factors, basesById, sim]);
 
@@ -372,6 +382,7 @@ function MaterialForm({
       kind,
       variants,
       factors: factors.map((factor) => ({ baseId: factor.baseId, mult: factor.mult || 0 })),
+      locationId: locationId || undefined,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     });
@@ -419,6 +430,20 @@ function MaterialForm({
             onChange={(event) => setUnit(event.target.value)}
             placeholder="un, sachê, kg…"
           />
+        </Field>
+        <Field label="Local do estoque">
+          <select
+            className={fieldControlClass}
+            value={locationId}
+            onChange={(event) => setLocationId(event.target.value)}
+          >
+            <option value="">Sem local definido</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Tipo (estoque)" className="sm:col-span-2">
           <select

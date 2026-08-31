@@ -4,11 +4,14 @@ import { defaultCadastros } from "./defaults";
 import {
   isKitScale,
   isMaterialKind,
+  LEGACY_KIT_SCALE_TO_BASE,
   type CadastrosData,
+  type CalcBase,
   type ExtraCatalogItem,
   type MaterialKit,
   type MaterialKitItem,
   type MaterialRecord,
+  type StockLocation,
 } from "./types";
 
 const KEY = "cadastros";
@@ -31,6 +34,7 @@ function normalizeMaterial(input: Partial<MaterialRecord>, fallbackCategory: str
       ? input.variants.map((item) => item.trim()).filter(Boolean)
       : [],
     factors: Array.isArray(input.factors) ? input.factors : [],
+    locationId: typeof input.locationId === "string" && input.locationId.trim() ? input.locationId : undefined,
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
   };
@@ -45,12 +49,18 @@ function normalizeKitItem(input: Partial<MaterialKitItem> | null | undefined): M
   };
 }
 
+function kitScaleBaseId(input: Partial<MaterialKit> & { scale?: unknown }): string {
+  if (typeof input.scaleBaseId === "string" && input.scaleBaseId.trim()) return input.scaleBaseId;
+  if (isKitScale(input.scale)) return LEGACY_KIT_SCALE_TO_BASE[input.scale];
+  return "base-fixo";
+}
+
 function normalizeKit(input: Partial<MaterialKit> | null | undefined): MaterialKit | null {
   if (!input?.id || !input.name) return null;
   return {
     id: input.id,
     name: input.name,
-    scale: isKitScale(input.scale) ? input.scale : "fixed",
+    scaleBaseId: kitScaleBaseId(input),
     items: Array.isArray(input.items)
       ? input.items
           .map((item) => normalizeKitItem(item))
@@ -69,6 +79,23 @@ function normalizeExtra(input: Partial<ExtraCatalogItem> | null | undefined): Ex
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
   };
+}
+
+function normalizeLocation(input: Partial<StockLocation> | null | undefined): StockLocation | null {
+  if (!input?.id || !input.name) return null;
+  return {
+    id: input.id,
+    name: input.name,
+    createdAt: input.createdAt || new Date().toISOString(),
+    updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
+  };
+}
+
+function mergeBases(stored: CalcBase[] | undefined, defaults: CalcBase[]): CalcBase[] {
+  if (!Array.isArray(stored) || stored.length === 0) return structuredClone(defaults);
+  const ids = new Set(stored.map((base) => base.id));
+  const missing = defaults.filter((base) => base.builtIn && !ids.has(base.id));
+  return missing.length ? [...stored, ...missing] : stored;
 }
 
 function normalize(input: Partial<CadastrosData> | null): CadastrosData {
@@ -96,6 +123,8 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
     ? input.dishes.map((dish) => ({
         ...dish,
         category: dishCategoryLabel(dish.category || dishCategoriesSource[0] || "Menu"),
+        hasRechaud: Boolean(dish.hasRechaud),
+        hasFritadeira: Boolean(dish.hasFritadeira),
       }))
     : base.dishes;
 
@@ -110,7 +139,7 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
     dishes,
     materialCategories,
     dishCategories,
-    bases: Array.isArray(input.bases) && input.bases.length ? input.bases : base.bases,
+    bases: mergeBases(input.bases, base.bases),
     insumos: Array.isArray(input.insumos) ? input.insumos : base.insumos,
     insumoCategories:
       Array.isArray(input.insumoCategories) && input.insumoCategories.length
@@ -126,6 +155,11 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
           .map((item) => normalizeExtra(item))
           .filter((item): item is ExtraCatalogItem => Boolean(item))
       : base.extras,
+    stockLocations: Array.isArray(input.stockLocations)
+      ? input.stockLocations
+          .map((item) => normalizeLocation(item))
+          .filter((item): item is StockLocation => Boolean(item))
+      : base.stockLocations,
   };
 }
 

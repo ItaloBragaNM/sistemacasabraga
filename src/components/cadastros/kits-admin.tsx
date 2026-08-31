@@ -1,6 +1,6 @@
 "use client";
 
-import { Bolt, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Bolt, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -8,10 +8,7 @@ import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import {
-  KIT_SCALE_LABELS,
-  KIT_SCALES,
   type ExtraCatalogItem,
-  type KitScale,
   type MaterialKit,
   type MaterialKitItem,
 } from "@/lib/cadastros/types";
@@ -29,6 +26,8 @@ export function KitsAdmin() {
   const kits = data?.kits ?? [];
   const extras = data?.extras ?? [];
   const materials = data?.materials ?? [];
+  const bases = data?.bases ?? [];
+  const baseLabel = (id: string) => bases.find((base) => base.id === id)?.label ?? "Fixo por evento";
 
   const filteredKits = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -37,12 +36,12 @@ export function KitsAdmin() {
     const materialName = new Map(materials.map((item) => [item.id, item.name]));
     return list.filter((kit) => {
       if (kit.name.toLowerCase().includes(term)) return true;
-      if (KIT_SCALE_LABELS[kit.scale].includes(term)) return true;
+      if (baseLabel(kit.scaleBaseId).toLowerCase().includes(term)) return true;
       return kit.items.some((item) =>
         (materialName.get(item.materialId) ?? "").toLowerCase().includes(term),
       );
     });
-  }, [kits, materials, search]);
+  }, [kits, materials, search, bases]);
 
   const startNew = () => {
     setEditing(null);
@@ -68,7 +67,7 @@ export function KitsAdmin() {
     <div className="mx-auto max-w-5xl space-y-10 pb-16">
       <CadastrosHeader
         title="Kits de Materiais"
-        description="Modelos de transporte enviados junto com o evento. Cada kit define os materiais e a quantidade por kit; na separação você informa quantos kits vão e pode ajustar as proporções."
+        description="Modelos de transporte enviados junto com o evento. Cada kit define os materiais, a quantidade por kit e a base de cálculo (as mesmas de Configurações → Bases de cálculo)."
         action={
           <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
             <Plus data-icon="inline-start" />
@@ -102,6 +101,7 @@ export function KitsAdmin() {
                 <KitCard
                   key={kit.id}
                   kit={kit}
+                  scaleLabel={baseLabel(kit.scaleBaseId)}
                   materialName={new Map(materials.map((item) => [item.id, item.name]))}
                   onEdit={() => {
                     setEditing(kit);
@@ -204,6 +204,7 @@ export function KitsAdmin() {
         open={kitOpen}
         kit={editing}
         materials={materials}
+        bases={bases}
         onClose={() => setKitOpen(false)}
         onSave={(kit) => {
           upsertKit(kit);
@@ -217,20 +218,23 @@ export function KitsAdmin() {
 
 function KitCard({
   kit,
+  scaleLabel,
   materialName,
   onEdit,
   onDelete,
 }: {
   kit: MaterialKit;
+  scaleLabel: string;
   materialName: Map<string, string>;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const scaled = kit.scaleBaseId !== "base-fixo";
   return (
     <article className="flex flex-col rounded-2xl border border-forest/10 bg-white p-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h3 className="font-display text-2xl text-forest">{kit.name}</h3>
-        {kit.scale !== "fixed" ? <ScaleBadge scale={kit.scale} /> : null}
+        {scaled ? <ScaleBadge label={scaleLabel} /> : null}
       </div>
       {kit.items.length === 0 ? (
         <p className="flex-1 text-sm font-light text-forest/45">Nenhum material neste kit.</p>
@@ -244,7 +248,7 @@ function KitCard({
               <span>{materialName.get(item.materialId) ?? "Material removido"}</span>
               <span className="shrink-0 font-list text-forest">
                 {item.qtyPerKit}
-                {kit.scale !== "fixed" ? (
+                {scaled ? (
                   <span className="ml-1 text-xs font-light text-forest/45">× kit</span>
                 ) : null}
               </span>
@@ -269,17 +273,11 @@ function KitCard({
   );
 }
 
-function ScaleBadge({ scale }: { scale: KitScale }) {
-  const staff = scale === "serviceTeam";
+function ScaleBadge({ label }: { label: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-wide",
-        staff ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800",
-      )}
-    >
-      {staff ? <Users className="size-3" /> : <Bolt className="size-3" />}
-      {KIT_SCALE_LABELS[scale]}
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-wide text-amber-800">
+      <Bolt className="size-3" />
+      {label}
     </span>
   );
 }
@@ -288,17 +286,19 @@ function KitEditor({
   open,
   kit,
   materials,
+  bases,
   onClose,
   onSave,
 }: {
   open: boolean;
   kit: MaterialKit | null;
   materials: { id: string; name: string; category: string }[];
+  bases: { id: string; label: string }[];
   onClose: () => void;
   onSave: (kit: MaterialKit) => void;
 }) {
   const [name, setName] = useState("");
-  const [scale, setScale] = useState<KitScale>("fixed");
+  const [scaleBaseId, setScaleBaseId] = useState("base-fixo");
   const [items, setItems] = useState<MaterialKitItem[]>([]);
   const [pickId, setPickId] = useState("");
 
@@ -314,7 +314,7 @@ function KitEditor({
   useEffect(() => {
     if (!open) return;
     setName(kit?.name ?? "");
-    setScale(kit?.scale ?? "fixed");
+    setScaleBaseId(kit?.scaleBaseId ?? "base-fixo");
     setItems(kit?.items.map((item) => ({ ...item })) ?? []);
     setPickId("");
   }, [open, kit]);
@@ -333,7 +333,7 @@ function KitEditor({
     onSave({
       id: kit?.id ?? uid(),
       name: trimmed,
-      scale,
+      scaleBaseId,
       items,
       createdAt: kit?.createdAt ?? now,
       updatedAt: now,
@@ -351,22 +351,23 @@ function KitEditor({
             placeholder="Kit Higiene"
           />
         </Field>
-        <Field label="Regra de quantidade">
+        <Field label="Base de cálculo">
           <select
             className={fieldControlClass}
-            value={scale}
-            onChange={(event) => setScale(event.target.value as KitScale)}
+            value={scaleBaseId}
+            onChange={(event) => setScaleBaseId(event.target.value)}
           >
-            {KIT_SCALES.map((value) => (
-              <option key={value} value={value}>
-                {KIT_SCALE_LABELS[value]}
+            {bases.map((base) => (
+              <option key={base.id} value={base.id}>
+                {base.label}
               </option>
             ))}
           </select>
         </Field>
         <p className="text-xs font-light text-forest/50">
-          Na separação do evento, a quantidade de kits pode ser ajustada. A regra só sugere o
-          valor inicial (ex.: um kit por garçom+garçonete).
+          A mesma lista de Configurações → Bases de cálculo. Na separação, a quantidade de kits
+          começa com o valor dessa base (ex.: Rechauds = pratos do evento com rechaud) e pode ser
+          ajustada.
         </p>
 
         <div className="space-y-2">

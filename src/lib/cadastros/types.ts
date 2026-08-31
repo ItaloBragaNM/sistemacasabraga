@@ -3,6 +3,8 @@
  * feeds the material calculation model. Each material multiplies up to three
  * factors of the form `base × multiplicador`.
  */
+export type DishEquipmentTag = "rechaud" | "fritadeira";
+
 export type BaseKind =
   | { type: "guests" } // Convidados (adultos + crianças + profissionais)
   | { type: "staff"; role: "garcons" | "garconetes" | "copeiros" | "chefes" }
@@ -10,6 +12,7 @@ export type BaseKind =
   | { type: "serviceTeam" } // Equipe de serviço = garçons + garçonetes
   | { type: "perGuests"; per: number } // 1 a cada N convidados (ex.: fornos = 100)
   | { type: "dishes" } // nº de pratos do evento vinculados ao material
+  | { type: "dishesWith"; tag: DishEquipmentTag } // pratos do cardápio do evento com rechaud/fritadeira
   | { type: "fixed" }; // valor fixo (1) — quantidade fixa por evento
 
 export interface CalcBase {
@@ -65,6 +68,8 @@ export interface MaterialRecord {
   variants: string[];
   /** 1 a 3 fatores multiplicados entre si; resultado arredondado para cima. */
   factors: ProportionFactor[];
+  /** Local do estoque da casa (cadastro em Configurações do Módulo de Cadastros). */
+  locationId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +83,10 @@ export interface DishRecord {
   materialIds: string[];
   /** Insumos (cozinha) vinculados — reservado para o cadastro de insumos. */
   insumoIds: string[];
+  /** O prato vai ao evento em rechaud — entra na base Rechauds. */
+  hasRechaud?: boolean;
+  /** O prato usa fritadeira — entra na base Fritadeiras. */
+  hasFritadeira?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -135,24 +144,21 @@ export const VEHICLE_KIND_LABELS: Record<VehicleKind, string> = {
   outro: "Outro",
 };
 
-/**
- * How a kit's "Qtd de kits" is suggested on an event.
- * The user can always override the quantity per event.
- */
+/** @deprecated Kept only to migrate kits saved before scaleBaseId. */
 export const KIT_SCALES = ["fixed", "serviceTeam", "rechauds", "fritadeiras", "islands"] as const;
 export type KitScale = (typeof KIT_SCALES)[number];
-
-export const KIT_SCALE_LABELS: Record<KitScale, string> = {
-  fixed: "quantidade fixa",
-  serviceTeam: "por garçons+garçonetes",
-  rechauds: "por rechauds",
-  fritadeiras: "por fritadeiras",
-  islands: "por ilhas",
-};
 
 export function isKitScale(value: unknown): value is KitScale {
   return KIT_SCALES.includes(value as KitScale);
 }
+
+export const LEGACY_KIT_SCALE_TO_BASE: Record<KitScale, string> = {
+  fixed: "base-fixo",
+  serviceTeam: "base-equipe-servico",
+  rechauds: "base-rechauds",
+  fritadeiras: "base-fritadeiras",
+  islands: "base-ilhas",
+};
 
 export interface MaterialKitItem {
   materialId: string;
@@ -162,8 +168,16 @@ export interface MaterialKitItem {
 export interface MaterialKit {
   id: string;
   name: string;
-  scale: KitScale;
+  /** Calc base that suggests "Qtd de kits" on the event (same bases as materials). */
+  scaleBaseId: string;
   items: MaterialKitItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockLocation {
+  id: string;
+  name: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -188,6 +202,7 @@ export interface CadastrosData {
   veiculos: VeiculoRecord[];
   kits: MaterialKit[];
   extras: ExtraCatalogItem[];
+  stockLocations: StockLocation[];
 }
 
 export const MAX_FACTORS = 3;

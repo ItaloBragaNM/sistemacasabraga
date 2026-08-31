@@ -33,8 +33,11 @@ export interface InventoryItem {
 
 export interface InventorySession {
   id: string;
+  /** Data da contagem (YYYY-MM-DD). */
   date: string;
   responsible: string;
+  /** Quem participou da contagem além do responsável. */
+  participants: string[];
   note: string;
   items: InventoryItem[];
   createdAt: string;

@@ -34,6 +34,10 @@ function describeKind(kind: BaseKind): string {
       return `1 a cada ${kind.per} convidados`;
     case "dishes":
       return "Nº de pratos vinculados";
+    case "dishesWith":
+      return kind.tag === "fritadeira"
+        ? "Pratos do cardápio com fritadeira"
+        : "Pratos do cardápio com rechaud";
     case "fixed":
       return "Valor fixo (1)";
     default:
@@ -49,7 +53,7 @@ export function ConfiguracoesAdmin() {
       <CadastrosHeader
         eyebrow="Configurações do Sistema"
         title="Configurações do Módulo de Cadastros"
-        description="Ajuste as categorias do cardápio, de materiais e de insumos, e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
+        description="Ajuste as categorias do cardápio, de materiais e de insumos, os locais do estoque e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
       />
       {!ready ? (
         <LoadingBlock />
@@ -58,6 +62,7 @@ export function ConfiguracoesAdmin() {
           <DishCategoriesSection />
           <MaterialCategoriesSection />
           <InsumoCategoriesSection />
+          <StockLocationsSection />
           <BasesSection />
         </>
       )}
@@ -125,6 +130,111 @@ function InsumoCategoriesSection() {
           )
       }
     />
+  );
+}
+
+function StockLocationsSection() {
+  const { data, upsertStockLocation, removeStockLocation } = useCadastros();
+  const [name, setName] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+
+  if (!data) return null;
+  const locations = [...(data.stockLocations ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR"),
+  );
+
+  const save = () => {
+    const value = (editing ? editing.name : name).trim();
+    if (!value) return;
+    const now = new Date().toISOString();
+    if (editing) {
+      const current = locations.find((item) => item.id === editing.id);
+      if (!current) return;
+      upsertStockLocation({ ...current, name: value, updatedAt: now });
+      setEditing(null);
+      toast.success("Local atualizado.");
+    } else {
+      upsertStockLocation({ id: uid(), name: value, createdAt: now, updatedAt: now });
+      setName("");
+      toast.success("Local cadastrado.");
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-forest/10 bg-white p-5">
+      <h2 className="font-section text-[0.82rem] text-forest">Locais do estoque</h2>
+      <p className="mt-1 text-sm font-light text-forest/55">
+        Onde cada material fica na casa (depósito, cozinha, prateleira…). O estoque e o inventário
+        usam esta lista.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <input
+          className={cn(fieldControlClass, "max-w-xs")}
+          placeholder={editing ? "Nome do local" : "Novo local…"}
+          value={editing ? editing.name : name}
+          onChange={(event) => {
+            if (editing) setEditing({ ...editing, name: event.target.value });
+            else setName(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              save();
+            }
+          }}
+        />
+        <Button variant="outline" className="h-10 px-4" onClick={save}>
+          {editing ? "Salvar" : "Adicionar"}
+        </Button>
+        {editing ? (
+          <Button variant="outline" className="h-10 px-4" onClick={() => setEditing(null)}>
+            Cancelar
+          </Button>
+        ) : null}
+      </div>
+      {locations.length === 0 ? (
+        <p className="mt-3 text-sm font-light text-forest/50">Nenhum local cadastrado ainda.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-forest/8">
+          {locations.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-3 py-2.5">
+              <span className="font-list text-sm text-forest">{item.name}</span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  aria-label={`Editar ${item.name}`}
+                  className="flex size-8 items-center justify-center rounded-lg text-forest/40 hover:bg-forest/5 hover:text-forest"
+                  onClick={() => setEditing({ id: item.id, name: item.name })}
+                >
+                  <Pencil className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Excluir ${item.name}`}
+                  className="flex size-8 items-center justify-center rounded-lg text-forest/40 hover:bg-terracotta/10 hover:text-terracotta"
+                  onClick={() => {
+                    const used = data.materials.filter((material) => material.locationId === item.id).length;
+                    if (
+                      !window.confirm(
+                        used > 0
+                          ? `${used} material(is) usam "${item.name}". Excluir o local mesmo assim?`
+                          : `Excluir o local "${item.name}"?`,
+                      )
+                    ) {
+                      return;
+                    }
+                    removeStockLocation(item.id);
+                    toast.success("Local excluído.");
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

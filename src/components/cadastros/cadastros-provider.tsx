@@ -19,6 +19,7 @@ import type {
   InsumoRecord,
   MaterialKit,
   MaterialRecord,
+  StockLocation,
   VeiculoRecord,
 } from "@/lib/cadastros/types";
 import { duplicateManyIn, type NamedRecord } from "@/lib/cadastros/clone";
@@ -30,7 +31,8 @@ export type CatalogListKey =
   | "clientes"
   | "veiculos"
   | "kits"
-  | "extras";
+  | "extras"
+  | "stockLocations";
 
 interface CadastrosContextValue {
   data: CadastrosData | null;
@@ -56,6 +58,8 @@ interface CadastrosContextValue {
   removeKit: (id: string) => void;
   upsertExtra: (extra: ExtraCatalogItem) => void;
   removeExtra: (id: string) => void;
+  upsertStockLocation: (location: StockLocation) => void;
+  removeStockLocation: (id: string) => void;
   removeMany: (key: CatalogListKey, ids: string[]) => void;
   duplicateMany: (key: CatalogListKey, ids: string[]) => void;
   replaceAll: (next: CadastrosData) => void;
@@ -91,6 +95,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
             ...json.data,
             kits: json.data.kits ?? [],
             extras: json.data.extras ?? [],
+            stockLocations: json.data.stockLocations ?? [],
           });
         }
       } catch {
@@ -195,6 +200,16 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
         mutate((current) => ({
           ...current,
           extras: (current.extras ?? []).filter((item) => item.id !== id),
+        })),
+      upsertStockLocation: (location) =>
+        mutate((current) => ({
+          ...current,
+          stockLocations: upsert(current.stockLocations ?? [], location),
+        })),
+      removeStockLocation: (id) =>
+        mutate((current) => ({
+          ...current,
+          stockLocations: (current.stockLocations ?? []).filter((item) => item.id !== id),
         })),
       removeMany: (key, ids) => {
         const drop = new Set(ids);

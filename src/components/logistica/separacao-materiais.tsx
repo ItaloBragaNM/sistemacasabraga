@@ -9,7 +9,6 @@ import {
   Plus,
   RotateCcw,
   Trash2,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,9 +27,8 @@ import {
   separationWarnings,
   type QuantityExplanation,
 } from "@/lib/cadastros/calc";
-import { kitItemComputedTotal, kitItemTotal, kitQuantity } from "@/lib/cadastros/kits";
-import type { CadastrosData, KitScale, MaterialKit } from "@/lib/cadastros/types";
-import { KIT_SCALE_LABELS } from "@/lib/cadastros/types";
+import { kitItemComputedTotal, kitItemTotal, kitQuantity, kitScaleLabel } from "@/lib/cadastros/kits";
+import type { CadastrosData, MaterialKit } from "@/lib/cadastros/types";
 import { formatShortDate } from "@/lib/dates";
 import { uid } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
@@ -312,7 +310,7 @@ function SeparationEditor({
     [persistEvent],
   );
 
-  const ctx = useMemo(() => eventCalcContext(event), [event]);
+  const ctx = useMemo(() => eventCalcContext(event, cadastros), [event, cadastros]);
   const computed = useMemo(
     () => computeSeparationItems(cadastros, ctx, sep.addedMaterialIds ?? []),
     [cadastros, ctx, sep.addedMaterialIds],
@@ -370,11 +368,11 @@ function SeparationEditor({
   );
 
   const kitPdf: SeparationPdfKit[] = kits.map((kit) => {
-    const qty = kitQuantity(kit, event, sep);
+    const qty = kitQuantity(kit, event, sep, cadastros);
     return {
       name: kit.name,
       kitQty: qty,
-      scaleLabel: kit.scale === "fixed" ? undefined : KIT_SCALE_LABELS[kit.scale],
+      scaleLabel: kit.scaleBaseId === "base-fixo" ? undefined : kitScaleLabel(kit, cadastros),
       items: kit.items.flatMap((item) => {
         const material = materialById.get(item.materialId);
         if (!material) return [];
@@ -712,6 +710,7 @@ function SeparationEditor({
       <KitsOnEvent
         kits={kits}
         event={event}
+        cadastros={cadastros}
         sep={sep}
         materialById={materialById}
         onChange={applySep}
@@ -860,17 +859,11 @@ function EventSummary({ event }: { event: EventRecord }) {
   );
 }
 
-function ScaleBadge({ scale }: { scale: KitScale }) {
-  const staff = scale === "serviceTeam";
+function ScaleBadge({ label }: { label: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-wide",
-        staff ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800",
-      )}
-    >
-      {staff ? <Users className="size-3" /> : <Bolt className="size-3" />}
-      {KIT_SCALE_LABELS[scale]}
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-wide text-amber-800">
+      <Bolt className="size-3" />
+      {label}
     </span>
   );
 }
@@ -878,12 +871,14 @@ function ScaleBadge({ scale }: { scale: KitScale }) {
 function KitsOnEvent({
   kits,
   event,
+  cadastros,
   sep,
   materialById,
   onChange,
 }: {
   kits: MaterialKit[];
   event: EventRecord;
+  cadastros: CadastrosData;
   sep: MaterialSeparationState;
   materialById: Map<string, { name: string; unit: string }>;
   onChange: (next: MaterialSeparationState) => void;
@@ -926,8 +921,9 @@ function KitsOnEvent({
       ) : (
         <div className="space-y-4">
           {kits.map((kit) => {
-            const qty = kitQuantity(kit, event, sep);
+            const qty = kitQuantity(kit, event, sep, cadastros);
             const state = sep.kits?.[kit.id];
+            const scaleLabel = kitScaleLabel(kit, cadastros);
             return (
               <article
                 key={kit.id}
@@ -936,7 +932,7 @@ function KitsOnEvent({
                 <header className="flex flex-wrap items-center justify-between gap-3 bg-petrol px-4 py-3 text-cream">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-section text-[0.78rem]">{kit.name}</h3>
-                    {kit.scale !== "fixed" ? <ScaleBadge scale={kit.scale} /> : null}
+                    {kit.scaleBaseId !== "base-fixo" ? <ScaleBadge label={scaleLabel} /> : null}
                   </div>
                   <label className="flex items-center gap-2 text-xs">
                     <span className="opacity-80">Qtd de kits</span>

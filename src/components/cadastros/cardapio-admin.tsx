@@ -192,6 +192,20 @@ export function CardapioAdmin() {
                                     .join(", ")
                                 : "Sem materiais vinculados"}
                             </p>
+                            {dish.hasRechaud || dish.hasFritadeira ? (
+                              <p className="mt-1.5 flex flex-wrap gap-1">
+                                {dish.hasRechaud ? (
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-amber-800">
+                                    rechaud
+                                  </span>
+                                ) : null}
+                                {dish.hasFritadeira ? (
+                                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-sky-800">
+                                    fritadeira
+                                  </span>
+                                ) : null}
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                         <RecordRowActions
@@ -251,6 +265,8 @@ function DishForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [category, setCategory] = useState(initial?.category ?? categories[0] ?? "Menu");
   const [materialIds, setMaterialIds] = useState<string[]>(initial?.materialIds ?? []);
+  const [hasRechaud, setHasRechaud] = useState(Boolean(initial?.hasRechaud));
+  const [hasFritadeira, setHasFritadeira] = useState(Boolean(initial?.hasFritadeira));
   const [materialSearch, setMaterialSearch] = useState("");
 
   const filteredMaterials = useMemo(() => {
@@ -285,6 +301,8 @@ function DishForm({
       category,
       materialIds,
       insumoIds: initial?.insumoIds ?? [],
+      hasRechaud,
+      hasFritadeira,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     });
@@ -315,6 +333,31 @@ function DishForm({
           </select>
         </Field>
       </div>
+
+      <div className="flex flex-wrap gap-4">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-forest">
+          <input
+            type="checkbox"
+            className="size-4 accent-forest"
+            checked={hasRechaud}
+            onChange={(event) => setHasRechaud(event.target.checked)}
+          />
+          Possui rechaud
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-forest">
+          <input
+            type="checkbox"
+            className="size-4 accent-forest"
+            checked={hasFritadeira}
+            onChange={(event) => setHasFritadeira(event.target.checked)}
+          />
+          Possui fritadeira
+        </label>
+      </div>
+      <p className="text-xs font-light text-forest/50">
+        As bases de cálculo Rechauds e Fritadeiras contam quantos pratos do evento estão marcados
+        aqui.
+      </p>
 
       <div>
         <div className="mb-2 flex items-center justify-between">

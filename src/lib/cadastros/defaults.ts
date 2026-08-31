@@ -110,6 +110,20 @@ export const DEFAULT_BASES: CalcBase[] = [
     builtIn: true,
   },
   {
+    id: "base-rechauds",
+    label: "Rechauds",
+    description: "Quantidade de pratos do cardápio do evento que possuem rechaud.",
+    kind: { type: "dishesWith", tag: "rechaud" },
+    builtIn: true,
+  },
+  {
+    id: "base-fritadeiras",
+    label: "Fritadeiras",
+    description: "Quantidade de pratos do cardápio do evento que possuem fritadeira.",
+    kind: { type: "dishesWith", tag: "fritadeira" },
+    builtIn: true,
+  },
+  {
     id: "base-fixo",
     label: "Fixo por evento",
     description: "Valor fixo (1). Use o multiplicador para uma quantidade fixa por evento.",
@@ -269,5 +283,6 @@ export function defaultCadastros(): CadastrosData {
     veiculos: [],
     kits: [],
     extras: structuredClone(DEFAULT_EXTRAS),
+    stockLocations: [],
   };
 }

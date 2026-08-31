@@ -26,3 +26,17 @@ export function movementsOf(data: LogisticaData, materialId: string): StockMovem
     .filter((movement) => movement.materialId === materialId)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
+
+/** Most recent inventory date (YYYY-MM-DD) in which the material was counted. */
+export function lastInventoryDate(
+  inventories: { date: string; items: { materialId: string }[] }[],
+  materialId: string,
+): string | undefined {
+  let latest: string | undefined;
+  for (const session of inventories) {
+    if (!session.items.some((item) => item.materialId === materialId)) continue;
+    const day = session.date.slice(0, 10);
+    if (!latest || day > latest) latest = day;
+  }
+  return latest;
+}
