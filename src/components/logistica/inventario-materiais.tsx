@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowLeft, ClipboardCheck, Eye, FileDown, Pencil, Plus, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Eye, FileDown, Pencil, Plus, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { downloadCountSheetPdf } from "@/components/logistica/inventario-pdf";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
@@ -490,11 +490,14 @@ function InventoryForm({
     return map;
   }, [initial]);
 
-  const previousOf = (materialId: string, variant: string) => {
-    const key = stockKey(materialId, variant);
-    if (recorded.has(key)) return recorded.get(key)!.previous;
-    return skuBalance(balances, materialId, variant);
-  };
+  const previousOf = useCallback(
+    (materialId: string, variant: string) => {
+      const key = stockKey(materialId, variant);
+      if (recorded.has(key)) return recorded.get(key)!.previous;
+      return skuBalance(balances, materialId, variant);
+    },
+    [recorded, balances],
+  );
 
   const skus = useMemo(() => {
     const catalog = materials.flatMap((material) =>
@@ -531,8 +534,14 @@ function InventoryForm({
   const [participantDraft, setParticipantDraft] = useState("");
   const [participants, setParticipants] = useState<string[]>(initial?.participants ?? []);
   const [note, setNote] = useState(initial?.note ?? "");
+  const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [diffFilter, setDiffFilter] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "category" | "location" | "previous" | "counted" | "diff">(
+    "category",
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [counts, setCounts] = useState<Record<string, number>>(() => {
     const next: Record<string, number> = {};
     for (const [key, item] of recorded) next[key] = item.counted;
@@ -552,21 +561,62 @@ function InventoryForm({
     [materials],
   );
 
-  const visible = useMemo(
-    () =>
-      [...skus]
-        .filter((sku) => (category ? sku.category === category : true))
-        .filter((sku) => {
-          if (!locationFilter) return true;
-          if (locationFilter === "__none__") return !sku.locationId;
-          return sku.locationId === locationFilter;
-        })
-        .sort(
-          (a, b) =>
-            a.category.localeCompare(b.category, "pt-BR") || a.label.localeCompare(b.label, "pt-BR"),
-        ),
-    [skus, category, locationFilter],
-  );
+  const toggleSort = (key: typeof sortKey) => {
+    if (sortKey === key) setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir(key === "previous" || key === "counted" || key === "diff" ? "desc" : "asc");
+    }
+  };
+
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const list = [...skus]
+      .filter((sku) => (category ? sku.category === category : true))
+      .filter((sku) => {
+        if (!locationFilter) return true;
+        if (locationFilter === "__none__") return !sku.locationId;
+        return sku.locationId === locationFilter;
+      })
+      .filter((sku) => {
+        if (!term) return true;
+        const location = sku.locationId ? locationName.get(sku.locationId) ?? "" : "";
+        return (
+          sku.label.toLowerCase().includes(term) ||
+          sku.category.toLowerCase().includes(term) ||
+          sku.variant.toLowerCase().includes(term) ||
+          location.toLowerCase().includes(term)
+        );
+      })
+      .filter((sku) => {
+        if (!diffFilter) return true;
+        const key = stockKey(sku.materialId, sku.variant);
+        const diff = (counts[key] ?? 0) - previousOf(sku.materialId, sku.variant);
+        if (diffFilter === "changed") return diff !== 0;
+        if (diffFilter === "same") return diff === 0;
+        return true;
+      });
+
+    const dir = sortDir === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      const locA = a.locationId ? locationName.get(a.locationId) ?? "" : "";
+      const locB = b.locationId ? locationName.get(b.locationId) ?? "" : "";
+      const prevA = previousOf(a.materialId, a.variant);
+      const prevB = previousOf(b.materialId, b.variant);
+      const countA = counts[stockKey(a.materialId, a.variant)] ?? 0;
+      const countB = counts[stockKey(b.materialId, b.variant)] ?? 0;
+      let cmp = 0;
+      if (sortKey === "name") cmp = a.label.localeCompare(b.label, "pt-BR");
+      else if (sortKey === "category") {
+        cmp = a.category.localeCompare(b.category, "pt-BR") || a.label.localeCompare(b.label, "pt-BR");
+      } else if (sortKey === "location") cmp = locA.localeCompare(locB, "pt-BR") || a.label.localeCompare(b.label, "pt-BR");
+      else if (sortKey === "previous") cmp = prevA - prevB;
+      else if (sortKey === "counted") cmp = countA - countB;
+      else cmp = countA - prevA - (countB - prevB);
+      return cmp * dir;
+    });
+    return list;
+  }, [skus, category, locationFilter, locationName, search, diffFilter, counts, sortKey, sortDir, previousOf]);
 
   const changedCount = skus.filter((sku) => {
     const key = stockKey(sku.materialId, sku.variant);
@@ -676,39 +726,52 @@ function InventoryForm({
             </ul>
           ) : null}
         </div>
-        <Field label="Observação">
+        <Field label="Observação" className="sm:col-span-2">
           <input className={fieldControlClass} value={note} onChange={(e) => setNote(e.target.value)} />
-        </Field>
-        <Field label="Filtrar categoria">
-          <select className={fieldControlClass} value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">Todas</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Filtrar local">
-          <select
-            className={fieldControlClass}
-            value={locationFilter}
-            onChange={(e) => setLocationFilter(e.target.value)}
-          >
-            <option value="">Todos</option>
-            <option value="__none__">Sem local</option>
-            {locations.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
         </Field>
       </div>
 
-      <div className="flex items-center justify-between">
+      <CatalogFilters
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Buscar material, variação, categoria ou local…"
+        facets={[
+          {
+            id: "category",
+            label: "Categoria",
+            value: category,
+            onChange: setCategory,
+            options: categories.map((item) => ({ value: item, label: item })),
+          },
+          {
+            id: "location",
+            label: "Local",
+            value: locationFilter,
+            onChange: setLocationFilter,
+            options: [
+              { value: "__none__", label: "Sem local" },
+              ...locations.map((item) => ({ value: item.id, label: item.name })),
+            ],
+          },
+          {
+            id: "diff",
+            label: "Diferença",
+            value: diffFilter,
+            onChange: setDiffFilter,
+            options: [
+              { value: "changed", label: "Com diferença" },
+              { value: "same", label: "Iguais ao saldo" },
+            ],
+          },
+        ]}
+      />
+
+      <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-forest/60">
-          {changedCount > 0 ? `${changedCount} item(ns) com diferença` : "Sem diferenças até agora"}
+          {visible.length === skus.length
+            ? `${skus.length} item(ns)`
+            : `${visible.length} de ${skus.length} item(ns)`}
+          {changedCount > 0 ? ` · ${changedCount} com diferença` : " · sem diferenças até agora"}
         </p>
         <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={conclude}>
           <ClipboardCheck data-icon="inline-start" />
@@ -727,17 +790,57 @@ function InventoryForm({
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-forest/10">
-              <th className="field-label py-3 pl-5 font-normal">Material / variação</th>
-              <th className="field-label py-3 font-normal">Local</th>
-              <th className="field-label py-3 text-right font-normal">
-                {initial ? "Saldo anterior" : "Saldo atual"}
-              </th>
-              <th className="field-label py-3 font-normal">Contagem</th>
-              <th className="field-label py-3 pr-5 text-right font-normal">Diferença</th>
+              <SortTh
+                label="Material / variação"
+                active={sortKey === "name"}
+                dir={sortDir}
+                onClick={() => toggleSort("name")}
+                className="pl-5"
+              />
+              <SortTh
+                label="Categoria"
+                active={sortKey === "category"}
+                dir={sortDir}
+                onClick={() => toggleSort("category")}
+              />
+              <SortTh
+                label="Local"
+                active={sortKey === "location"}
+                dir={sortDir}
+                onClick={() => toggleSort("location")}
+              />
+              <SortTh
+                label={initial ? "Saldo anterior" : "Saldo atual"}
+                align="right"
+                active={sortKey === "previous"}
+                dir={sortDir}
+                onClick={() => toggleSort("previous")}
+              />
+              <SortTh
+                label="Contagem"
+                active={sortKey === "counted"}
+                dir={sortDir}
+                onClick={() => toggleSort("counted")}
+              />
+              <SortTh
+                label="Diferença"
+                align="right"
+                active={sortKey === "diff"}
+                dir={sortDir}
+                onClick={() => toggleSort("diff")}
+                className="pr-5"
+              />
             </tr>
           </thead>
           <tbody>
-            {visible.map((sku) => {
+            {visible.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-sm font-light text-forest/50">
+                  Nenhum item com esses filtros.
+                </td>
+              </tr>
+            ) : (
+              visible.map((sku) => {
               const key = stockKey(sku.materialId, sku.variant);
               const previous = previousOf(sku.materialId, sku.variant);
               const counted = counts[key] ?? 0;
@@ -746,10 +849,11 @@ function InventoryForm({
                 <tr key={key} className="border-b border-forest/5 last:border-0">
                   <td className="py-2.5 pl-5">
                     <p className="font-list font-medium text-forest">{sku.label}</p>
-                    <p className="text-xs font-light text-forest/45">
-                      {sku.category} · {sku.unit}
-                    </p>
+                    {sku.unit ? (
+                      <p className="text-xs font-light text-forest/45">{sku.unit}</p>
+                    ) : null}
                   </td>
+                  <td className="py-2.5 text-forest/60">{sku.category}</td>
                   <td className="py-2.5 text-forest/60">
                     {sku.locationId ? locationName.get(sku.locationId) ?? "—" : "—"}
                   </td>
@@ -776,10 +880,46 @@ function InventoryForm({
                   </td>
                 </tr>
               );
-            })}
+              })
+            )}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function SortTh({
+  label,
+  active,
+  dir,
+  onClick,
+  align,
+  className,
+}: {
+  label: string;
+  active: boolean;
+  dir: "asc" | "desc";
+  onClick: () => void;
+  align?: "right";
+  className?: string;
+}) {
+  return (
+    <th className={cn("field-label py-3 font-normal", align === "right" && "text-right", className)}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "inline-flex items-center gap-1 hover:text-forest",
+          active ? "text-forest" : "text-forest/55",
+          align === "right" && "flex-row-reverse",
+        )}
+      >
+        {label}
+        {active ? (
+          dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
+        ) : null}
+      </button>
+    </th>
   );
 }
