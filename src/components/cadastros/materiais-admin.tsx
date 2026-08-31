@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, Chip, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { basesMap, describeProportion, materialQuantity } from "@/lib/cadastros/calc";
@@ -194,9 +194,8 @@ export function MateriaisAdmin() {
                         ) : null}
                       </td>
                       <td className="py-3 pr-3">
-                        <span
+                        <Chip
                           className={cn(
-                            "rounded-full px-2.5 py-1 text-xs",
                             material.kind === "descartavel"
                               ? "bg-terracotta/10 text-terracotta"
                               : material.kind === "misto"
@@ -205,15 +204,13 @@ export function MateriaisAdmin() {
                           )}
                         >
                           {MATERIAL_KIND_LABELS[material.kind]}
-                        </span>
+                        </Chip>
                       </td>
                       <td className="py-3 pr-3 font-list text-[0.8rem] font-light text-forest/60">
                         {describeProportion(material, bases)}
                       </td>
                       <td className="py-3 pr-3">
-                        <span className="rounded-full bg-forest/6 px-2.5 py-1 text-xs text-forest/70">
-                          {material.category}
-                        </span>
+                        <Chip className="bg-forest/6 text-forest/70">{material.category}</Chip>
                       </td>
                       <td className="py-3 text-center text-forest/70">{material.unit || "—"}</td>
                       <td className="py-3 pr-5">
@@ -471,20 +468,17 @@ function MaterialForm({
         {variants.length > 0 ? (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {variants.map((variant) => (
-              <span
-                key={variant}
-                className="inline-flex items-center gap-1 rounded-full border border-forest/12 bg-forest/[0.03] py-1 pl-3 pr-1.5 text-sm text-forest/80"
-              >
-                {variant}
+              <ChipRow key={variant}>
+                <span className="min-w-0 break-words">{variant}</span>
                 <button
                   type="button"
                   aria-label={`Remover ${variant}`}
                   onClick={() => setVariants(variants.filter((item) => item !== variant))}
-                  className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
                 >
                   <Trash2 className="size-3" />
                 </button>
-              </span>
+              </ChipRow>
             ))}
           </div>
         ) : null}

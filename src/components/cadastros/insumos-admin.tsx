@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, Chip, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { InsumoRecord } from "@/lib/cadastros/types";
@@ -154,9 +154,7 @@ export function InsumosAdmin() {
                       </td>
                       <td className="py-3 font-list font-medium text-forest">{item.name}</td>
                       <td className="py-3">
-                        <span className="rounded-full bg-forest/6 px-2.5 py-1 text-xs text-forest/70">
-                          {item.category}
-                        </span>
+                        <Chip className="bg-forest/6 text-forest/70">{item.category}</Chip>
                       </td>
                       <td className="py-3 text-center text-forest/70">{item.unit || "—"}</td>
                       <td className="py-3 pr-5">

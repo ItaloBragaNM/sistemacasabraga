@@ -249,7 +249,7 @@ export function EstoqueMateriais() {
               ]}
             />
             {belowMin > 0 ? (
-              <span className="inline-flex items-center gap-2 self-start rounded-full bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta">
+              <span className="inline-flex max-w-full items-center gap-2 self-start rounded-md bg-terracotta/10 px-3 py-1.5 text-sm leading-snug text-terracotta">
                 <AlertTriangle className="size-4" />
                 {belowMin} abaixo do mínimo
               </span>

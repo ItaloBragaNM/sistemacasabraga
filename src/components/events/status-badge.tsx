@@ -12,7 +12,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "font-section inline-flex items-center rounded-full px-2.5 py-1 text-[0.58rem]",
+        "font-section inline-flex max-w-full items-center rounded-md px-2.5 py-1 text-left text-[0.58rem] leading-snug break-words",
         `status-${status}`,
         className,
       )}

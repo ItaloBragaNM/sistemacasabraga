@@ -12,7 +12,7 @@ import {
   useItemSelection,
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
-import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, Chip, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { DishRecord } from "@/lib/cadastros/types";
@@ -195,14 +195,14 @@ export function CardapioAdmin() {
                             {dish.hasRechaud || dish.hasFritadeira ? (
                               <p className="mt-1.5 flex flex-wrap gap-1">
                                 {dish.hasRechaud ? (
-                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-amber-800">
+                                  <Chip size="sm" className="bg-amber-100 text-amber-800">
                                     rechaud
-                                  </span>
+                                  </Chip>
                                 ) : null}
                                 {dish.hasFritadeira ? (
-                                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-sky-800">
+                                  <Chip size="sm" className="bg-sky-100 text-sky-800">
                                     fritadeira
-                                  </span>
+                                  </Chip>
                                 ) : null}
                               </p>
                             ) : null}

@@ -4,7 +4,7 @@ import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, LoadingBlock } from "@/components/cadastros/ui";
+import { CadastrosHeader, Chip, ChipRow, LoadingBlock } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { BaseKind, CalcBase } from "@/lib/cadastros/types";
@@ -311,10 +311,7 @@ function CategoriesEditor({
 
       <div className="mt-4 flex flex-wrap gap-2">
         {categories.map((category) => (
-          <div
-            key={category}
-            className="flex items-center gap-1.5 rounded-full border border-forest/12 bg-forest/[0.03] py-1 pl-3 pr-1.5"
-          >
+          <ChipRow key={category} className="gap-1.5">
             {editing === category ? (
               <>
                 <input
@@ -343,7 +340,7 @@ function CategoriesEditor({
               </>
             ) : (
               <>
-                <span className="text-sm text-forest/80">{category}</span>
+                <span className="min-w-0 break-words text-sm text-forest/80">{category}</span>
                 <button
                   type="button"
                   aria-label="Renomear"
@@ -351,7 +348,7 @@ function CategoriesEditor({
                     setEditing(category);
                     setEditValue(category);
                   }}
-                  className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-forest"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full text-forest/40 hover:text-forest"
                 >
                   <Pencil className="size-3" />
                 </button>
@@ -365,7 +362,7 @@ function CategoriesEditor({
                 </button>
               </>
             )}
-          </div>
+          </ChipRow>
         ))}
       </div>
 
@@ -425,9 +422,9 @@ function BasesSection() {
               <p className="font-list font-medium text-forest">
                 {base.label}
                 {base.builtIn ? (
-                  <span className="ml-2 rounded-full bg-forest/6 px-2 py-0.5 text-[0.6rem] uppercase tracking-wide text-forest/45">
+                  <Chip size="sm" className="ml-2 bg-forest/6 text-forest/45">
                     nativa
-                  </span>
+                  </Chip>
                 ) : null}
               </p>
               <p className="mt-0.5 text-xs font-light text-forest/55">

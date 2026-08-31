@@ -15,7 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CatalogFilters } from "@/components/cadastros/ui";
+import { CatalogFilters, Chip } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { useEvents } from "@/components/events/events-provider";
 import { StatusBadge } from "@/components/events/status-badge";
@@ -618,14 +618,14 @@ function SeparationEditor({
                               <span className="font-list font-medium text-forest">
                                 {row.name}
                                 {row.manual ? (
-                                  <span className="ml-2 rounded-full bg-forest/10 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-forest/70">
+                                  <Chip size="sm" className="ml-2 bg-forest/10 text-forest/70">
                                     sem prato
-                                  </span>
+                                  </Chip>
                                 ) : null}
                                 {row.edited ? (
-                                  <span className="ml-2 rounded-full bg-[#B8860B]/15 px-2 py-0.5 text-[0.58rem] uppercase tracking-wide text-[#8a6d0b]">
+                                  <Chip size="sm" className="ml-2 bg-[#B8860B]/15 text-[#8a6d0b]">
                                     editado
-                                  </span>
+                                  </Chip>
                                 ) : null}
                               </span>
                             </button>
@@ -861,10 +861,10 @@ function EventSummary({ event }: { event: EventRecord }) {
 
 function ScaleBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-wide text-amber-800">
-      <Bolt className="size-3" />
+    <Chip size="sm" className="inline-flex items-center gap-1 bg-amber-100 font-medium text-amber-800">
+      <Bolt className="size-3 shrink-0" />
       {label}
-    </span>
+    </Chip>
   );
 }
 

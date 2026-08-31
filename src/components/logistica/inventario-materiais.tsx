@@ -4,7 +4,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Eye, FileDown, Pencil, P
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { downloadCountSheetPdf } from "@/components/logistica/inventario-pdf";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
@@ -708,19 +708,18 @@ function InventoryForm({
           {participants.length > 0 ? (
             <ul className="mt-2 flex flex-wrap gap-2">
               {participants.map((name) => (
-                <li
-                  key={name}
-                  className="inline-flex items-center gap-1 rounded-full border border-forest/12 bg-forest/[0.03] py-1 pl-3 pr-1 text-sm text-forest"
-                >
-                  {name}
-                  <button
-                    type="button"
-                    aria-label={`Remover ${name}`}
-                    className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
-                    onClick={() => setParticipants((current) => current.filter((item) => item !== name))}
-                  >
-                    <X className="size-3" />
-                  </button>
+                <li key={name}>
+                  <ChipRow>
+                    <span className="min-w-0 break-words">{name}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remover ${name}`}
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
+                      onClick={() => setParticipants((current) => current.filter((item) => item !== name))}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </ChipRow>
                 </li>
               ))}
             </ul>

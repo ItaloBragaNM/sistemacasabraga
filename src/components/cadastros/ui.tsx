@@ -189,3 +189,48 @@ export function EmptyBlock({
     </div>
   );
 }
+
+/** Label chip: one rounded box even when the text wraps onto several lines. */
+export function Chip({
+  children,
+  className,
+  size = "md",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  size?: "md" | "sm";
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-block max-w-full rounded-md text-left align-middle leading-snug break-words",
+        size === "sm"
+          ? "px-2 py-0.5 text-[0.58rem] uppercase tracking-wide"
+          : "px-2.5 py-1 text-xs",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Chip with a trailing action (remove). Stays a single rounded rectangle if the label wraps. */
+export function ChipRow({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-full min-w-0 items-center gap-1 rounded-md border border-forest/12 bg-forest/[0.03] py-1 pl-3 pr-1.5 text-left text-sm leading-snug text-forest",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}

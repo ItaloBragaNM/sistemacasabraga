@@ -4,7 +4,7 @@ import { Bolt, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { CadastrosHeader, Chip, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import {
@@ -275,10 +275,10 @@ function KitCard({
 
 function ScaleBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-wide text-amber-800">
-      <Bolt className="size-3" />
+    <Chip size="sm" className="inline-flex items-center gap-1 bg-amber-100 font-medium text-amber-800">
+      <Bolt className="size-3 shrink-0" />
       {label}
-    </span>
+    </Chip>
   );
 }
 
