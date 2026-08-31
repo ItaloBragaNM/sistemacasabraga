@@ -172,7 +172,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle
           title="Dados do evento"
-          hint="Campos com estrela são os obrigatórios da ficha da casa."
+          hint="O material fica alocado da entrega até o recolhimento (inclusive). Campos com estrela são obrigatórios."
         />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="★ Nome do evento" className="md:col-span-2">
@@ -239,6 +239,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               className={fieldControlClass}
               value={draft.materialDeliveryDate}
               onChange={(event) => update("materialDeliveryDate", event.target.value)}
+            />
+          </Field>
+          <Field label="Dt. recolhimento material">
+            <input
+              type="date"
+              className={fieldControlClass}
+              value={draft.materialPickupDate ?? ""}
+              onChange={(event) => update("materialPickupDate", event.target.value)}
             />
           </Field>
           <Field label="Dt. entrega comida">

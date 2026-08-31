@@ -163,8 +163,8 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
         </View>
         <View style={styles.metaRow}>
           <Meta
-            label="Entrega material / comida"
-            value={`${event.materialDeliveryDate || "—"} / ${event.foodDeliveryDate || "—"}`}
+            label="Entrega / recolhimento material"
+            value={`${event.materialDeliveryDate || "—"} → ${event.materialPickupDate || "—"} · comida ${event.foodDeliveryDate || "—"}`}
           />
           <Meta
             label="Local"

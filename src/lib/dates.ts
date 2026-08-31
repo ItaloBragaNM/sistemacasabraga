@@ -48,4 +48,34 @@ export function weekDays(date: Date) {
   return Array.from({ length: 7 }, (_, index) => addDays(start, index));
 }
 
+/** Semana começando na segunda (visão operacional). */
+export function weekDaysMonday(date: Date) {
+  const start = startOfWeek(date, { weekStartsOn: 1 });
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+}
+
+export function toIsoDate(date: Date) {
+  return format(date, "yyyy-MM-dd");
+}
+
+export function formatWeekRange(start: Date, end: Date) {
+  return `${format(start, "d MMM", { locale: ptBR })} – ${format(end, "d MMM yyyy", { locale: ptBR })}`;
+}
+
+/** Dias YYYY-MM-DD inclusive, sem deslocar fuso. */
+export function isoDaysInRange(start: string, end: string): string[] {
+  const from = start.slice(0, 10);
+  let to = (end || start).slice(0, 10);
+  if (!from) return [];
+  if (to < from) to = from;
+  const days: string[] = [];
+  let current = from;
+  while (current <= to) {
+    days.push(current);
+    const [year, month, day] = current.split("-").map(Number);
+    current = toIsoDate(new Date(year, month - 1, day + 1));
+  }
+  return days;
+}
+
 export { isSameDay, isSameMonth };

@@ -35,6 +35,11 @@ export interface InventoryItem {
   counted: number;
 }
 
+export interface InventorySkip {
+  materialId: string;
+  variant?: string;
+}
+
 export interface InventorySession {
   id: string;
   /** Data da contagem (YYYY-MM-DD). */
@@ -44,6 +49,8 @@ export interface InventorySession {
   participants: string[];
   note: string;
   items: InventoryItem[];
+  /** SKUs deixados de fora desta contagem (não geram movimento de estoque). */
+  skipped: InventorySkip[];
   createdAt: string;
 }
 

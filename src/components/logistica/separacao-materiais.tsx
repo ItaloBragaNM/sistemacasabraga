@@ -20,6 +20,7 @@ import { EventDrinksFields, EventUniformsFields } from "@/components/events/drin
 import { useEvents } from "@/components/events/events-provider";
 import { StatusBadge } from "@/components/events/status-badge";
 import { fieldControlClass } from "@/components/events/field";
+import { useLogistica } from "@/components/logistica/logistica-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   computeSeparationItems,
@@ -32,6 +33,13 @@ import type { CadastrosData, MaterialKit } from "@/lib/cadastros/types";
 import { formatShortDate } from "@/lib/dates";
 import { uid } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
+import { formatInt } from "@/lib/crm/format";
+import {
+  allocationWindow,
+  eventsWithRupture,
+  rupturesForEvent,
+} from "@/lib/logistica/alocacao";
+import { computeBalances } from "@/lib/logistica/calc";
 import {
   guestTotal,
   normalizeMaterialSeparation,
@@ -68,6 +76,7 @@ interface Row {
 export function SeparacaoMateriais() {
   const { events, ready } = useEvents();
   const { data: cadastros } = useCadastros();
+  const { data: logistica } = useLogistica();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
@@ -83,6 +92,11 @@ export function SeparacaoMateriais() {
     () => new Map((cadastros?.clientes ?? []).map((cliente) => [cliente.id, cliente.name])),
     [cadastros],
   );
+
+  const ruptureIds = useMemo(() => {
+    if (!cadastros) return new Set<string>();
+    return eventsWithRupture(events, cadastros, computeBalances(logistica?.movements ?? []));
+  }, [events, cadastros, logistica]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -194,7 +208,14 @@ export function SeparacaoMateriais() {
                         {guestTotal(event.guests)} pax
                       </p>
                     </div>
-                    <StatusBadge status={event.status} />
+                    <div className="flex flex-col items-start gap-1 md:items-end">
+                      {ruptureIds.has(event.id) ? (
+                        <Chip size="sm" className="bg-terracotta/15 font-medium text-terracotta">
+                          Ruptura
+                        </Chip>
+                      ) : null}
+                      <StatusBadge status={event.status} />
+                    </div>
                   </Link>
                 );
               })}
@@ -283,6 +304,8 @@ function SeparationEditor({
   cadastros: CadastrosData;
   onSave: (event: EventRecord) => void;
 }) {
+  const { events } = useEvents();
+  const { data: logistica } = useLogistica();
   const [sep, setSep] = useState<MaterialSeparationState>(() =>
     normalizeMaterialSeparation(event.materialSeparation),
   );
@@ -322,6 +345,26 @@ function SeparationEditor({
     () => new Map(cadastros.materials.map((item) => [item.id, item])),
     [cadastros.materials],
   );
+  const liveEvent = useMemo(
+    () => ({ ...event, materialSeparation: sep }),
+    [event, sep],
+  );
+  const ruptures = useMemo(
+    () =>
+      rupturesForEvent(
+        liveEvent,
+        events,
+        cadastros,
+        computeBalances(logistica?.movements ?? []),
+      ),
+    [liveEvent, events, cadastros, logistica],
+  );
+  const ruptureById = useMemo(
+    () => new Map(ruptures.map((item) => [item.materialId, item])),
+    [ruptures],
+  );
+  const ruptureIds = useMemo(() => new Set(ruptureById.keys()), [ruptureById]);
+  const allocWindow = allocationWindow(liveEvent);
 
   const drinks =
     event.drinksAuto === false
@@ -495,6 +538,50 @@ function SeparationEditor({
         </div>
       ) : null}
 
+      {ruptures.length > 0 ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/[0.07] p-4">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-terracotta" />
+          <div className="min-w-0 flex-1 text-sm text-forest">
+            <p className="font-medium text-terracotta">
+              Ruptura de estoque nesta alocação
+              {allocWindow
+                ? ` · ${formatShortDate(allocWindow.start)} → ${formatShortDate(allocWindow.end)}`
+                : ""}
+            </p>
+            <p className="mt-1 font-light text-forest/70">
+              {ruptures.length === 1
+                ? "1 material não cabe no estoque"
+                : `${ruptures.length} materiais não cabem no estoque`}{" "}
+              com os eventos simultâneos (entrega até recolhimento).
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-forest/80">
+              {ruptures.slice(0, 6).map((item) => (
+                <li key={item.materialId}>
+                  <span className="font-medium">{item.name}</span>
+                  {item.unit ? ` (${item.unit})` : ""}: estoque {formatInt(item.stock)} · este
+                  evento {formatInt(item.thisEventQty)} · pico {formatInt(item.peak)} · falta{" "}
+                  {formatInt(item.shortage)}
+                  {item.others.length > 0
+                    ? ` · junto com ${item.others.map((other) => other.title).join(", ")}`
+                    : ""}
+                </li>
+              ))}
+            </ul>
+            {ruptures.length > 6 ? (
+              <p className="mt-1 text-xs font-light text-forest/50">
+                e mais {ruptures.length - 6} material(is)
+              </p>
+            ) : null}
+            <Link
+              href="/logistica/alocacao-materiais"
+              className="mt-2 inline-block text-sm text-terracotta underline-offset-2 hover:underline"
+            >
+              Ver controle de alocação
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4 text-sm text-forest/70">
           <Stat label="Itens" value={String(rows.length)} />
@@ -589,12 +676,13 @@ function SeparationEditor({
               <tbody>
                 {rows.map((row) => {
                   const open = openKeys.has(row.key);
+                  const rupture = row.materialId ? ruptureById.get(row.materialId) : undefined;
                   return (
                     <Fragment key={row.key}>
                       <tr
                         className={cn(
                           "border-b border-forest/5",
-                          row.edited && "bg-[#FEF6D9]",
+                          rupture ? "bg-terracotta/[0.06]" : row.edited && "bg-[#FEF6D9]",
                         )}
                       >
                         <td className="px-4 py-2.5">
@@ -625,6 +713,11 @@ function SeparationEditor({
                                 {row.edited ? (
                                   <Chip size="sm" className="ml-2 bg-[#B8860B]/15 text-[#8a6d0b]">
                                     editado
+                                  </Chip>
+                                ) : null}
+                                {rupture ? (
+                                  <Chip size="sm" className="ml-2 bg-terracotta/15 font-medium text-terracotta">
+                                    falta {formatInt(rupture.shortage)}
                                   </Chip>
                                 ) : null}
                               </span>
@@ -713,6 +806,7 @@ function SeparationEditor({
         cadastros={cadastros}
         sep={sep}
         materialById={materialById}
+        ruptureIds={ruptureIds}
         onChange={applySep}
       />
 
@@ -874,6 +968,7 @@ function KitsOnEvent({
   cadastros,
   sep,
   materialById,
+  ruptureIds,
   onChange,
 }: {
   kits: MaterialKit[];
@@ -881,6 +976,7 @@ function KitsOnEvent({
   cadastros: CadastrosData;
   sep: MaterialSeparationState;
   materialById: Map<string, { name: string; unit: string }>;
+  ruptureIds: Set<string>;
   onChange: (next: MaterialSeparationState) => void;
 }) {
   const patchKit = (kitId: string, patch: { quantity?: number; itemTotals?: Record<string, number> }) => {
@@ -967,10 +1063,18 @@ function KitsOnEvent({
                       return (
                         <li
                           key={`${item.materialId}-${index}`}
-                          className="flex items-center gap-3 border-b border-forest/8 px-4 py-2 last:border-0"
+                          className={cn(
+                            "flex items-center gap-3 border-b border-forest/8 px-4 py-2 last:border-0",
+                            ruptureIds.has(item.materialId) && "bg-terracotta/[0.06]",
+                          )}
                         >
                           <span className="min-w-0 flex-1 text-sm text-forest">
                             {item.qtyPerKit}x {material?.name ?? "Material removido"}
+                            {ruptureIds.has(item.materialId) ? (
+                              <Chip size="sm" className="ml-2 bg-terracotta/15 font-medium text-terracotta">
+                                ruptura
+                              </Chip>
+                            ) : null}
                           </span>
                           <span className="field-label">Total</span>
                           <input

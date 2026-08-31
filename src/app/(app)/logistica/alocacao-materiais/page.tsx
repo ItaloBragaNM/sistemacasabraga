@@ -1,10 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { AlocacaoMateriais } from "@/components/logistica/alocacao-materiais";
 
 export default function Page() {
-  return (
-    <ComingSoon
-      moduleName="Logística"
-      pageName="Controle de Alocação de Materiais"
-    />
-  );
+  return <AlocacaoMateriais />;
 }

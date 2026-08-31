@@ -110,6 +110,7 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     status: "rascunho",
     date: now.slice(0, 10),
     materialDeliveryDate: "",
+    materialPickupDate: "",
     foodDeliveryDate: "",
     perCapita: 0,
     islands: 0,

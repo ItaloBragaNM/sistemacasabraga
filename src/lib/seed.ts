@@ -20,6 +20,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "confirmado",
     date: "2026-08-29",
     materialDeliveryDate: "2026-08-28",
+    materialPickupDate: "2026-08-30",
     foodDeliveryDate: "2026-08-29",
     perCapita: 280,
     venue: {
@@ -109,6 +110,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "em_preparacao",
     date: "2026-08-25",
     materialDeliveryDate: "2026-08-25",
+    materialPickupDate: "2026-08-26",
     foodDeliveryDate: "2026-08-25",
     perCapita: 80,
     venue: {
@@ -173,6 +175,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "realizado",
     date: "2026-08-23",
     materialDeliveryDate: "2026-08-23",
+    materialPickupDate: "2026-08-24",
     foodDeliveryDate: "2026-08-23",
     perCapita: 142,
     venue: {
@@ -236,6 +239,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "confirmado",
     date: "2026-08-24",
     materialDeliveryDate: "2026-08-24",
+    materialPickupDate: "2026-08-25",
     foodDeliveryDate: "2026-08-24",
     perCapita: 0,
     venue: casaInternal(),
@@ -292,6 +296,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "confirmado",
     date: "2026-08-30",
     materialDeliveryDate: "2026-08-30",
+    materialPickupDate: "2026-08-31",
     foodDeliveryDate: "2026-08-30",
     perCapita: 84,
     venue: {
@@ -356,6 +361,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "em_preparacao",
     date: "2026-08-28",
     materialDeliveryDate: "2026-08-28",
+    materialPickupDate: "2026-08-29",
     foodDeliveryDate: "2026-08-28",
     perCapita: 98,
     venue: {
@@ -420,6 +426,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "realizado",
     date: "2026-08-22",
     materialDeliveryDate: "2026-08-21",
+    materialPickupDate: "2026-08-23",
     foodDeliveryDate: "2026-08-22",
     perCapita: 0,
     venue: casaInternal(),
@@ -476,6 +483,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "rascunho",
     date: "2026-09-05",
     materialDeliveryDate: "",
+    materialPickupDate: "",
     foodDeliveryDate: "",
     perCapita: 0,
     venue: casaInternal("Salão + jardim. Palco no fundo do salão."),
@@ -511,6 +519,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "confirmado",
     date: "2026-09-12",
     materialDeliveryDate: "2026-09-12",
+    materialPickupDate: "2026-09-13",
     foodDeliveryDate: "2026-09-12",
     perCapita: 267,
     venue: {
@@ -571,6 +580,7 @@ export const SEED_EVENTS: EventRecord[] = [
     status: "confirmado",
     date: "2026-09-19",
     materialDeliveryDate: "2026-09-18",
+    materialPickupDate: "2026-09-20",
     foodDeliveryDate: "2026-09-19",
     perCapita: 153,
     venue: casaInternal("Salão principal. Pista no centro."),

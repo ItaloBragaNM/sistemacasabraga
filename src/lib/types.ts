@@ -281,6 +281,8 @@ export interface EventRecord {
   status: EventStatus;
   date: string;
   materialDeliveryDate: string;
+  /** Último dia em que o material ainda está no evento (inclusive). */
+  materialPickupDate: string;
   foodDeliveryDate: string;
   perCapita: number;
   venue: Venue;
@@ -324,6 +326,11 @@ export function staffTotal(staff: StaffCounts) {
   return STAFF_ROLES.reduce((sum, role) => sum + (staff[role.key] || 0), 0);
 }
 
+function normalizeIsoDate(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return "";
+  return value.trim().slice(0, 10);
+}
+
 export function normalizeEventRecord(event: EventRecord): EventRecord {
   const drinksAuto = event.drinksAuto !== false;
   return {
@@ -332,6 +339,9 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     staff: normalizeStaff(event.staff),
     clientId: event.clientId ?? "",
     menu: compactMenu(event.menu),
+    materialDeliveryDate: normalizeIsoDate(event.materialDeliveryDate),
+    materialPickupDate: normalizeIsoDate(event.materialPickupDate),
+    foodDeliveryDate: normalizeIsoDate(event.foodDeliveryDate),
     drinksAuto,
     drinks: drinksAuto
       ? suggestedDrinkQuantities(guestTotal(event.guests))

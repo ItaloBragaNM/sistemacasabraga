@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Eye, FileDown, Pencil, Plus, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Eye, EyeOff, FileDown, Pencil, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { CadastrosHeader, CatalogFilters, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
@@ -207,6 +207,12 @@ export function InventarioMateriais() {
               </p>
             ) : null}
             {viewing.note ? <p className="text-sm font-light text-forest/60">{viewing.note}</p> : null}
+            {(viewing.skipped ?? []).length > 0 ? (
+              <p className="text-sm text-forest/60">
+                {(viewing.skipped ?? []).length} item(ns) oculto(s) nesta contagem — o saldo desses SKUs
+                não foi alterado.
+              </p>
+            ) : null}
             <div className="overflow-hidden rounded-xl border border-forest/10">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -513,19 +519,21 @@ function InventoryForm({
       })),
     );
     const seen = new Set(catalog.map((sku) => stockKey(sku.materialId, sku.variant)));
-    const extras = (initial?.items ?? [])
-      .filter((item) => !seen.has(stockKey(item.materialId, item.variant)))
-      .map((item) => {
-        const material = materialById.get(item.materialId);
-        return {
-          materialId: item.materialId,
-          variant: item.variant ?? "",
-          label: inventoryItemLabel(material, item.variant, item.materialId),
-          category: material?.category ?? "Outros",
-          unit: material?.unit ?? "",
-          locationId: material?.locationId,
-        };
+    const extras: typeof catalog = [];
+    for (const item of [...(initial?.items ?? []), ...(initial?.skipped ?? [])]) {
+      const key = stockKey(item.materialId, item.variant);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const material = materialById.get(item.materialId);
+      extras.push({
+        materialId: item.materialId,
+        variant: item.variant ?? "",
+        label: inventoryItemLabel(material, item.variant, item.materialId),
+        category: material?.category ?? "Outros",
+        unit: material?.unit ?? "",
+        locationId: material?.locationId,
       });
+    }
     return [...catalog, ...extras];
   }, [materials, balances, recorded, initial, materialById]);
 
@@ -542,6 +550,10 @@ function InventoryForm({
     "category",
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showHidden, setShowHidden] = useState(false);
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(
+    () => new Set((initial?.skipped ?? []).map((item) => stockKey(item.materialId, item.variant))),
+  );
   const [counts, setCounts] = useState<Record<string, number>>(() => {
     const next: Record<string, number> = {};
     for (const [key, item] of recorded) next[key] = item.counted;
@@ -589,6 +601,10 @@ function InventoryForm({
         );
       })
       .filter((sku) => {
+        const hidden = hiddenKeys.has(stockKey(sku.materialId, sku.variant));
+        return showHidden ? hidden : !hidden;
+      })
+      .filter((sku) => {
         if (!diffFilter) return true;
         const key = stockKey(sku.materialId, sku.variant);
         const diff = (counts[key] ?? 0) - previousOf(sku.materialId, sku.variant);
@@ -616,12 +632,58 @@ function InventoryForm({
       return cmp * dir;
     });
     return list;
-  }, [skus, category, locationFilter, locationName, search, diffFilter, counts, sortKey, sortDir, previousOf]);
+  }, [
+    skus,
+    category,
+    locationFilter,
+    locationName,
+    search,
+    diffFilter,
+    counts,
+    sortKey,
+    sortDir,
+    previousOf,
+    hiddenKeys,
+    showHidden,
+  ]);
 
+  const hiddenCount = hiddenKeys.size;
+  const toCount = skus.length - hiddenCount;
   const changedCount = skus.filter((sku) => {
     const key = stockKey(sku.materialId, sku.variant);
+    if (hiddenKeys.has(key)) return false;
     return (counts[key] ?? 0) !== previousOf(sku.materialId, sku.variant);
   }).length;
+
+  const toggleHidden = (key: string, hide: boolean) => {
+    setHiddenKeys((current) => {
+      const next = new Set(current);
+      if (hide) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (hiddenCount === 0 && showHidden) setShowHidden(false);
+  }, [hiddenCount, showHidden]);
+
+  const hideListed = () => {
+    setHiddenKeys((current) => {
+      const next = new Set(current);
+      for (const sku of visible) next.add(stockKey(sku.materialId, sku.variant));
+      return next;
+    });
+  };
+
+  const unhideListed = () => {
+    setHiddenKeys((current) => {
+      const next = new Set(current);
+      for (const sku of visible) next.delete(stockKey(sku.materialId, sku.variant));
+      return next;
+    });
+    if (visible.length >= hiddenCount) setShowHidden(false);
+  };
 
   const addParticipant = () => {
     const value = participantDraft.trim();
@@ -635,19 +697,24 @@ function InventoryForm({
   };
 
   const conclude = () => {
-    const items = skus.map((sku) => ({
-      materialId: sku.materialId,
-      variant: sku.variant,
-      previous: previousOf(sku.materialId, sku.variant),
-      counted: counts[stockKey(sku.materialId, sku.variant)] ?? 0,
-    }));
+    const countedSkus = skus.filter((sku) => !hiddenKeys.has(stockKey(sku.materialId, sku.variant)));
+    const skippedSkus = skus.filter((sku) => hiddenKeys.has(stockKey(sku.materialId, sku.variant)));
     onConclude({
       id: initial?.id ?? uid(),
       date,
       responsible: responsible.trim(),
       participants,
       note: note.trim(),
-      items,
+      items: countedSkus.map((sku) => ({
+        materialId: sku.materialId,
+        variant: sku.variant,
+        previous: previousOf(sku.materialId, sku.variant),
+        counted: counts[stockKey(sku.materialId, sku.variant)] ?? 0,
+      })),
+      skipped: skippedSkus.map((sku) => ({
+        materialId: sku.materialId,
+        variant: sku.variant,
+      })),
       createdAt: initial?.createdAt ?? new Date().toISOString(),
     });
   };
@@ -668,8 +735,8 @@ function InventoryForm({
         </h1>
         <p className="mt-2 text-sm font-light text-forest/60">
           {initial
-            ? "Altere a data, quem participou ou as quantidades. Ao salvar, o estoque é recalculado a partir desta contagem."
-            : "Preencha a data, o responsável e quem participou da contagem. Cada variação é um item. A diferença aparece ao lado; ao concluir, o saldo é ajustado."}
+            ? "Altere a data, quem participou ou as quantidades. Oculte o que não entra nesta contagem — esses itens não alteram o estoque. Ao salvar, o saldo é recalculado a partir do que foi contado."
+            : "Preencha a data, o responsável e quem participou. Cada variação é um item. Oculte o que não será contado: esses SKUs ficam de fora e o saldo deles não muda."}
         </p>
       </div>
 
@@ -765,17 +832,42 @@ function InventoryForm({
         ]}
       />
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-forest/60">
-          {visible.length === skus.length
-            ? `${skus.length} item(ns)`
-            : `${visible.length} de ${skus.length} item(ns)`}
-          {changedCount > 0 ? ` · ${changedCount} com diferença` : " · sem diferenças até agora"}
+          {showHidden
+            ? `${visible.length} oculto(s) listado(s)`
+            : visible.length === toCount
+              ? `${toCount} a contar`
+              : `${visible.length} de ${toCount} a contar`}
+          {hiddenCount > 0 && !showHidden ? ` · ${hiddenCount} oculto(s)` : ""}
+          {!showHidden
+            ? changedCount > 0
+              ? ` · ${changedCount} com diferença`
+              : " · sem diferenças até agora"
+            : ""}
         </p>
-        <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={conclude}>
-          <ClipboardCheck data-icon="inline-start" />
-          {initial ? "Salvar alterações" : "Concluir inventário"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hiddenCount > 0 ? (
+            <Button variant="outline" className="h-10 px-4" onClick={() => setShowHidden((current) => !current)}>
+              {showHidden ? <Eye data-icon="inline-start" /> : <EyeOff data-icon="inline-start" />}
+              {showHidden ? "Voltar à contagem" : `Mostrar ${hiddenCount} ocultos`}
+            </Button>
+          ) : null}
+          {visible.length > 0 ? (
+            <Button
+              variant="outline"
+              className="h-10 px-4"
+              onClick={showHidden ? unhideListed : hideListed}
+            >
+              {showHidden ? <Eye data-icon="inline-start" /> : <EyeOff data-icon="inline-start" />}
+              {showHidden ? "Incluir listados" : "Ocultar listados"}
+            </Button>
+          ) : null}
+          <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={conclude}>
+            <ClipboardCheck data-icon="inline-start" />
+            {initial ? "Salvar alterações" : "Concluir inventário"}
+          </Button>
+        </div>
       </div>
 
       {skus.some((sku) => sku.label.endsWith("Não classificado")) ? (
@@ -827,15 +919,23 @@ function InventoryForm({
                 active={sortKey === "diff"}
                 dir={sortDir}
                 onClick={() => toggleSort("diff")}
-                className="pr-5"
               />
+              <th className="field-label py-3 pr-4 text-right font-normal">
+                <span className="sr-only">Ocultar da contagem</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-sm font-light text-forest/50">
-                  Nenhum item com esses filtros.
+                <td colSpan={7} className="px-5 py-10 text-center text-sm font-light text-forest/50">
+                  {showHidden
+                    ? hiddenCount === 0
+                      ? "Nenhum item oculto. Tudo entra nesta contagem."
+                      : "Nenhum item oculto com esses filtros."
+                    : toCount === 0
+                      ? "Todos os itens estão ocultos. Mostre os ocultos para incluí-los de novo."
+                      : "Nenhum item com esses filtros."}
                 </td>
               </tr>
             ) : (
@@ -844,10 +944,19 @@ function InventoryForm({
               const previous = previousOf(sku.materialId, sku.variant);
               const counted = counts[key] ?? 0;
               const diff = counted - previous;
+              const hidden = hiddenKeys.has(key);
               return (
-                <tr key={key} className="border-b border-forest/5 last:border-0">
+                <tr
+                  key={key}
+                  className={cn(
+                    "border-b border-forest/5 last:border-0",
+                    hidden && "bg-forest/[0.02]",
+                  )}
+                >
                   <td className="py-2.5 pl-5">
-                    <p className="font-list font-medium text-forest">{sku.label}</p>
+                    <p className={cn("font-list font-medium text-forest", hidden && "text-forest/50")}>
+                      {sku.label}
+                    </p>
                     {sku.unit ? (
                       <p className="text-xs font-light text-forest/45">{sku.unit}</p>
                     ) : null}
@@ -861,6 +970,7 @@ function InventoryForm({
                     <input
                       type="number"
                       min={0}
+                      disabled={hidden}
                       className={cn(fieldControlClass, "h-9 w-28")}
                       value={counted}
                       onChange={(e) =>
@@ -870,12 +980,28 @@ function InventoryForm({
                   </td>
                   <td
                     className={cn(
-                      "py-2.5 pr-5 text-right font-medium",
-                      diff === 0 ? "text-forest/40" : diff > 0 ? "text-forest" : "text-terracotta",
+                      "py-2.5 text-right font-medium",
+                      hidden
+                        ? "text-forest/30"
+                        : diff === 0
+                          ? "text-forest/40"
+                          : diff > 0
+                            ? "text-forest"
+                            : "text-terracotta",
                     )}
                   >
-                    {diff > 0 ? "+" : ""}
-                    {formatInt(diff)}
+                    {hidden ? "—" : `${diff > 0 ? "+" : ""}${formatInt(diff)}`}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-forest/45 hover:text-forest"
+                      aria-label={hidden ? `Incluir ${sku.label} na contagem` : `Ocultar ${sku.label} da contagem`}
+                      onClick={() => toggleHidden(key, !hidden)}
+                    >
+                      {hidden ? <Eye /> : <EyeOff />}
+                    </Button>
                   </td>
                 </tr>
               );

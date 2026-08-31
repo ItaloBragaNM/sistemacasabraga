@@ -4,6 +4,7 @@ import {
   emptyLogisticaData,
   type InventoryItem,
   type InventorySession,
+  type InventorySkip,
   type LogisticaData,
   type StockMovement,
 } from "./types";
@@ -35,6 +36,14 @@ function normalizeInventoryItem(input: Partial<InventoryItem> | null | undefined
   };
 }
 
+function normalizeInventorySkip(input: Partial<InventorySkip> | null | undefined): InventorySkip | null {
+  if (!input?.materialId) return null;
+  return {
+    materialId: input.materialId,
+    variant: normalizeVariant(input.variant),
+  };
+}
+
 function normalizeInventory(input: Partial<InventorySession> | null | undefined): InventorySession | null {
   if (!input?.id) return null;
   const date =
@@ -59,6 +68,11 @@ function normalizeInventory(input: Partial<InventorySession> | null | undefined)
       ? input.items
           .map((item) => normalizeInventoryItem(item))
           .filter((item): item is InventoryItem => Boolean(item))
+      : [],
+    skipped: Array.isArray(input.skipped)
+      ? input.skipped
+          .map((item) => normalizeInventorySkip(item))
+          .filter((item): item is InventorySkip => Boolean(item))
       : [],
     createdAt: input.createdAt || new Date().toISOString(),
   };
