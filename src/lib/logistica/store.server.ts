@@ -1,8 +1,39 @@
 import { readState, writeState } from "@/lib/store/kv.server";
-import { emptyLogisticaData, type InventorySession, type LogisticaData } from "./types";
+import { normalizeVariant } from "./calc";
+import {
+  emptyLogisticaData,
+  type InventoryItem,
+  type InventorySession,
+  type LogisticaData,
+  type StockMovement,
+} from "./types";
 
 const KEY = "logistica";
 const FILE = "logistica.json";
+
+function normalizeMovement(input: Partial<StockMovement> | null | undefined): StockMovement | null {
+  if (!input?.id || !input.materialId) return null;
+  return {
+    id: input.id,
+    materialId: input.materialId,
+    variant: normalizeVariant(input.variant),
+    type: input.type ?? "ajuste",
+    quantity: Number(input.quantity) || 0,
+    date: input.date || new Date().toISOString(),
+    note: input.note,
+    ref: input.ref,
+  };
+}
+
+function normalizeInventoryItem(input: Partial<InventoryItem> | null | undefined): InventoryItem | null {
+  if (!input?.materialId) return null;
+  return {
+    materialId: input.materialId,
+    variant: normalizeVariant(input.variant),
+    previous: Number(input.previous) || 0,
+    counted: Number(input.counted) || 0,
+  };
+}
 
 function normalizeInventory(input: Partial<InventorySession> | null | undefined): InventorySession | null {
   if (!input?.id) return null;
@@ -24,7 +55,11 @@ function normalizeInventory(input: Partial<InventorySession> | null | undefined)
     responsible: input.responsible ?? "",
     participants,
     note: input.note ?? "",
-    items: Array.isArray(input.items) ? input.items : [],
+    items: Array.isArray(input.items)
+      ? input.items
+          .map((item) => normalizeInventoryItem(item))
+          .filter((item): item is InventoryItem => Boolean(item))
+      : [],
     createdAt: input.createdAt || new Date().toISOString(),
   };
 }
@@ -33,7 +68,11 @@ function normalize(input: Partial<LogisticaData> | null): LogisticaData {
   const base = emptyLogisticaData();
   if (!input) return base;
   return {
-    movements: Array.isArray(input.movements) ? input.movements : base.movements,
+    movements: Array.isArray(input.movements)
+      ? input.movements
+          .map((movement) => normalizeMovement(movement))
+          .filter((movement): movement is StockMovement => Boolean(movement))
+      : base.movements,
     meta: Array.isArray(input.meta) ? input.meta : base.meta,
     inventories: Array.isArray(input.inventories)
       ? input.inventories

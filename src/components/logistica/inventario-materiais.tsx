@@ -9,7 +9,13 @@ import { downloadCountSheetPdf } from "@/components/logistica/inventario-pdf";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
-import { balanceOf, computeBalances } from "@/lib/logistica/calc";
+import {
+  skuBalance,
+  computeBalances,
+  inventoryItemLabel,
+  stockKey,
+  stockSkusForMaterial,
+} from "@/lib/logistica/calc";
 import type { InventorySession } from "@/lib/logistica/types";
 import { formatInt } from "@/lib/crm/format";
 import { uid } from "@/lib/event-factory";
@@ -28,8 +34,8 @@ export function InventarioMateriais() {
   const [pdfOpen, setPdfOpen] = useState(false);
 
   const balances = useMemo(() => computeBalances(logistica?.movements ?? []), [logistica]);
-  const materialName = useMemo(
-    () => new Map((cadastros?.materials ?? []).map((m) => [m.id, m.name])),
+  const materialById = useMemo(
+    () => new Map((cadastros?.materials ?? []).map((m) => [m.id, m])),
     [cadastros],
   );
   const locationName = useMemo(
@@ -81,7 +87,7 @@ export function InventarioMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Inventário de Materiais"
-        description="Informe a data e quem participou da contagem. Gere um PDF para contar no papel e lance os números depois."
+        description="Cada variação é um item a contar. Informe a data e quem participou. Gere um PDF para contar no papel e lance os números depois."
         action={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -174,7 +180,7 @@ export function InventarioMateriais() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-forest/10 bg-forest/[0.02]">
-                    <th className="field-label py-2 pl-4 font-normal">Material</th>
+                    <th className="field-label py-2 pl-4 font-normal">Material / variação</th>
                     <th className="field-label py-2 text-right font-normal">Anterior</th>
                     <th className="field-label py-2 text-right font-normal">Contado</th>
                     <th className="field-label py-2 pr-4 text-right font-normal">Diferença</th>
@@ -184,8 +190,13 @@ export function InventarioMateriais() {
                   {viewing.items.map((item) => {
                     const diff = item.counted - item.previous;
                     return (
-                      <tr key={item.materialId} className="border-b border-forest/5 last:border-0">
-                        <td className="py-2 pl-4 text-forest">{materialName.get(item.materialId) ?? item.materialId}</td>
+                      <tr
+                        key={stockKey(item.materialId, item.variant)}
+                        className="border-b border-forest/5 last:border-0"
+                      >
+                        <td className="py-2 pl-4 text-forest">
+                          {inventoryItemLabel(materialById.get(item.materialId), item.variant, item.materialId)}
+                        </td>
                         <td className="py-2 text-right text-forest/60">{formatInt(item.previous)}</td>
                         <td className="py-2 text-right text-forest">{formatInt(item.counted)}</td>
                         <td
@@ -261,12 +272,14 @@ function CountSheetModal({
         (a, b) =>
           a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
       )
-      .map((item) => ({
-        name: item.name,
-        category: item.category,
-        location: item.locationId ? locationName.get(item.locationId) ?? "" : "",
-        unit: item.unit,
-      }));
+      .flatMap((item) =>
+        stockSkusForMaterial(item).map((sku) => ({
+          name: sku.label,
+          category: item.category,
+          location: item.locationId ? locationName.get(item.locationId) ?? "" : "",
+          unit: item.unit,
+        })),
+      );
     if (rows.length === 0) {
       toast.error("Nenhum material nessas categorias e locais.");
       return;
@@ -299,8 +312,8 @@ function CountSheetModal({
     <Modal open onClose={onClose} title="PDF para contagem manual" wide>
       <div className="space-y-5">
         <p className="text-sm font-light text-forest/60">
-          Folha para imprimir, anotar as quantidades e lançar depois no sistema. Escolha todas as
-          categorias e locais ou só alguns.
+          Folha para imprimir, anotar as quantidades e lançar depois no sistema. Cada variação
+          aparece em uma linha. Escolha todas as categorias e locais ou só alguns.
         </p>
         <Field label="Data da contagem">
           <input
@@ -419,6 +432,20 @@ function NewInventory({
   onConclude: (session: InventorySession) => void;
   onCancel: () => void;
 }) {
+  const skus = useMemo(
+    () =>
+      materials.flatMap((material) =>
+        stockSkusForMaterial(material, {
+          unclassifiedQty: skuBalance(balances, material.id, ""),
+        }).map((sku) => ({
+          ...sku,
+          category: material.category,
+          unit: material.unit,
+          locationId: material.locationId,
+        })),
+      ),
+    [materials, balances],
+  );
   const [date, setDate] = useState(todayIsoDate());
   const [responsible, setResponsible] = useState("");
   const [participantDraft, setParticipantDraft] = useState("");
@@ -427,7 +454,16 @@ function NewInventory({
   const [category, setCategory] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>(() =>
-    Object.fromEntries(materials.map((m) => [m.id, balanceOf(balances, m.id)])),
+    Object.fromEntries(
+      materials.flatMap((material) =>
+        stockSkusForMaterial(material, {
+          unclassifiedQty: skuBalance(balances, material.id, ""),
+        }).map((sku) => [
+          stockKey(sku.materialId, sku.variant),
+          skuBalance(balances, sku.materialId, sku.variant),
+        ]),
+      ),
+    ),
   );
 
   const categories = useMemo(
@@ -437,23 +473,24 @@ function NewInventory({
 
   const visible = useMemo(
     () =>
-      [...materials]
-        .filter((m) => (category ? m.category === category : true))
-        .filter((m) => {
+      [...skus]
+        .filter((sku) => (category ? sku.category === category : true))
+        .filter((sku) => {
           if (!locationFilter) return true;
-          if (locationFilter === "__none__") return !m.locationId;
-          return m.locationId === locationFilter;
+          if (locationFilter === "__none__") return !sku.locationId;
+          return sku.locationId === locationFilter;
         })
         .sort(
           (a, b) =>
-            a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
+            a.category.localeCompare(b.category, "pt-BR") || a.label.localeCompare(b.label, "pt-BR"),
         ),
-    [materials, category, locationFilter],
+    [skus, category, locationFilter],
   );
 
-  const changedCount = materials.filter(
-    (m) => (counts[m.id] ?? 0) !== balanceOf(balances, m.id),
-  ).length;
+  const changedCount = skus.filter((sku) => {
+    const key = stockKey(sku.materialId, sku.variant);
+    return (counts[key] ?? 0) !== skuBalance(balances, sku.materialId, sku.variant);
+  }).length;
 
   const addParticipant = () => {
     const value = participantDraft.trim();
@@ -467,10 +504,11 @@ function NewInventory({
   };
 
   const conclude = () => {
-    const items = materials.map((m) => ({
-      materialId: m.id,
-      previous: balanceOf(balances, m.id),
-      counted: counts[m.id] ?? 0,
+    const items = skus.map((sku) => ({
+      materialId: sku.materialId,
+      variant: sku.variant,
+      previous: skuBalance(balances, sku.materialId, sku.variant),
+      counted: counts[stockKey(sku.materialId, sku.variant)] ?? 0,
     }));
     onConclude({
       id: uid(),
@@ -496,8 +534,8 @@ function NewInventory({
         </button>
         <h1 className="font-display mt-3 text-4xl text-forest sm:text-5xl">Novo inventário</h1>
         <p className="mt-2 text-sm font-light text-forest/60">
-          Preencha a data, o responsável e quem participou da contagem. A diferença aparece ao
-          lado; ao concluir, o saldo é ajustado.
+          Preencha a data, o responsável e quem participou da contagem. Cada variação é um item.
+          A diferença aparece ao lado; ao concluir, o saldo é ajustado.
         </p>
       </div>
 
@@ -594,11 +632,18 @@ function NewInventory({
         </Button>
       </div>
 
+      {skus.some((sku) => sku.label.endsWith("Não classificado")) ? (
+        <p className="rounded-xl border border-terracotta/20 bg-terracotta/[0.06] px-4 py-3 text-sm text-forest/70">
+          Há saldo antigo sem variação. Conte cada variação (Liso, Rendado, etc.) e zere a linha
+          “Não classificado” para o total não duplicar.
+        </p>
+      ) : null}
+
       <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-forest/10">
-              <th className="field-label py-3 pl-5 font-normal">Material</th>
+              <th className="field-label py-3 pl-5 font-normal">Material / variação</th>
               <th className="field-label py-3 font-normal">Local</th>
               <th className="field-label py-3 text-right font-normal">Saldo atual</th>
               <th className="field-label py-3 font-normal">Contagem</th>
@@ -606,20 +651,21 @@ function NewInventory({
             </tr>
           </thead>
           <tbody>
-            {visible.map((m) => {
-              const previous = balanceOf(balances, m.id);
-              const counted = counts[m.id] ?? 0;
+            {visible.map((sku) => {
+              const key = stockKey(sku.materialId, sku.variant);
+              const previous = skuBalance(balances, sku.materialId, sku.variant);
+              const counted = counts[key] ?? 0;
               const diff = counted - previous;
               return (
-                <tr key={m.id} className="border-b border-forest/5 last:border-0">
+                <tr key={key} className="border-b border-forest/5 last:border-0">
                   <td className="py-2.5 pl-5">
-                    <p className="font-list font-medium text-forest">{m.name}</p>
+                    <p className="font-list font-medium text-forest">{sku.label}</p>
                     <p className="text-xs font-light text-forest/45">
-                      {m.category} · {m.unit}
+                      {sku.category} · {sku.unit}
                     </p>
                   </td>
                   <td className="py-2.5 text-forest/60">
-                    {m.locationId ? locationName.get(m.locationId) ?? "—" : "—"}
+                    {sku.locationId ? locationName.get(sku.locationId) ?? "—" : "—"}
                   </td>
                   <td className="py-2.5 text-right text-forest/60">{formatInt(previous)}</td>
                   <td className="py-2.5">
@@ -629,7 +675,7 @@ function NewInventory({
                       className={cn(fieldControlClass, "h-9 w-28")}
                       value={counted}
                       onChange={(e) =>
-                        setCounts((current) => ({ ...current, [m.id]: Number(e.target.value) }))
+                        setCounts((current) => ({ ...current, [key]: Number(e.target.value) }))
                       }
                     />
                   </td>

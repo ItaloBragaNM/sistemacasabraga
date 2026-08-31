@@ -90,7 +90,7 @@ function CountSheetDocument({
           <Text style={styles.brand}>Casa Braga · Inventário</Text>
           <Text style={styles.title}>Folha de contagem</Text>
           <Text style={styles.subtitle}>
-            {date ? formatLongDate(date) : "Data a preencher"} · anote a quantidade e lance depois no sistema
+            {date ? formatLongDate(date) : "Data a preencher"} · uma linha por variação · anote a quantidade e lance depois no sistema
           </Text>
         </View>
         <Text style={styles.hint}>{filters}</Text>

@@ -10,6 +10,8 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
 export interface StockMovement {
   id: string;
   materialId: string;
+  /** Variação contada (vazia = material sem variação ou saldo ainda não classificado). */
+  variant?: string;
   type: MovementType;
   /** Delta com sinal: entrada (+), saída (−), ajuste/inventário (com sinal). */
   quantity: number;
@@ -27,6 +29,8 @@ export interface StockMeta {
 
 export interface InventoryItem {
   materialId: string;
+  /** Variação contada (vazia = material sem variação). */
+  variant?: string;
   previous: number;
   counted: number;
 }

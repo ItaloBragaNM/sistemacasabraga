@@ -466,7 +466,7 @@ function MaterialForm({
       <div>
         <p className="field-label mb-2">Variantes (marca, tipo, cor, tamanho)</p>
         <p className="mb-2 text-xs font-light text-forest/45">
-          SKUs físicos do mesmo material — o estoque conta o total; as variantes dizem o que existe na casa.
+          Cada variação é um item no inventário. O estoque mostra a quantidade de cada uma e o total do material.
         </p>
         {variants.length > 0 ? (
           <div className="mb-2 flex flex-wrap gap-1.5">

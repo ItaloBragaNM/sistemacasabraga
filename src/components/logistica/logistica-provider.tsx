@@ -110,6 +110,7 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
             .map((item) => ({
               id: uid(),
               materialId: item.materialId,
+              variant: item.variant ?? "",
               type: "inventario",
               quantity: item.counted - item.previous,
               date: session.date,
