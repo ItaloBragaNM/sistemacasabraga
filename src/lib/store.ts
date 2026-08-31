@@ -2,61 +2,59 @@ import { createBlankEvent, nextEventCode } from "./event-factory";
 import { SEED_EVENTS } from "./seed";
 import { normalizeEventRecord, type EventRecord } from "./types";
 
-const STORAGE_KEY = "casa-braga.events.v2";
-const EVENT_NAME = "casa-braga-events";
+export const EVENTS_STORAGE_KEY = "casa-braga.events.v2";
+const MIGRATED_KEY = "casa-braga.events.v2.migrated";
 
-let snapshot: EventRecord[] = structuredClone(SEED_EVENTS);
-
-function readStorage(): EventRecord[] {
-  if (typeof window === "undefined") return structuredClone(SEED_EVENTS);
+export function readLocalEvents(): EventRecord[] | null {
+  if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_EVENTS));
-      return structuredClone(SEED_EVENTS);
-    }
-    const parsed = JSON.parse(raw) as EventRecord[];
-    if (!Array.isArray(parsed)) throw new Error("invalid store");
-    return parsed.map((event) => normalizeEventRecord(event));
+    const raw = window.localStorage.getItem(EVENTS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    return parsed
+      .map((item) => normalizeEventRecord(item as EventRecord))
+      .filter((event) => Boolean(event.id));
   } catch {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_EVENTS));
-    return structuredClone(SEED_EVENTS);
+    return null;
   }
 }
 
-export function loadEvents(): EventRecord[] {
-  snapshot = readStorage();
-  return snapshot;
+export function localEventsWereMigrated(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(MIGRATED_KEY) === "1";
 }
 
-export function getEventsSnapshot() {
-  return snapshot;
-}
-
-export function getServerEventsSnapshot() {
-  return SEED_EVENTS;
-}
-
-export function subscribeEvents(callback: () => void) {
-  if (typeof window === "undefined") return () => {};
-  snapshot = readStorage();
-  const onChange = () => {
-    snapshot = readStorage();
-    callback();
-  };
-  window.addEventListener(EVENT_NAME, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(EVENT_NAME, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-export function persistEvents(events: EventRecord[]) {
-  snapshot = events;
+export function markLocalEventsMigrated() {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-  window.dispatchEvent(new Event(EVENT_NAME));
+  window.localStorage.setItem(MIGRATED_KEY, "1");
+}
+
+/** Eventos deste aparelho que não são o catálogo de demonstração intacto. */
+export function localEventsToMigrate(local: EventRecord[]): EventRecord[] {
+  const seedById = new Map(SEED_EVENTS.map((event) => [event.id, event]));
+  return local.filter((event) => {
+    const seed = seedById.get(event.id);
+    if (!seed) return true;
+    return event.updatedAt !== seed.updatedAt || event.title !== seed.title;
+  });
+}
+
+export function eventsDiffer(left: EventRecord[], right: EventRecord[]): boolean {
+  if (left.length !== right.length) return true;
+  const times = new Map(right.map((event) => [event.id, event.updatedAt]));
+  return left.some((event) => times.get(event.id) !== event.updatedAt);
+}
+
+export function mergeEvents(server: EventRecord[], incoming: EventRecord[]): EventRecord[] {
+  const byId = new Map(server.map((event) => [event.id, event]));
+  for (const event of incoming) {
+    const current = byId.get(event.id);
+    if (!current || (event.updatedAt ?? "") >= (current.updatedAt ?? "")) {
+      byId.set(event.id, event);
+    }
+  }
+  return [...byId.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 export function saveEvent(events: EventRecord[], next: EventRecord) {
@@ -65,14 +63,11 @@ export function saveEvent(events: EventRecord[], next: EventRecord) {
   const stamped = normalizeEventRecord({ ...next, updatedAt: new Date().toISOString() });
   if (index >= 0) updated[index] = stamped;
   else updated.unshift(stamped);
-  persistEvents(updated);
   return updated;
 }
 
 export function deleteEvent(events: EventRecord[], id: string) {
-  const updated = events.filter((item) => item.id !== id);
-  persistEvents(updated);
-  return updated;
+  return events.filter((item) => item.id !== id);
 }
 
 export function createEvent(events: EventRecord[], draft?: Partial<EventRecord>) {
