@@ -312,6 +312,22 @@ export interface EventRecord {
   menuSetupNotes: string;
   createdAt: string;
   updatedAt: string;
+  /** Quem alterou a ficha e o que mudou. */
+  changeLog: EventChangeLogEntry[];
+}
+
+export interface EventFieldChange {
+  label: string;
+  from: string;
+  to: string;
+}
+
+export interface EventChangeLogEntry {
+  id: string;
+  at: string;
+  userId: string;
+  userName: string;
+  changes: EventFieldChange[];
 }
 
 export function guestTotal(guests: Guests) {
@@ -346,5 +362,39 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     drinks: drinksAuto
       ? suggestedDrinkQuantities(guestTotal(event.guests))
       : normalizeDrinks(event.drinks),
+    changeLog: normalizeChangeLog(event.changeLog),
   };
+}
+
+function normalizeChangeLog(input: unknown): EventChangeLogEntry[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item): EventChangeLogEntry | null => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Partial<EventChangeLogEntry>;
+      if (!row.at) return null;
+      const changes = Array.isArray(row.changes)
+        ? row.changes
+            .map((change) => {
+              if (!change || typeof change !== "object") return null;
+              const label = String(change.label ?? "").trim();
+              if (!label) return null;
+              return {
+                label,
+                from: String(change.from ?? ""),
+                to: String(change.to ?? ""),
+              };
+            })
+            .filter((change): change is EventFieldChange => Boolean(change))
+        : [];
+      if (changes.length === 0) return null;
+      return {
+        id: typeof row.id === "string" && row.id ? row.id : row.at,
+        at: String(row.at),
+        userId: typeof row.userId === "string" ? row.userId : "",
+        userName: typeof row.userName === "string" && row.userName.trim() ? row.userName.trim() : "Alguém",
+        changes,
+      };
+    })
+    .filter((item): item is EventChangeLogEntry => Boolean(item));
 }

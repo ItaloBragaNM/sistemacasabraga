@@ -24,6 +24,8 @@ import {
   saveEvent,
 } from "@/lib/store";
 import type { EventRecord } from "@/lib/types";
+import type { PublicUser } from "@/lib/auth/types";
+import { withChangeLog } from "@/lib/eventos/changelog";
 
 type EventsContextValue = {
   events: EventRecord[];
@@ -43,6 +45,7 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const eventsRef = useRef<EventRecord[]>([]);
   const loadedRef = useRef(false);
+  const actorRef = useRef<PublicUser | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   const persist = useCallback((next: EventRecord[]) => {
@@ -70,10 +73,17 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        const res = await fetch("/api/eventos", { cache: "no-store" });
-        if (res.status === 401 || res.status === 403) return;
-        if (!res.ok) throw new Error("load");
-        const json = (await res.json()) as { data: EventRecord[] };
+        const [eventsRes, sessionRes] = await Promise.all([
+          fetch("/api/eventos", { cache: "no-store" }),
+          fetch("/api/auth/session", { cache: "no-store" }),
+        ]);
+        if (sessionRes.ok) {
+          const session = (await sessionRes.json()) as { user?: PublicUser | null };
+          if (active) actorRef.current = session.user ?? null;
+        }
+        if (eventsRes.status === 401 || eventsRes.status === 403) return;
+        if (!eventsRes.ok) throw new Error("load");
+        const json = (await eventsRes.json()) as { data: EventRecord[] };
         let next = Array.isArray(json.data) ? json.data : [];
 
         if (!localEventsWereMigrated()) {
@@ -113,8 +123,10 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
 
   const upsert = useCallback(
     (event: EventRecord) => {
-      persist(saveEvent(eventsRef.current, event));
-      return event;
+      const previous = findEvent(eventsRef.current, event.id);
+      const logged = withChangeLog(previous, event, actorRef.current);
+      persist(saveEvent(eventsRef.current, logged));
+      return logged;
     },
     [persist],
   );
@@ -128,9 +140,10 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
 
   const create = useCallback(
     (draft?: Partial<EventRecord>) => {
-      const { event, events: next } = createEvent(eventsRef.current, draft);
-      persist(next);
-      return event;
+      const { event } = createEvent(eventsRef.current, draft);
+      const logged = withChangeLog(null, event, actorRef.current);
+      persist(saveEvent(eventsRef.current, logged));
+      return logged;
     },
     [persist],
   );

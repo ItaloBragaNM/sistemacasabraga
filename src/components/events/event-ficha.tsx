@@ -12,7 +12,7 @@ import { fieldControlClass, Field, SectionTitle } from "@/components/events/fiel
 import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { DishRecord } from "@/lib/cadastros/types";
-import { formatLongDate, formatWeekday } from "@/lib/dates";
+import { formatDateTime, formatLongDate, formatWeekday } from "@/lib/dates";
 import { insertDishesIntoMenu } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import {
@@ -94,7 +94,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 pb-16">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <Link
@@ -587,7 +587,60 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           onChange={(event) => update("menuSetupNotes", event.target.value)}
         />
       </section>
+
+      <EventChangeHistory
+        entries={event.changeLog ?? []}
+        clientNameById={new Map(clientes.map((cliente) => [cliente.id, cliente.name]))}
+      />
     </div>
+  );
+}
+
+function EventChangeHistory({
+  entries,
+  clientNameById,
+}: {
+  entries: EventRecord["changeLog"];
+  clientNameById: Map<string, string>;
+}) {
+  const pretty = (label: string, value: string) => {
+    if (label !== "Cliente" || value === "(vazio)" || !value) return value;
+    return clientNameById.get(value) ?? value;
+  };
+  const log = [...entries].sort((a, b) => (a.at < b.at ? 1 : -1));
+
+  return (
+    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+      <SectionTitle
+        title="Histórico de alterações"
+        hint="Quem editou esta ficha, quando, e o que mudou."
+      />
+      {log.length === 0 ? (
+        <p className="text-sm font-light text-forest/55">
+          Ainda não há alterações registradas nesta ficha. As próximas edições aparecem aqui, com
+          data, horário e o usuário que salvou.
+        </p>
+      ) : (
+        <ol className="space-y-4">
+          {log.map((entry) => (
+            <li key={entry.id} className="border-b border-forest/8 pb-4 last:border-0 last:pb-0">
+              <p className="text-sm text-forest">
+                <span className="font-medium">{entry.userName}</span>
+                <span className="font-light text-forest/50"> · {formatDateTime(entry.at)}</span>
+              </p>
+              <ul className="mt-2 space-y-1 text-sm font-light text-forest/70">
+                {entry.changes.map((change, index) => (
+                  <li key={`${entry.id}-${change.label}-${index}`}>
+                    <span className="font-medium text-forest/80">{change.label}:</span>{" "}
+                    {pretty(change.label, change.from)} → {pretty(change.label, change.to)}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 

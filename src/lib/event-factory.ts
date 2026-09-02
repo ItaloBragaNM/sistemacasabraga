@@ -122,6 +122,7 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     menuSetupNotes: "",
     createdAt: now,
     updatedAt: now,
+    changeLog: [],
     ...partial,
     type: normalizeEventType(partial.type ?? "social"),
     clientId: partial.clientId ?? "",

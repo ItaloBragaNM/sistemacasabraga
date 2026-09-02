@@ -25,6 +25,12 @@ export function formatShortDate(value: string) {
   return format(parseISO(value), "dd/MM/yyyy");
 }
 
+export function formatDateTime(value: string) {
+  const date = parseISO(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+}
+
 export function formatWeekday(value: string) {
   return WEEKDAY_LABELS[parseISO(value).getDay()];
 }
