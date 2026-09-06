@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, ClipboardList, Printer, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ClipboardList, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ClienteForm } from "@/components/cadastros/cliente-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import { Modal } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
 import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
@@ -18,11 +20,15 @@ import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, VENUE_KIND_LABELS } from "@/lib
 import {
   EVENT_STATUSES,
   EVENT_TYPES,
+  EXTRA_STAFF_ROLES,
+  extraStaffLabel,
   guestTotal,
   MENU_SECTIONS,
   normalizeEventRecord,
+  normalizeGuests,
   STAFF_ROLES,
   suggestedDrinkQuantities,
+  type ExtraStaffRoleKey,
   type EventRecord,
   type Guests,
   type MenuSectionKey,
@@ -39,11 +45,12 @@ type Props = {
 
 export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
-  const { data: cadastros } = useCadastros();
+  const { data: cadastros, upsertCliente } = useCadastros();
   const [draft, setDraft] = useState(() => normalizeEventRecord(event));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
   const [catalogOpen, setCatalogOpen] = useState(true);
+  const [clientModal, setClientModal] = useState(false);
   const skip = useRef(true);
   const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
@@ -69,13 +76,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   };
 
   const setGuests = (guests: Guests) => {
+    const next = normalizeGuests(guests);
     setDraft((current) => ({
       ...current,
-      guests,
+      guests: next,
       drinks:
         current.drinksAuto === false
           ? current.drinks
-          : suggestedDrinkQuantities(guestTotal(guests)),
+          : suggestedDrinkQuantities(guestTotal(next)),
     }));
   };
 
@@ -121,30 +129,28 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <p className="mt-2 text-sm font-light text-forest/60">
             {draft.date ? `${formatWeekday(draft.date)}, ${formatLongDate(draft.date)}` : "Data a definir"}
             {clientName ? ` · ${clientName}` : ""}
+            {draft.ceremonyTime ? ` · cerimônia ${draft.ceremonyTime}` : ""}
             {draft.invitationTime ? ` · convite ${draft.invitationTime}` : ""}
             {draft.serviceTime ? ` · serviço ${draft.serviceTime}` : ""}
             {` · ${guestTotal(draft.guests)} a servir`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/eventos/${draft.id}/cozinha`}
-            className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
-          >
-            <Printer data-icon="inline-start" />
-            Ver ficha da cozinha
-          </Link>
           <Button
             className="h-10 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
             disabled={pdfState === "working"}
             onClick={async () => {
+              if (!draft.ceremonyTime) {
+                toast.error("Informe o horário da cerimônia antes de gerar o PDF.");
+                return;
+              }
               try {
                 setPdfState("working");
                 await downloadKitchenPdf(draft);
                 toast.success("PDF da cozinha baixado.");
               } catch (error) {
                 console.error(error);
-                toast.error("Não foi possível gerar o PDF. Use a ficha da cozinha e imprima.");
+                toast.error("Não foi possível gerar o PDF.");
               } finally {
                 setPdfState("idle");
               }
@@ -196,21 +202,32 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             </select>
           </Field>
           <Field label="Cliente">
-            <select
-              className={fieldControlClass}
-              value={draft.clientId ?? ""}
-              onChange={(event) => update("clientId", event.target.value)}
-            >
-              <option value="">Sem cliente vinculado</option>
-              {clientMissing ? (
-                <option value={draft.clientId}>Cliente removido da base</option>
-              ) : null}
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                className={cn(fieldControlClass, "min-w-0 flex-1")}
+                value={draft.clientId ?? ""}
+                onChange={(event) => update("clientId", event.target.value)}
+              >
+                <option value="">Sem cliente vinculado</option>
+                {clientMissing ? (
+                  <option value={draft.clientId}>Cliente removido da base</option>
+                ) : null}
+                {clientes.map((cliente) => (
+                  <option key={cliente.id} value={cliente.id}>
+                    {cliente.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 shrink-0 px-3"
+                onClick={() => setClientModal(true)}
+                aria-label="Cadastrar cliente"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
           </Field>
           <Field label="Status interno">
             <select
@@ -255,15 +272,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               className={fieldControlClass}
               value={draft.foodDeliveryDate}
               onChange={(event) => update("foodDeliveryDate", event.target.value)}
-            />
-          </Field>
-          <Field label="Per capita (R$)">
-            <input
-              type="number"
-              min={0}
-              className={fieldControlClass}
-              value={draft.perCapita || ""}
-              onChange={(event) => update("perCapita", Number(event.target.value))}
             />
           </Field>
           <Field label="Tipo de local">
@@ -315,14 +323,25 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             />
           </Field>
-          <Field label="Crianças">
+          <Field label="Crianças 0 a 5 anos">
             <input
               type="number"
               min={0}
               className={fieldControlClass}
-              value={draft.guests.children}
+              value={draft.guests.children0to5 ?? 0}
               onChange={(event) =>
-                setGuests({ ...draft.guests, children: Number(event.target.value) })
+                setGuests({ ...draft.guests, children0to5: Number(event.target.value) })
+              }
+            />
+          </Field>
+          <Field label="Crianças 5 a 10 anos">
+            <input
+              type="number"
+              min={0}
+              className={fieldControlClass}
+              value={draft.guests.children5to10 ?? 0}
+              onChange={(event) =>
+                setGuests({ ...draft.guests, children5to10: Number(event.target.value) })
               }
             />
           </Field>
@@ -357,6 +376,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("teamArrival", event.target.value)}
             />
           </Field>
+          <Field label="★ Horário da cerimônia">
+            <input
+              type="time"
+              className={fieldControlClass}
+              value={draft.ceremonyTime ?? ""}
+              onChange={(event) => update("ceremonyTime", event.target.value)}
+            />
+          </Field>
           <Field label="Horário convite">
             <input
               type="time"
@@ -377,7 +404,10 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Equipe" hint="Quantidade por função, como na planilha da casa." />
+        <SectionTitle
+          title="Equipe"
+          hint="Quantidade por função. Use + para acrescentar outras funções opcionais."
+        />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {STAFF_ROLES.map((role) => (
             <Field key={role.key} label={role.label}>
@@ -396,6 +426,57 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             </Field>
           ))}
         </div>
+        {draft.extraStaff?.length ? (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {draft.extraStaff.map((line) => (
+              <Field key={line.key} label={extraStaffLabel(line.key)}>
+                <div className="flex gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    className={cn(fieldControlClass, "min-w-0 flex-1")}
+                    value={line.quantity}
+                    onChange={(event) =>
+                      update(
+                        "extraStaff",
+                        (draft.extraStaff ?? []).map((item) =>
+                          item.key === line.key
+                            ? { ...item, quantity: Number(event.target.value) }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Remover ${extraStaffLabel(line.key)}`}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-lg text-forest/35 hover:text-terracotta"
+                    onClick={() =>
+                      update(
+                        "extraStaff",
+                        (draft.extraStaff ?? []).filter((item) => item.key !== line.key),
+                      )
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </Field>
+            ))}
+          </div>
+        ) : null}
+        {EXTRA_STAFF_ROLES.some(
+          (role) => !(draft.extraStaff ?? []).some((line) => line.key === role.key),
+        ) ? (
+          <div className="mt-4">
+            <ExtraStaffPicker
+              used={new Set((draft.extraStaff ?? []).map((line) => line.key))}
+              onAdd={(key) =>
+                update("extraStaff", [...(draft.extraStaff ?? []), { key, quantity: 1 }])
+              }
+            />
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
@@ -479,6 +560,8 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
       <EventDrinksFields
         drinks={draft.drinks}
+        notes={draft.drinksNotes}
+        onNotesChange={(value) => update("drinksNotes", value)}
         onChange={(key, value) =>
           setDraft((current) => ({
             ...current,
@@ -566,32 +649,96 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               update("logistics", { ...draft.logistics, hasMicrowave: value })
             }
           />
-          <Field label="Restrições alimentares" className="md:col-span-2 xl:col-span-3">
-            <textarea
-              className={cn(
-                fieldControlClass,
-                "min-h-24 border-terracotta/30 bg-terracotta/5 py-2",
-              )}
-              value={draft.dietaryNotes}
-              onChange={(event) => update("dietaryNotes", event.target.value)}
-            />
-          </Field>
         </div>
+        <Field label="Observações — logística" className="mt-4">
+          <textarea
+            className={cn(fieldControlClass, "min-h-24 py-2")}
+            value={draft.logisticsNotes ?? ""}
+            onChange={(event) => update("logisticsNotes", event.target.value)}
+            placeholder="Notas da equipe de logística para este evento."
+          />
+        </Field>
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Observações cardápio e montagem" />
-        <textarea
-          className={cn(fieldControlClass, "min-h-36 py-3")}
-          value={draft.menuSetupNotes}
-          onChange={(event) => update("menuSetupNotes", event.target.value)}
+        <SectionTitle
+          title="Observações — cozinha"
+          hint="Restrições alimentares, cardápio e montagem."
         />
+        <Field label="Restrições alimentares" className="mb-4">
+          <textarea
+            className={cn(
+              fieldControlClass,
+              "min-h-24 border-terracotta/30 bg-terracotta/5 py-2",
+            )}
+            value={draft.dietaryNotes}
+            onChange={(event) => update("dietaryNotes", event.target.value)}
+          />
+        </Field>
+        <Field label="Cardápio e montagem">
+          <textarea
+            className={cn(fieldControlClass, "min-h-36 py-3")}
+            value={draft.menuSetupNotes}
+            onChange={(event) => update("menuSetupNotes", event.target.value)}
+          />
+        </Field>
       </section>
 
       <EventChangeHistory
         entries={event.changeLog ?? []}
         clientNameById={new Map(clientes.map((cliente) => [cliente.id, cliente.name]))}
       />
+
+      <Modal open={clientModal} onClose={() => setClientModal(false)} title="Novo cliente" wide>
+        <ClienteForm
+          initial={null}
+          onCancel={() => setClientModal(false)}
+          onSubmit={(cliente) => {
+            upsertCliente(cliente);
+            update("clientId", cliente.id);
+            setClientModal(false);
+            toast.success("Cliente cadastrado e vinculado à ficha.");
+          }}
+        />
+      </Modal>
+    </div>
+  );
+}
+
+function ExtraStaffPicker({
+  used,
+  onAdd,
+}: {
+  used: Set<string>;
+  onAdd: (key: ExtraStaffRoleKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const available = EXTRA_STAFF_ROLES.filter((role) => !used.has(role.key));
+  if (available.length === 0) return null;
+
+  return (
+    <div className="relative">
+      <Button type="button" variant="outline" className="h-10 px-4" onClick={() => setOpen((value) => !value)}>
+        <Plus data-icon="inline-start" />
+        Acrescentar função
+      </Button>
+      {open ? (
+        <div className="absolute z-20 mt-2 max-h-64 w-72 overflow-y-auto rounded-xl border border-forest/10 bg-white p-1 shadow-xl">
+          {available.map((role) => (
+            <button
+              key={role.key}
+              type="button"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-forest hover:bg-forest/[0.05]"
+              onClick={() => {
+                onAdd(role.key);
+                setOpen(false);
+              }}
+            >
+              {role.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

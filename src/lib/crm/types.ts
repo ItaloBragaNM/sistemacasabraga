@@ -20,6 +20,7 @@ export const CRM_EVENT_TYPES = [
   "Corporativo",
   "Social",
   "Encomenda",
+  "Locação de Espaço",
 ] as const;
 
 export type CrmEventType = (typeof CRM_EVENT_TYPES)[number];

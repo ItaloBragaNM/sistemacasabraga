@@ -824,6 +824,8 @@ function SeparationEditor({
 
       <EventDrinksFields
         drinks={drinks}
+        notes={event.drinksNotes ?? ""}
+        onNotesChange={(value) => persistEvent({ drinksNotes: value })}
         onChange={(key: DrinkKey, value: string) =>
           persistEvent({
             drinksAuto: false,

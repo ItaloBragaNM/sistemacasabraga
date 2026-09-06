@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { ClienteForm } from "@/components/cadastros/cliente-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import { Modal } from "@/components/cadastros/ui";
 import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { casaBragaVenue } from "@/lib/event-factory";
 import { EVENT_TYPE_LABELS } from "@/lib/labels";
 import { EVENT_TYPES, type EventType } from "@/lib/types";
@@ -16,7 +19,7 @@ import { cn } from "@/lib/utils";
 export function NewEventForm() {
   const router = useRouter();
   const { create } = useEvents();
-  const { data: cadastros } = useCadastros();
+  const { data: cadastros, upsertCliente } = useCadastros();
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<EventType>("casamento");
@@ -24,6 +27,7 @@ export function NewEventForm() {
   const [adults, setAdults] = useState(80);
   const [address, setAddress] = useState("Casa Braga — Fortaleza, CE");
   const [saving, setSaving] = useState(false);
+  const [clientModal, setClientModal] = useState(false);
   const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
   );
@@ -52,7 +56,7 @@ export function NewEventForm() {
             type,
             clientId,
             status: "rascunho",
-            guests: { adults, children: 0, professionals: 0 },
+            guests: { adults, children: 0, children0to5: 0, children5to10: 0, professionals: 0 },
             venue: { ...casaBragaVenue(), address },
           });
           toast.success("Ficha criada. Complete os demais campos.");
@@ -107,18 +111,29 @@ export function NewEventForm() {
             </select>
           </Field>
           <Field label="Cliente">
-            <select
-              className={fieldControlClass}
-              value={clientId}
-              onChange={(event) => setClientId(event.target.value)}
-            >
-              <option value="">Sem cliente vinculado</option>
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                className={cn(fieldControlClass, "min-w-0 flex-1")}
+                value={clientId}
+                onChange={(event) => setClientId(event.target.value)}
+              >
+                <option value="">Sem cliente vinculado</option>
+                {clientes.map((cliente) => (
+                  <option key={cliente.id} value={cliente.id}>
+                    {cliente.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 shrink-0 px-3"
+                onClick={() => setClientModal(true)}
+                aria-label="Cadastrar cliente"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
           </Field>
           <Field label="★ Adultos">
             <input
@@ -154,6 +169,19 @@ export function NewEventForm() {
           Cancelar
         </Link>
       </div>
+
+      <Modal open={clientModal} onClose={() => setClientModal(false)} title="Novo cliente" wide>
+        <ClienteForm
+          initial={null}
+          onCancel={() => setClientModal(false)}
+          onSubmit={(cliente) => {
+            upsertCliente(cliente);
+            setClientId(cliente.id);
+            setClientModal(false);
+            toast.success("Cliente cadastrado e vinculado.");
+          }}
+        />
+      </Modal>
     </form>
   );
 }

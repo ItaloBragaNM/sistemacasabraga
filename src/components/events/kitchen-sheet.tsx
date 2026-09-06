@@ -9,9 +9,10 @@ import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   DRINK_ITEMS,
+  eventStaffLines,
   guestTotal,
+  guestsSummary,
   MENU_SECTIONS,
-  STAFF_ROLES,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
   type EventRecord,
@@ -19,7 +20,7 @@ import {
 
 export function KitchenSheet({ event }: { event: EventRecord }) {
   const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
-  const staff = STAFF_ROLES.filter((role) => event.staff[role.key] > 0);
+  const staff = eventStaffLines(event);
 
   return (
     <div className="min-h-screen bg-[#e8e2da] px-3 py-6 print:bg-white print:p-0">
@@ -78,15 +79,15 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
             value={event.date ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : "—"}
           />
           <Info
-            label="Convite / serviço"
-            value={`${event.invitationTime || "—"} / ${event.serviceTime || "—"}`}
+            label="Cerimônia / convite / serviço"
+            value={`${event.ceremonyTime || "—"} / ${event.invitationTime || "—"} / ${event.serviceTime || "—"}`}
           />
           <Info label="A servir" value={`${guestTotal(event.guests)}`} />
           <Info label="Local" value={event.venue.address || event.venue.name} />
           <Info label="Chegada equipe" value={event.teamArrival || "—"} />
           <Info
             label="Público"
-            value={`${event.guests.adults} ad · ${event.guests.children} cr · ${event.guests.professionals} prof`}
+            value={guestsSummary(event.guests)}
           />
         </div>
 
@@ -123,19 +124,24 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           );
         })}
 
-        {drinks.length > 0 && (
+        {(drinks.length > 0 || event.drinksNotes) && (
           <section className="mt-6">
             <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
               Bebidas
             </h2>
-            <ul className="font-list grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-3">
-              {drinks.map((item) => (
-                <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
-                  <span>{item.label}</span>
-                  <span className="text-forest/60">{event.drinks[item.key]}</span>
-                </li>
-              ))}
-            </ul>
+            {drinks.length > 0 ? (
+              <ul className="font-list grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-3">
+                {drinks.map((item) => (
+                  <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
+                    <span>{item.label}</span>
+                    <span className="text-forest/60">{event.drinks[item.key]}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {event.drinksNotes ? (
+              <p className="mt-2 text-sm leading-6">{event.drinksNotes}</p>
+            ) : null}
           </section>
         )}
 
@@ -148,7 +154,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
               {staff.map((item) => (
                 <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
                   <span>{item.label}</span>
-                  <span>{event.staff[item.key]}</span>
+                  <span>{item.quantity}</span>
                 </li>
               ))}
             </ul>
@@ -185,9 +191,18 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
         {event.menuSetupNotes && (
           <section className="mt-6">
             <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
-              Observações cardápio e montagem
+              Observações — cozinha
             </h2>
             <p className="text-sm leading-6">{event.menuSetupNotes}</p>
+          </section>
+        )}
+
+        {event.logisticsNotes && (
+          <section className="mt-6">
+            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+              Observações — logística
+            </h2>
+            <p className="text-sm leading-6">{event.logisticsNotes}</p>
           </section>
         )}
 

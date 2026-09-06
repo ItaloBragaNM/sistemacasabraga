@@ -14,6 +14,7 @@ export const EVENT_TYPES = [
   "corporativo",
   "social",
   "encomenda",
+  "locacao_espaco",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -24,6 +25,8 @@ const LEGACY_EVENT_TYPES: Record<string, EventType> = {
   corporativo: "corporativo",
   social: "social",
   encomenda: "encomenda",
+  locacao_espaco: "locacao_espaco",
+  locacao: "locacao_espaco",
   coffee: "corporativo",
   brunch: "social",
   formatura: "social",
@@ -44,6 +47,7 @@ export function normalizeEventType(value: unknown): EventType {
   if (lower.startsWith("casamento")) return "casamento";
   if (lower.startsWith("corpor")) return "corporativo";
   if (lower.startsWith("encomend")) return "encomenda";
+  if (lower.includes("locac")) return "locacao_espaco";
   if (lower.startsWith("social")) return "social";
   return "social";
 }
@@ -59,8 +63,44 @@ export interface Venue {
 
 export interface Guests {
   adults: number;
+  /** Soma das faixas — mantido para compatibilidade com fichas antigas. */
   children: number;
+  children0to5?: number;
+  children5to10?: number;
   professionals: number;
+}
+
+export function emptyGuests(): Guests {
+  return { adults: 0, children: 0, children0to5: 0, children5to10: 0, professionals: 0 };
+}
+
+export function normalizeGuests(input: unknown): Guests {
+  const next = emptyGuests();
+  if (!input || typeof input !== "object") return next;
+  const record = input as Partial<Guests>;
+  const adults = Number(record.adults) || 0;
+  const professionals = Number(record.professionals) || 0;
+  const children0to5 = Number(record.children0to5) || 0;
+  const children5to10 = Number(record.children5to10) || 0;
+  const legacy = Number(record.children) || 0;
+  const splitMissing = !("children0to5" in record) && !("children5to10" in record);
+  if (splitMissing && legacy > 0) {
+    return {
+      adults,
+      children: legacy,
+      children0to5: 0,
+      children5to10: legacy,
+      professionals,
+    };
+  }
+  const kids = children0to5 + children5to10;
+  return {
+    adults,
+    children: kids,
+    children0to5,
+    children5to10,
+    professionals,
+  };
 }
 
 export interface MenuItem {
@@ -108,6 +148,65 @@ export type StaffCounts = Record<StaffRoleKey, number>;
 
 export function emptyStaff(): StaffCounts {
   return Object.fromEntries(STAFF_ROLES.map((role) => [role.key, 0])) as StaffCounts;
+}
+
+/** Funções opcionais acrescentadas na ficha com “+”. */
+export const EXTRA_STAFF_ROLES = [
+  { key: "gerente_evento", label: "Gerente de evento" },
+  { key: "gerente_casa", label: "Gerente da casa" },
+  { key: "staff", label: "Staff" },
+  { key: "garcom", label: "Garçom" },
+  { key: "garcom_extra", label: "Garçom extra" },
+  { key: "garcom_noivos", label: "Garçom dos noivos" },
+  { key: "garcom_debutante", label: "Garçom da debutante" },
+  { key: "garcom_contratante", label: "Garçom da contratante" },
+  { key: "garcom_lider", label: "Garçom lider" },
+  { key: "garconete", label: "Garçonete" },
+  { key: "garconete_extra", label: "Garçonete extra" },
+  { key: "garconete_lider", label: "Garçonete Lider" },
+  { key: "copa", label: "Copa" },
+  { key: "recepcao", label: "Recepção" },
+  { key: "porteiro", label: "Porteiro" },
+  { key: "seguranca", label: "Segurança" },
+  { key: "zeladoria", label: "Zeladoria" },
+  { key: "monitor_kids", label: "Monitor kids" },
+  { key: "apoio_salao", label: "Apoio de salão" },
+  { key: "apoio", label: "Apoio" },
+  { key: "fritadeira", label: "Fritadeira" },
+  { key: "churrasqueiro", label: "Churrasqueiro" },
+  { key: "corre", label: "Corre" },
+  { key: "diarista", label: "Diarista" },
+] as const;
+
+export type ExtraStaffRoleKey = (typeof EXTRA_STAFF_ROLES)[number]["key"];
+
+export interface ExtraStaffLine {
+  key: ExtraStaffRoleKey;
+  quantity: number;
+}
+
+const EXTRA_STAFF_KEYS = new Set<string>(EXTRA_STAFF_ROLES.map((role) => role.key));
+
+export function extraStaffLabel(key: string) {
+  return EXTRA_STAFF_ROLES.find((role) => role.key === key)?.label ?? key;
+}
+
+export function normalizeExtraStaff(input: unknown): ExtraStaffLine[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const next: ExtraStaffLine[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { key?: unknown; quantity?: unknown };
+    const key = typeof row.key === "string" ? row.key : "";
+    if (!EXTRA_STAFF_KEYS.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    next.push({
+      key: key as ExtraStaffRoleKey,
+      quantity: Number(row.quantity) || 0,
+    });
+  }
+  return next;
 }
 
 export function normalizeStaff(input: unknown): StaffCounts {
@@ -293,8 +392,12 @@ export interface EventRecord {
   clientId?: string;
   teamArrival: string;
   invitationTime: string;
+  /** Horário da cerimônia — obrigatório na ficha. */
+  ceremonyTime: string;
   serviceTime: string;
   staff: StaffCounts;
+  /** Funções extras acrescentadas com “+”. */
+  extraStaff: ExtraStaffLine[];
   menu: Menu;
   /** Pratos do catálogo (cadastro de cardápio) escolhidos para o evento. */
   selectedDishIds?: string[];
@@ -306,10 +409,12 @@ export interface EventRecord {
    * Passa a falso no primeiro ajuste manual dos campos.
    */
   drinksAuto?: boolean;
+  drinksNotes: string;
   uniforms: Uniforms;
   logistics: Logistics;
   dietaryNotes: string;
   menuSetupNotes: string;
+  logisticsNotes: string;
   createdAt: string;
   updatedAt: string;
   /** Quem alterou a ficha e o que mudou. */
@@ -331,15 +436,42 @@ export interface EventChangeLogEntry {
 }
 
 export function guestTotal(guests: Guests) {
-  return (guests.adults || 0) + (guests.children || 0) + (guests.professionals || 0);
+  const kids =
+    (guests.children0to5 || 0) + (guests.children5to10 || 0) || guests.children || 0;
+  return (guests.adults || 0) + kids + (guests.professionals || 0);
+}
+
+export function guestsSummary(guests: Guests) {
+  const normalized = normalizeGuests(guests);
+  return `${normalized.adults} ad · ${normalized.children0to5} (0–5) · ${normalized.children5to10} (5–10) · ${normalized.professionals} prof`;
 }
 
 export function servingTotal(guests: Guests) {
   return guestTotal(guests);
 }
 
-export function staffTotal(staff: StaffCounts) {
-  return STAFF_ROLES.reduce((sum, role) => sum + (staff[role.key] || 0), 0);
+export function staffTotal(staff: StaffCounts, extraStaff: ExtraStaffLine[] = []) {
+  const base = STAFF_ROLES.reduce((sum, role) => sum + (staff[role.key] || 0), 0);
+  const extra = extraStaff.reduce((sum, line) => sum + (line.quantity || 0), 0);
+  return base + extra;
+}
+
+export function eventStaffLines(event: Pick<EventRecord, "staff" | "extraStaff">) {
+  const extras = normalizeExtraStaff(event.extraStaff);
+  return [
+    ...STAFF_ROLES.filter((role) => (event.staff?.[role.key] || 0) > 0).map((role) => ({
+      key: role.key,
+      label: role.label,
+      quantity: event.staff[role.key],
+    })),
+    ...extras
+      .filter((line) => line.quantity > 0)
+      .map((line) => ({
+        key: line.key,
+        label: extraStaffLabel(line.key),
+        quantity: line.quantity,
+      })),
+  ];
 }
 
 function normalizeIsoDate(value: unknown): string {
@@ -349,18 +481,24 @@ function normalizeIsoDate(value: unknown): string {
 
 export function normalizeEventRecord(event: EventRecord): EventRecord {
   const drinksAuto = event.drinksAuto !== false;
+  const guests = normalizeGuests(event.guests);
   return {
     ...event,
     type: normalizeEventType(event.type),
+    guests,
     staff: normalizeStaff(event.staff),
+    extraStaff: normalizeExtraStaff(event.extraStaff),
     clientId: event.clientId ?? "",
+    ceremonyTime: typeof event.ceremonyTime === "string" ? event.ceremonyTime : "",
+    drinksNotes: typeof event.drinksNotes === "string" ? event.drinksNotes : "",
+    logisticsNotes: typeof event.logisticsNotes === "string" ? event.logisticsNotes : "",
     menu: compactMenu(event.menu),
     materialDeliveryDate: normalizeIsoDate(event.materialDeliveryDate),
     materialPickupDate: normalizeIsoDate(event.materialPickupDate),
     foodDeliveryDate: normalizeIsoDate(event.foodDeliveryDate),
     drinksAuto,
     drinks: drinksAuto
-      ? suggestedDrinkQuantities(guestTotal(event.guests))
+      ? suggestedDrinkQuantities(guestTotal(guests))
       : normalizeDrinks(event.drinks),
     changeLog: normalizeChangeLog(event.changeLog),
   };

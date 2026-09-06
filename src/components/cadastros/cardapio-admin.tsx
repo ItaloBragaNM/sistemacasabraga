@@ -184,13 +184,17 @@ export function CardapioAdmin() {
                           />
                           <div className="min-w-0">
                             <p className="font-list font-medium text-forest">{dish.name}</p>
-                            <p className="mt-1 text-xs font-light text-forest/55">
+                            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-light text-forest/55">
                               {dish.materialIds.length > 0
                                 ? dish.materialIds
                                     .map((id) => materialName.get(id))
                                     .filter(Boolean)
                                     .join(", ")
-                                : "Sem materiais vinculados"}
+                                : (
+                                  <Chip size="sm" className="bg-terracotta/10 text-terracotta">
+                                    Sem materiais vinculados
+                                  </Chip>
+                                )}
                             </p>
                             {dish.hasRechaud || dish.hasFritadeira ? (
                               <p className="mt-1.5 flex flex-wrap gap-1">
@@ -366,6 +370,11 @@ function DishForm({
             {materialIds.length} selecionado(s)
           </span>
         </div>
+        {materialIds.length === 0 ? (
+          <p className="mb-2 rounded-lg bg-terracotta/10 px-3 py-2 text-xs text-terracotta">
+            Este prato não possui materiais vinculados.
+          </p>
+        ) : null}
         <div className="mb-2">
           <SearchInput
             value={materialSearch}

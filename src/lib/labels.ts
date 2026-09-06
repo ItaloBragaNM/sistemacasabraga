@@ -20,11 +20,12 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   corporativo: "Corporativo",
   social: "Social",
   encomenda: "Encomenda",
+  locacao_espaco: "Locação de Espaço",
 };
 
 export const VENUE_KIND_LABELS: Record<VenueKind, string> = {
   casa_braga: "Casa Braga",
-  externo: "Externo",
+  externo: "Catering",
 };
 
 export const YES_NO_LABELS: Record<Exclude<YesNo, "">, string> = {

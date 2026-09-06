@@ -5,9 +5,10 @@ import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   DRINK_ITEMS,
+  eventStaffLines,
   guestTotal,
+  guestsSummary,
   MENU_SECTIONS,
-  STAFF_ROLES,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
   type EventRecord,
@@ -127,7 +128,7 @@ function eventPlaceLabel(event: EventRecord) {
 
 export function KitchenDocument({ event }: { event: EventRecord }) {
   const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
-  const staff = STAFF_ROLES.filter((role) => event.staff[role.key] > 0);
+  const staff = eventStaffLines(event);
 
   return (
     <Document>
@@ -148,8 +149,8 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
             value={event.date ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : "—"}
           />
           <Meta
-            label="Convite / serviço"
-            value={`${event.invitationTime || "—"} / ${event.serviceTime || "—"}`}
+            label="Cerimônia / convite / serviço"
+            value={`${event.ceremonyTime || "—"} / ${event.invitationTime || "—"} / ${event.serviceTime || "—"}`}
           />
           <Meta label="A servir" value={String(guestTotal(event.guests))} />
         </View>
@@ -158,7 +159,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           <Meta label="Chegada equipe" value={event.teamArrival || "—"} />
           <Meta
             label="Público"
-            value={`${event.guests.adults} ad · ${event.guests.children} cr · ${event.guests.professionals} prof`}
+            value={guestsSummary(event.guests)}
           />
         </View>
         <View style={styles.metaRow}>
@@ -197,7 +198,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           );
         })}
 
-        {drinks.length > 0 && (
+        {drinks.length > 0 || event.drinksNotes ? (
           <View>
             <Text style={styles.sectionTitle}>Bebidas</Text>
             {drinks.map((item) => (
@@ -206,8 +207,9 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
                 <Text style={styles.itemNotes}>{event.drinks[item.key]}</Text>
               </View>
             ))}
+            {event.drinksNotes ? <Text style={styles.note}>{event.drinksNotes}</Text> : null}
           </View>
-        )}
+        ) : null}
 
         {staff.length > 0 && (
           <View>
@@ -215,7 +217,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
             {staff.map((item) => (
               <View key={item.key} style={styles.item}>
                 <Text style={styles.itemName}>{item.label}</Text>
-                <Text style={styles.itemNotes}>{String(event.staff[item.key])}</Text>
+                <Text style={styles.itemNotes}>{String(item.quantity)}</Text>
               </View>
             ))}
           </View>
@@ -244,8 +246,15 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
 
         {event.menuSetupNotes ? (
           <View>
-            <Text style={styles.sectionTitle}>Observações cardápio e montagem</Text>
+            <Text style={styles.sectionTitle}>Observações — cozinha</Text>
             <Text style={styles.note}>{event.menuSetupNotes}</Text>
+          </View>
+        ) : null}
+
+        {event.logisticsNotes ? (
+          <View>
+            <Text style={styles.sectionTitle}>Observações — logística</Text>
+            <Text style={styles.note}>{event.logisticsNotes}</Text>
           </View>
         ) : null}
 

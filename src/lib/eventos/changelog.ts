@@ -9,6 +9,8 @@ import {
 import {
   DRINK_ITEMS,
   MENU_SECTIONS,
+  extraStaffLabel,
+  normalizeExtraStaff,
   STAFF_ROLES,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
@@ -105,16 +107,29 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
     formatDate(previous.foodDeliveryDate),
     formatDate(next.foodDeliveryDate),
   );
-  push(changes, "Per capita", String(previous.perCapita || 0), String(next.perCapita || 0));
   push(changes, "Ilhas", String(previous.islands || 0), String(next.islands || 0));
   push(changes, "Chegada da equipe", previous.teamArrival, next.teamArrival);
   push(changes, "Horário do convite", previous.invitationTime, next.invitationTime);
+  push(changes, "Horário da cerimônia", previous.ceremonyTime ?? "", next.ceremonyTime ?? "");
   push(changes, "Horário do serviço", previous.serviceTime, next.serviceTime);
   push(changes, "Restrições alimentares", previous.dietaryNotes, next.dietaryNotes);
   push(changes, "Obs. cardápio e montagem", previous.menuSetupNotes, next.menuSetupNotes);
+  push(changes, "Obs. bebidas", previous.drinksNotes ?? "", next.drinksNotes ?? "");
+  push(changes, "Obs. logística", previous.logisticsNotes ?? "", next.logisticsNotes ?? "");
 
   push(changes, "Adultos", String(previous.guests?.adults || 0), String(next.guests?.adults || 0));
-  push(changes, "Crianças", String(previous.guests?.children || 0), String(next.guests?.children || 0));
+  push(
+    changes,
+    "Crianças 0–5",
+    String(previous.guests?.children0to5 || 0),
+    String(next.guests?.children0to5 || 0),
+  );
+  push(
+    changes,
+    "Crianças 5–10",
+    String(previous.guests?.children5to10 || previous.guests?.children || 0),
+    String(next.guests?.children5to10 || next.guests?.children || 0),
+  );
   push(
     changes,
     "Profissionais",
@@ -139,6 +154,21 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
       role.label,
       String(previous.staff?.[role.key] || 0),
       String(next.staff?.[role.key] || 0),
+    );
+  }
+
+  const prevExtra = new Map(
+    normalizeExtraStaff(previous.extraStaff).map((line) => [line.key, line.quantity]),
+  );
+  const nextExtra = new Map(
+    normalizeExtraStaff(next.extraStaff).map((line) => [line.key, line.quantity]),
+  );
+  for (const key of new Set([...prevExtra.keys(), ...nextExtra.keys()])) {
+    push(
+      changes,
+      extraStaffLabel(key),
+      String(prevExtra.get(key) || 0),
+      String(nextExtra.get(key) || 0),
     );
   }
 

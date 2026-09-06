@@ -173,7 +173,9 @@ function normalizeEventType(value: string | null): CrmEventType | null {
             ? "Social"
             : lower.startsWith("encomend")
               ? "Encomenda"
-              : null)
+              : lower.includes("locac")
+                ? "Locação de Espaço"
+                : null)
   );
 }
 

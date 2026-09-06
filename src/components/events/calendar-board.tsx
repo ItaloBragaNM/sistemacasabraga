@@ -30,16 +30,14 @@ function EventChip({ event }: { event: EventRecord }) {
     <Link
       href={`/eventos/${event.id}`}
       className={cn(
-        "block rounded-md px-2 py-1.5 transition-colors",
-        event.status === "cancelado"
-          ? "bg-terracotta/10 text-terracotta"
-          : "bg-forest text-cream hover:bg-petrol",
+        "block rounded-md px-2 py-1.5 transition-colors hover:opacity-90",
+        `cal-chip-${event.status}`,
       )}
     >
       <p className="font-list truncate text-[0.7rem] font-medium">
-        {event.invitationTime || event.serviceTime || "—"} · {event.title}
+        {event.ceremonyTime || event.invitationTime || event.serviceTime || "—"} · {event.title}
       </p>
-      <p className="truncate text-[0.62rem] opacity-75">
+      <p className="truncate text-[0.62rem] opacity-80">
         {EVENT_TYPE_LABELS[event.type]} · {guestTotal(event.guests)} pax
       </p>
     </Link>
@@ -89,8 +87,22 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
             Calendário de Eventos
           </h1>
           <p className="mt-2 max-w-xl text-sm font-light leading-6 text-forest/65">
-            Visão da casa. Clique no evento para abrir a ficha operacional.
+            Visão da casa. Clique no evento para abrir a ficha operacional. As cores seguem o
+            status da ficha.
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {EVENT_STATUSES.map((item) => (
+              <span
+                key={item}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.62rem]",
+                  `cal-chip-${item}`,
+                )}
+              >
+                {EVENT_STATUS_LABELS[item]}
+              </span>
+            ))}
+          </div>
         </div>
         <Link
           href="/eventos/novo"

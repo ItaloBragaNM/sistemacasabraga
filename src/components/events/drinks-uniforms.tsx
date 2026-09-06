@@ -15,10 +15,14 @@ import {
 
 export function EventDrinksFields({
   drinks,
+  notes,
+  onNotesChange,
   onChange,
   onRecalculate,
 }: {
   drinks: DrinkQuantities;
+  notes: string;
+  onNotesChange: (value: string) => void;
   onChange: (key: DrinkKey, value: string) => void;
   onRecalculate: () => void;
 }) {
@@ -39,6 +43,14 @@ export function EventDrinksFields({
           </Field>
         ))}
       </div>
+      <Field label="Observações — bebidas" className="mt-4">
+        <textarea
+          className={`${fieldControlClass} min-h-24 py-2`}
+          value={notes ?? ""}
+          onChange={(event) => onNotesChange(event.target.value)}
+          placeholder="Marcas, geladeira, serviço de bar, restrições…"
+        />
+      </Field>
       <p className="mt-3 text-xs font-light text-forest/50">
         Água: 1 garrafão de 20 L a cada 50 convidados · Refrigerante: 450 ml por pessoa, em
         garrafas de 2 L · Suco: 200 ml por pessoa, em litros.

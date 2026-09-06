@@ -153,6 +153,31 @@
   color: #e13f3a;
 }
 
+.cal-chip-rascunho {
+  background: #efe7dc;
+  color: #6b5a45;
+}
+
+.cal-chip-confirmado {
+  background: #1e443e;
+  color: #fffbfa;
+}
+
+.cal-chip-em_preparacao {
+  background: #e07a3d;
+  color: #fffbfa;
+}
+
+.cal-chip-realizado {
+  background: #5d6f6c;
+  color: #fffbfa;
+}
+
+.cal-chip-cancelado {
+  background: #e13f3a;
+  color: #fffbfa;
+}
+
 @media print {
   body {
     background: white !important;

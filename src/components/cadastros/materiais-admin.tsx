@@ -15,7 +15,7 @@ import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, Chip, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
-import { basesMap, describeProportion, materialQuantity } from "@/lib/cadastros/calc";
+import { basesMap, describeProportion } from "@/lib/cadastros/calc";
 import { MAX_FACTORS, MATERIAL_KIND_LABELS, MATERIAL_KINDS, type MaterialKind, type MaterialRecord, type ProportionFactor } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
@@ -207,7 +207,13 @@ export function MateriaisAdmin() {
                         </Chip>
                       </td>
                       <td className="py-3 pr-3 font-list text-[0.8rem] font-light text-forest/60">
-                        {describeProportion(material, bases)}
+                        {material.factors.length === 0 ? (
+                          <Chip className="bg-terracotta/10 text-terracotta">
+                            Sem proporção cadastrada
+                          </Chip>
+                        ) : (
+                          describeProportion(material, bases)
+                        )}
                       </td>
                       <td className="py-3 pr-3">
                         <Chip className="bg-forest/6 text-forest/70">{material.category}</Chip>
@@ -283,20 +289,6 @@ function Th({
   );
 }
 
-const SIM_FIELDS = [
-  { key: "convidados", label: "Convidados" },
-  { key: "garcons", label: "Garçons" },
-  { key: "garconetes", label: "Garçonetes" },
-  { key: "copeiros", label: "Copeiras" },
-  { key: "chefes", label: "Chefes" },
-  { key: "ilhas", label: "Ilhas" },
-  { key: "pratos", label: "Nº pratos" },
-  { key: "rechauds", label: "Rechauds" },
-  { key: "fritadeiras", label: "Fritadeiras" },
-] as const;
-
-type SimKey = (typeof SIM_FIELDS)[number]["key"];
-
 function MaterialForm({
   initial,
   categories,
@@ -319,55 +311,16 @@ function MaterialForm({
   const [variants, setVariants] = useState<string[]>(initial?.variants ?? []);
   const [newVariant, setNewVariant] = useState("");
   const [locationId, setLocationId] = useState(initial?.locationId ?? "");
-  const [factors, setFactors] = useState<ProportionFactor[]>(
-    initial?.factors.length ? initial.factors : [{ baseId: bases[0]?.id ?? "", mult: 1 }],
-  );
-  const [sim, setSim] = useState<Record<SimKey, number>>({
-    convidados: 80,
-    garcons: 4,
-    garconetes: 4,
-    copeiros: 2,
-    chefes: 2,
-    ilhas: 2,
-    pratos: 1,
-    rechauds: 2,
-    fritadeiras: 1,
-  });
-
+  const [factors, setFactors] = useState<ProportionFactor[]>(initial?.factors ?? []);
   const basesById = useMemo(() => new Map(bases.map((base) => [base.id, base])), [bases]);
-
-  const simQty = useMemo(() => {
-    const temp: MaterialRecord = {
-      id: "sim",
-      name,
-      category,
-      unit,
-      kind,
-      variants,
-      factors,
-      createdAt: "",
-      updatedAt: "",
-    };
-    return materialQuantity(temp, basesById, {
-      convidados: sim.convidados,
-      garcons: sim.garcons,
-      garconetes: sim.garconetes,
-      copeiros: sim.copeiros,
-      chefes: sim.chefes,
-      ilhas: sim.ilhas,
-      selectedDishIds: [],
-      rechauds: sim.rechauds,
-      fritadeiras: sim.fritadeiras,
-    }, sim.pratos);
-  }, [name, category, unit, kind, variants, factors, basesById, sim]);
 
   const submit = () => {
     if (!name.trim()) {
       toast.error("Informe o nome do material.");
       return;
     }
-    if (factors.length === 0 || factors.some((factor) => !factor.baseId)) {
-      toast.error("Defina ao menos um fator de proporção.");
+    if (factors.some((factor) => !factor.baseId)) {
+      toast.error("Cada fator precisa de uma base de cálculo.");
       return;
     }
     const now = new Date().toISOString();
@@ -536,9 +489,8 @@ function MaterialForm({
               <button
                 type="button"
                 aria-label="Remover fator"
-                disabled={factors.length <= 1}
                 onClick={() => setFactors(factors.filter((_, i) => i !== index))}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-forest/40 transition-colors hover:bg-terracotta/10 hover:text-terracotta disabled:opacity-30 disabled:hover:bg-transparent"
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-forest/40 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
               >
                 <Trash2 className="size-4" />
               </button>
@@ -555,36 +507,18 @@ function MaterialForm({
             Adicionar fator
           </Button>
         ) : null}
-        <p className="mt-2 text-xs font-light text-forest/45">
-          {factors
-            .map((factor) => `${basesById.get(factor.baseId)?.label ?? "?"} × ${factor.mult}`)
-            .join("  ×  ") || "—"}
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-forest/10 bg-forest/[0.02] p-4">
-        <p className="field-label mb-3">Simulador — arredonda sempre para cima</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {SIM_FIELDS.map((field) => (
-            <Field key={field.key} label={field.label}>
-              <input
-                type="number"
-                min={0}
-                className={fieldControlClass}
-                value={sim[field.key]}
-                onChange={(event) =>
-                  setSim((current) => ({ ...current, [field.key]: Number(event.target.value) }))
-                }
-              />
-            </Field>
-          ))}
-          <div className="flex flex-col justify-end">
-            <p className="field-label">Resultado</p>
-            <p className="font-display mt-1 text-2xl text-forest">
-              {simQty} <span className="text-base text-forest/50">{unit || "un"}</span>
-            </p>
-          </div>
-        </div>
+        {factors.length === 0 ? (
+          <p className="mt-2 rounded-lg bg-terracotta/10 px-3 py-2 text-xs text-terracotta">
+            Sem proporção cadastrada — este material não entra no cálculo automático até você
+            definir um fator.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs font-light text-forest/45">
+            {factors
+              .map((factor) => `${basesById.get(factor.baseId)?.label ?? "?"} × ${factor.mult}`)
+              .join("  ×  ")}
+          </p>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">

@@ -1,7 +1,6 @@
 import type {
   EventRecord,
   EventType,
-  Guests,
   Logistics,
   Menu,
   MenuItem,
@@ -11,10 +10,13 @@ import type {
 } from "./types";
 import {
   compactMenu,
+  emptyGuests,
   guestTotal,
   MENU_SECTIONS,
   normalizeDrinks,
   normalizeEventType,
+  normalizeExtraStaff,
+  normalizeGuests,
   normalizeStaff,
   suggestedDrinkQuantities,
 } from "./types";
@@ -93,14 +95,12 @@ export function casaBragaVenue(): Venue {
   };
 }
 
-export function emptyGuests(): Guests {
-  return { adults: 0, children: 0, professionals: 0 };
-}
+export { emptyGuests };
 
 export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecord {
   const now = new Date().toISOString();
   const uniforms = emptyUniforms();
-  const guests = { ...emptyGuests(), ...partial.guests };
+  const guests = normalizeGuests({ ...emptyGuests(), ...partial.guests });
   const drinks = normalizeDrinks(partial.drinks);
   const drinksAuto = partial.drinksAuto !== false;
   return {
@@ -129,6 +129,10 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     venue: { ...casaBragaVenue(), ...partial.venue },
     guests,
     staff: normalizeStaff(partial.staff),
+    extraStaff: normalizeExtraStaff(partial.extraStaff),
+    ceremonyTime: typeof partial.ceremonyTime === "string" ? partial.ceremonyTime : "",
+    drinksNotes: typeof partial.drinksNotes === "string" ? partial.drinksNotes : "",
+    logisticsNotes: typeof partial.logisticsNotes === "string" ? partial.logisticsNotes : "",
     menu: emptyMenu(partial.menu),
     drinksAuto,
     drinks: drinksAuto ? suggestedDrinkQuantities(guestTotal(guests)) : drinks,
