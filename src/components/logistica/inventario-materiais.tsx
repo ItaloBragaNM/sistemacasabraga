@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Eye, EyeOff, FileDown, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Download, Eye, EyeOff, FileDown, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { CadastrosHeader, CatalogFilters, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
@@ -9,6 +9,7 @@ import { downloadCountSheetPdf } from "@/components/logistica/inventario-pdf";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { exportToXlsx, readXlsx } from "@/lib/cadastros/xlsx";
 import {
   skuBalance,
   computeBalances,
@@ -16,12 +17,26 @@ import {
   stockKey,
   stockSkusForMaterial,
 } from "@/lib/logistica/calc";
+import {
+  buildInventorySheet,
+  parseInventorySheet,
+  sessionFromImport,
+  type InventoryImportResult,
+} from "@/lib/logistica/inventory-io";
 import type { InventorySession } from "@/lib/logistica/types";
 import type { MaterialRecord } from "@/lib/cadastros/types";
 import { formatInt } from "@/lib/crm/format";
 import { uid } from "@/lib/event-factory";
 import { formatShortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+
+function isValidInventoryImport(parsed: InventoryImportResult): boolean {
+  if (parsed.counted.length === 0) {
+    toast.error("Nenhuma quantidade válida na planilha. Use a coluna Quantidade.");
+    return false;
+  }
+  return true;
+}
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -32,8 +47,11 @@ export function InventarioMateriais() {
   const { data: logistica, ready: logReady, concludeInventory, updateInventory, removeInventory } = useLogistica();
   const [mode, setMode] = useState<"list" | "new">("list");
   const [editing, setEditing] = useState<InventorySession | null>(null);
+  const [importDraft, setImportDraft] = useState<InventorySession | null>(null);
   const [viewing, setViewing] = useState<InventorySession | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const balances = useMemo(() => computeBalances(logistica?.movements ?? []), [logistica]);
   const materialById = useMemo(
@@ -66,6 +84,54 @@ export function InventarioMateriais() {
     toast.success("Inventário excluído.");
   };
 
+  const exportTemplate = async () => {
+    if (!cadastros) return;
+    try {
+      const { headers, rows } = buildInventorySheet({
+        materials: cadastros.materials,
+        balances,
+        locationName,
+      });
+      await exportToXlsx("inventario-materiais-casa-braga", "Inventário", headers, rows);
+      toast.success("Modelo de inventário exportado.");
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível exportar o modelo.");
+    }
+  };
+
+  const importSheet = async (file: File) => {
+    if (!cadastros) return;
+    setImporting(true);
+    try {
+      const stable = new File([await file.arrayBuffer()], file.name, {
+        type: file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const rows = await readXlsx(stable);
+      if (rows.length === 0) {
+        toast.error("Planilha vazia ou sem cabeçalho reconhecido.");
+        return;
+      }
+      const parsed = parseInventorySheet(rows, cadastros.materials, balances);
+      if (!isValidInventoryImport(parsed)) return;
+      const session = sessionFromImport(parsed, cadastros.materials, balances);
+      setEditing(null);
+      setImportDraft(session);
+      setMode("new");
+      toast.success(
+        parsed.unmatched.length > 0
+          ? `Importado: ${parsed.counted.length} item(ns). ${parsed.unmatched.length} linha(s) ignorada(s).`
+          : `Importado: ${parsed.counted.length} item(ns) para revisão.`,
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível ler a planilha. Exporte o modelo e use o mesmo formato.");
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   if (!ready) {
     return (
       <div className="mx-auto max-w-5xl space-y-6 pb-16">
@@ -92,19 +158,24 @@ export function InventarioMateriais() {
         locations={cadastros.stockLocations ?? []}
         locationName={locationName}
         balances={editing ? balancesWithoutEdit : balances}
-        initial={editing}
+        initial={editing ?? importDraft}
+        isEditing={Boolean(editing)}
+        fromSheet={Boolean(importDraft) && !editing}
         onCancel={() => {
           setMode("list");
           setEditing(null);
+          setImportDraft(null);
         }}
         onConclude={(session) => {
           if (editing) {
             updateInventory({ ...session, id: editing.id, createdAt: editing.createdAt });
             setEditing(null);
+            setImportDraft(null);
             setMode("list");
             toast.success("Inventário atualizado — estoque ajustado.");
           } else {
             concludeInventory(session);
+            setImportDraft(null);
             setMode("list");
             toast.success("Inventário concluído — estoque atualizado.");
           }
@@ -120,9 +191,19 @@ export function InventarioMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Inventário de Materiais"
-        description="Cada variação é um item a contar. Informe a data e quem participou. Gere um PDF para contar no papel e lance os números depois."
+        description="Cada variação é um item a contar. Exporte o modelo (já vem com o saldo atual), ajuste a coluna Quantidade e importe para revisar. Em branco ou Oculto não altera o estoque."
         action={
           <div className="flex flex-wrap gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xlsm"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void importSheet(file);
+              }}
+            />
             <Button
               variant="outline"
               className="h-10 px-4"
@@ -133,8 +214,29 @@ export function InventarioMateriais() {
               PDF para contagem
             </Button>
             <Button
+              variant="outline"
+              className="h-10 px-4"
+              onClick={() => void exportTemplate()}
+              disabled={cadastros.materials.length === 0}
+            >
+              <Download data-icon="inline-start" />
+              Exportar modelo
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 px-4"
+              onClick={() => fileRef.current?.click()}
+              disabled={cadastros.materials.length === 0 || importing}
+            >
+              <Upload data-icon="inline-start" />
+              {importing ? "Importando…" : "Importar planilha"}
+            </Button>
+            <Button
               className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
-              onClick={() => setMode("new")}
+              onClick={() => {
+                setImportDraft(null);
+                setMode("new");
+              }}
               disabled={cadastros.materials.length === 0}
             >
               <Plus data-icon="inline-start" />
@@ -147,16 +249,37 @@ export function InventarioMateriais() {
       {inventories.length === 0 ? (
         <EmptyBlock
           title="Nenhum inventário"
-          description="Imprima a folha de contagem ou faça a primeira contagem no sistema."
+          description="Exporte o modelo, preencha as quantidades ou faça a primeira contagem no sistema."
           action={
-            <Button
-              className="bg-forest text-cream hover:bg-petrol"
-              onClick={() => setMode("new")}
-              disabled={cadastros.materials.length === 0}
-            >
-              <Plus data-icon="inline-start" />
-              Novo inventário
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => void exportTemplate()}
+                disabled={cadastros.materials.length === 0}
+              >
+                <Download data-icon="inline-start" />
+                Exportar modelo
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => fileRef.current?.click()}
+                disabled={cadastros.materials.length === 0 || importing}
+              >
+                <Upload data-icon="inline-start" />
+                Importar planilha
+              </Button>
+              <Button
+                className="bg-forest text-cream hover:bg-petrol"
+                onClick={() => {
+                  setImportDraft(null);
+                  setMode("new");
+                }}
+                disabled={cadastros.materials.length === 0}
+              >
+                <Plus data-icon="inline-start" />
+                Novo inventário
+              </Button>
+            </div>
           }
         />
       ) : (
@@ -504,6 +627,8 @@ function InventoryForm({
   locationName,
   balances,
   initial,
+  isEditing,
+  fromSheet,
   onConclude,
   onCancel,
 }: {
@@ -513,6 +638,8 @@ function InventoryForm({
   locationName: Map<string, string>;
   balances: Map<string, number>;
   initial: InventorySession | null;
+  isEditing: boolean;
+  fromSheet?: boolean;
   onConclude: (session: InventorySession) => void;
   onCancel: () => void;
 }) {
@@ -536,6 +663,9 @@ function InventoryForm({
     [recorded, balances],
   );
 
+  const [importedExtras, setImportedExtras] = useState<InventorySession["items"]>([]);
+  const [importedSkipped, setImportedSkipped] = useState<InventorySession["skipped"]>([]);
+
   const skus = useMemo(() => {
     const catalog = materials.flatMap((material) =>
       stockSkusForMaterial(material, {
@@ -551,7 +681,7 @@ function InventoryForm({
     );
     const seen = new Set(catalog.map((sku) => stockKey(sku.materialId, sku.variant)));
     const extras: typeof catalog = [];
-    for (const item of [...(initial?.items ?? []), ...(initial?.skipped ?? [])]) {
+    for (const item of [...(initial?.items ?? []), ...(initial?.skipped ?? []), ...importedExtras, ...importedSkipped]) {
       const key = stockKey(item.materialId, item.variant);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -566,7 +696,7 @@ function InventoryForm({
       });
     }
     return [...catalog, ...extras];
-  }, [materials, balances, recorded, initial, materialById]);
+  }, [materials, balances, recorded, initial, materialById, importedExtras, importedSkipped]);
 
   const [date, setDate] = useState(initial?.date.slice(0, 10) || todayIsoDate());
   const [responsible, setResponsible] = useState(initial?.responsible ?? "");
@@ -598,6 +728,52 @@ function InventoryForm({
     }
     return next;
   });
+  const formFileRef = useRef<HTMLInputElement>(null);
+  const [formImporting, setFormImporting] = useState(false);
+
+  const importIntoForm = async (file: File) => {
+    setFormImporting(true);
+    try {
+      const stable = new File([await file.arrayBuffer()], file.name, {
+        type: file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const rows = await readXlsx(stable);
+      if (rows.length === 0) {
+        toast.error("Planilha vazia ou sem cabeçalho reconhecido.");
+        return;
+      }
+      const parsed = parseInventorySheet(rows, materials, balances);
+      if (!isValidInventoryImport(parsed)) return;
+      const session = sessionFromImport(parsed, materials, balances);
+      setDate(session.date.slice(0, 10) || todayIsoDate());
+      if (session.responsible) setResponsible(session.responsible);
+      if (session.participants.length > 0) setParticipants(session.participants);
+      if (session.note) setNote(session.note);
+      setHiddenKeys(
+        new Set(session.skipped.map((item) => stockKey(item.materialId, item.variant))),
+      );
+      setImportedExtras(session.items);
+      setImportedSkipped(session.skipped);
+      setCounts((current) => {
+        const next = { ...current };
+        for (const item of session.items) {
+          next[stockKey(item.materialId, item.variant)] = item.counted;
+        }
+        return next;
+      });
+      toast.success(
+        parsed.unmatched.length > 0
+          ? `Planilha aplicada: ${parsed.counted.length} item(ns). ${parsed.unmatched.length} linha(s) ignorada(s).`
+          : `Planilha aplicada: ${parsed.counted.length} item(ns).`,
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível ler a planilha. Exporte o modelo e use o mesmo formato.");
+    } finally {
+      setFormImporting(false);
+      if (formFileRef.current) formFileRef.current.value = "";
+    }
+  };
 
   const categories = useMemo(
     () => [...new Set(materials.map((m) => m.category))].sort((a, b) => a.localeCompare(b, "pt-BR")),
@@ -752,6 +928,16 @@ function InventoryForm({
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
+      <input
+        ref={formFileRef}
+        type="file"
+        accept=".xlsx,.xlsm"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void importIntoForm(file);
+        }}
+      />
       <div>
         <button
           type="button"
@@ -762,12 +948,14 @@ function InventoryForm({
           Voltar ao histórico
         </button>
         <h1 className="font-display mt-3 text-4xl text-forest sm:text-5xl">
-          {initial ? "Editar inventário" : "Novo inventário"}
+          {isEditing ? "Editar inventário" : "Novo inventário"}
         </h1>
         <p className="mt-2 text-sm font-light text-forest/60">
-          {initial
+          {isEditing
             ? "Altere a data, quem participou ou as quantidades. Oculte o que não entra nesta contagem — esses itens não alteram o estoque. Ao salvar, o saldo é recalculado a partir do que foi contado."
-            : "Preencha a data, o responsável e quem participou. Cada variação é um item. Oculte o que não será contado: esses SKUs ficam de fora e o saldo deles não muda."}
+            : fromSheet
+              ? "Revise as quantidades importadas da planilha. O que não veio na planilha fica oculto e não altera o estoque. O saldo só muda ao concluir."
+              : "Preencha a data, o responsável e quem participou. Cada variação é um item. Oculte o que não será contado: esses SKUs ficam de fora e o saldo deles não muda. Também dá para importar uma planilha."}
         </p>
       </div>
 
@@ -894,9 +1082,18 @@ function InventoryForm({
               {showHidden ? "Incluir listados" : "Ocultar listados"}
             </Button>
           ) : null}
+          <Button
+            variant="outline"
+            className="h-10 px-4"
+            onClick={() => formFileRef.current?.click()}
+            disabled={formImporting}
+          >
+            <Upload data-icon="inline-start" />
+            {formImporting ? "Importando…" : "Importar planilha"}
+          </Button>
           <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={conclude}>
             <ClipboardCheck data-icon="inline-start" />
-            {initial ? "Salvar alterações" : "Concluir inventário"}
+            {isEditing ? "Salvar alterações" : "Concluir inventário"}
           </Button>
         </div>
       </div>
