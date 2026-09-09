@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowLeftRight, Download, History, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Download, History } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -20,15 +20,15 @@ import {
   variantBreakdown,
 } from "@/lib/logistica/calc";
 import { MOVEMENT_LABELS, type MovementType } from "@/lib/logistica/types";
-import type { MaterialKind, MaterialRecord } from "@/lib/cadastros/types";
-import { MATERIAL_KIND_LABELS, MATERIAL_KINDS } from "@/lib/cadastros/types";
+import type { MaterialRecord } from "@/lib/cadastros/types";
+import { MATERIAL_KIND_LABELS } from "@/lib/cadastros/types";
 import { formatInt } from "@/lib/crm/format";
 import { exportToXlsx } from "@/lib/cadastros/xlsx";
 import { uid } from "@/lib/event-factory";
 import { formatShortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
-type SortKey = "name" | "category" | "qty" | "location" | "lastCount";
+type SortKey = "name" | "qty" | "location";
 
 function locationOf(
   material: MaterialRecord,
@@ -46,10 +46,8 @@ export function EstoqueMateriais() {
   const { data: logistica, ready: logReady, addMovement, upsertMeta } = useLogistica();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
-  const [kind, setKind] = useState<MaterialKind | "">("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [countFilter, setCountFilter] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("category");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selected, setSelected] = useState<MaterialRecord | null>(null);
 
@@ -67,7 +65,7 @@ export function EstoqueMateriais() {
     if (sortKey === key) setSortDir((current) => (current === "asc" ? "desc" : "asc"));
     else {
       setSortKey(key);
-      setSortDir(key === "qty" || key === "lastCount" ? "desc" : "asc");
+      setSortDir(key === "qty" ? "desc" : "asc");
     }
   };
 
@@ -76,7 +74,6 @@ export function EstoqueMateriais() {
     const term = search.trim().toLowerCase();
     const list = [...cadastros.materials]
       .filter((m) => (category ? m.category === category : true))
-      .filter((m) => (kind ? m.kind === kind : true))
       .map((m) => {
         const stock = getMeta(meta, m.id);
         const location = locationOf(m, stock.location, locationNames);
@@ -95,11 +92,6 @@ export function EstoqueMateriais() {
         return true;
       })
       .filter((row) => {
-        if (countFilter === "with") return Boolean(row.lastCount);
-        if (countFilter === "without") return !row.lastCount;
-        return true;
-      })
-      .filter((row) => {
         if (!term) return true;
         return (
           row.material.name.toLowerCase().includes(term) ||
@@ -112,27 +104,24 @@ export function EstoqueMateriais() {
     const dir = sortDir === "asc" ? 1 : -1;
     list.sort((a, b) => {
       let cmp = 0;
-      if (sortKey === "name") cmp = a.material.name.localeCompare(b.material.name, "pt-BR");
-      else if (sortKey === "category") {
+      if (sortKey === "qty") cmp = a.balance - b.balance;
+      else if (sortKey === "location") cmp = a.location.localeCompare(b.location, "pt-BR");
+      else {
         cmp =
           a.material.category.localeCompare(b.material.category, "pt-BR") ||
           a.material.name.localeCompare(b.material.name, "pt-BR");
-      } else if (sortKey === "qty") cmp = a.balance - b.balance;
-      else if (sortKey === "location") cmp = a.location.localeCompare(b.location, "pt-BR");
-      else cmp = (a.lastCount ?? "").localeCompare(b.lastCount ?? "");
+      }
       return cmp * dir;
     });
     return list;
   }, [
     cadastros,
     category,
-    kind,
     search,
     meta,
     balances,
     locationNames,
     locationFilter,
-    countFilter,
     logistica?.inventories,
     sortKey,
     sortDir,
@@ -177,7 +166,7 @@ export function EstoqueMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Estoque de Materiais"
-        description="Quantidade de cada variação e o total do material. Local na casa e data da última contagem. Cadastre os locais em Configurações do Módulo de Cadastros."
+        description="Saldo atual. Clique no material para movimentar."
         action={
           <Button variant="outline" className="h-10 px-3" onClick={handleExport} disabled={!cadastros}>
             <Download data-icon="inline-start" />
@@ -199,9 +188,10 @@ export function EstoqueMateriais() {
         <>
           <div className="flex flex-col gap-3">
             <CatalogFilters
+              compact
               search={search}
               onSearch={setSearch}
-              searchPlaceholder="Buscar material, categoria ou local…"
+              searchPlaceholder="Buscar…"
               facets={[
                 {
                   id: "category",
@@ -226,26 +216,6 @@ export function EstoqueMateriais() {
                     })),
                   ],
                 },
-                {
-                  id: "kind",
-                  label: "Tipo",
-                  value: kind,
-                  onChange: (value) => setKind(value as MaterialKind | ""),
-                  options: MATERIAL_KINDS.map((item) => ({
-                    value: item,
-                    label: MATERIAL_KIND_LABELS[item],
-                  })),
-                },
-                {
-                  id: "count",
-                  label: "Última contagem",
-                  value: countFilter,
-                  onChange: setCountFilter,
-                  options: [
-                    { value: "with", label: "Já inventariado" },
-                    { value: "without", label: "Nunca inventariado" },
-                  ],
-                },
               ]}
             />
             {belowMin > 0 ? (
@@ -261,14 +231,14 @@ export function EstoqueMateriais() {
               <thead>
                 <tr className="border-b border-forest/10">
                   <SortTh
-                    label="Material e categoria"
-                    active={sortKey === "name" || sortKey === "category"}
+                    label="Material"
+                    active={sortKey === "name"}
                     dir={sortDir}
-                    onClick={() => toggleSort(sortKey === "name" ? "category" : "name")}
+                    onClick={() => toggleSort("name")}
                     className="pl-5"
                   />
                   <SortTh
-                    label="Qtd disponível"
+                    label="Qtd"
                     align="right"
                     active={sortKey === "qty"}
                     dir={sortDir}
@@ -279,78 +249,47 @@ export function EstoqueMateriais() {
                     active={sortKey === "location"}
                     dir={sortDir}
                     onClick={() => toggleSort("location")}
+                    className="pr-5"
                   />
-                  <SortTh
-                    label="Última contagem"
-                    active={sortKey === "lastCount"}
-                    dir={sortDir}
-                    onClick={() => toggleSort("lastCount")}
-                  />
-                  <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-5 py-10 text-center text-sm font-light text-forest/50">
+                    <td colSpan={3} className="px-5 py-10 text-center text-sm font-light text-forest/50">
                       Nenhum material com esses filtros.
                     </td>
                   </tr>
                 ) : (
-                  rows.map(({ material, balance, variants, min, location, lastCount }) => {
+                  rows.map(({ material, balance, min, location }) => {
                     const low = min > 0 && balance < min;
                     return (
                       <tr
                         key={material.id}
+                        tabIndex={0}
+                        onClick={() => setSelected(material)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelected(material);
+                          }
+                        }}
                         className={cn(
-                          "border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]",
+                          "cursor-pointer border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]",
                           low && "bg-terracotta/[0.04]",
                         )}
                       >
                         <td className="py-3 pl-5">
-                          <p className="font-list font-medium text-forest">{material.name}</p>
-                          <p className="text-xs font-light text-forest/45">{material.category}</p>
+                          <p className="font-list text-forest">{material.name}</p>
+                          <p className="text-xs font-light text-forest/40">{material.category}</p>
                         </td>
                         <td className="py-3 text-right">
-                          <p>
-                            <span className={cn("font-display text-lg", low ? "text-terracotta" : "text-forest")}>
-                              {formatInt(balance)}
-                            </span>
-                            <span className="ml-1 text-xs font-light text-forest/45">{material.unit}</span>
-                          </p>
-                          {variants.length > 0 ? (
-                            <p className="mt-0.5 text-xs font-light text-forest/50">
-                              {variants
-                                .map((item) => `${item.label} ${formatInt(item.qty)}`)
-                                .join(" · ")}
-                            </p>
-                          ) : null}
+                          <span className={cn("tabular-nums", low ? "text-terracotta" : "text-forest")}>
+                            {formatInt(balance)}
+                          </span>
+                          <span className="ml-1 text-xs font-light text-forest/40">{material.unit}</span>
                         </td>
-                        <td className="py-3 text-forest/60">
-                          {location ? (
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="size-3.5 text-forest/35" />
-                              {location}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="py-3 text-forest/60">
-                          {lastCount ? formatShortDate(lastCount) : "—"}
-                        </td>
-                        <td className="py-3 pr-5">
-                          <div className="flex justify-end">
-                            <Button
-                              variant="outline"
-                              className="h-8 px-3 text-xs"
-                              onClick={() => setSelected(material)}
-                            >
-                              <ArrowLeftRight data-icon="inline-start" />
-                              Gerenciar
-                            </Button>
-                          </div>
-                        </td>
+                        <td className="py-3 pr-5 text-forest/60">{location || "—"}</td>
                       </tr>
                     );
                   })

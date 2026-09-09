@@ -17,7 +17,6 @@ import { formatShortDate, formatWeekRange, toIsoDate, weekDaysMonday } from "@/l
 import {
   buildAllocationWeek,
   clipBarToWeek,
-  dateInWindow,
   emptyAllocationWeek,
   type MaterialWeekRow,
 } from "@/lib/logistica/alocacao";
@@ -64,10 +63,6 @@ export function AlocacaoMateriais() {
 
   const worst = week.ruptures[0];
   const ready = eventsReady && cadReady && logReady;
-  const overlapPeak = dayKeys.reduce((max, day) => {
-    const count = week.events.filter((event) => dateInWindow(day, event.start, event.end)).length;
-    return Math.max(max, count);
-  }, 0);
 
   const exportPdf = async () => {
     try {
@@ -89,8 +84,8 @@ export function AlocacaoMateriais() {
       <div className="mx-auto max-w-6xl space-y-6 pb-16">
         <CadastrosHeader
           eyebrow="Logística"
-          title="Controle de Alocação de Materiais"
-          description="Confronte o estoque com os eventos simultâneos."
+          title="Alocação de Materiais"
+          description="Estoque versus eventos da semana."
         />
         <LoadingBlock />
       </div>
@@ -102,8 +97,8 @@ export function AlocacaoMateriais() {
       <div className="mx-auto max-w-6xl space-y-6 pb-16">
         <CadastrosHeader
           eyebrow="Logística"
-          title="Controle de Alocação de Materiais"
-          description="Confronte o estoque com os eventos simultâneos."
+          title="Alocação de Materiais"
+          description="Estoque versus eventos da semana."
         />
         <EmptyBlock title="Indisponível" description="Recarregue a página." />
       </div>
@@ -114,12 +109,12 @@ export function AlocacaoMateriais() {
     <div className="mx-auto max-w-6xl space-y-6 pb-16">
       <CadastrosHeader
         eyebrow="Logística"
-        title="Controle de Alocação de Materiais"
-        description="O material fica locado do dia da entrega até o dia do recolhimento. O estoque precisa cobrir o pico dos eventos que coincidem."
+        title="Alocação de Materiais"
+        description="Estoque versus eventos da semana."
         action={
           <Button variant="outline" className="h-10 px-4" onClick={exportPdf}>
             <FileDown data-icon="inline-start" />
-            Relatório da semana
+            Relatório
           </Button>
         }
       />
@@ -143,39 +138,28 @@ export function AlocacaoMateriais() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Kpi label="Eventos na janela" value={String(week.events.length)} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Kpi label="Eventos" value={String(week.events.length)} />
         <Kpi
-          label="Materiais em ruptura"
+          label="Rupturas"
           value={String(week.ruptures.length)}
+          hint={worst ? `maior falta: ${worst.name}` : undefined}
           warn={week.ruptures.length > 0}
         />
-        <Kpi
-          label="Maior falta"
-          value={worst ? `${formatInt(worst.shortage)}` : "0"}
-          hint={worst?.name}
-          warn={Boolean(worst)}
-        />
-        <Kpi label="Pico de eventos no mesmo dia" value={String(overlapPeak)} />
       </div>
 
       {week.missingDates.length > 0 ? (
         <p className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-forest/75">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
           <span>
-            {week.missingDates.length} evento(s) sem entrega ou recolhimento na ficha — a alocação
-            usa a data do evento. Preencha as datas para o confronto ficar exato.
+            {week.missingDates.length} evento(s) sem data de entrega ou recolhimento.
           </span>
         </p>
       ) : null}
 
       <section className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
         <header className="border-b border-forest/10 px-4 py-3">
-          <h2 className="font-section text-[0.82rem] text-forest">Quem leva material nesta semana</h2>
-          <p className="mt-1 text-xs font-light text-forest/50">
-            Cada barra cobre da entrega ao recolhimento. Onde as barras se sobrepõem, o estoque precisa
-            ser a soma.
-          </p>
+          <h2 className="font-section text-[0.82rem] text-forest">Eventos da semana</h2>
         </header>
         {week.events.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm font-light text-forest/50">
@@ -222,7 +206,7 @@ export function AlocacaoMateriais() {
                       >
                         <span className="truncate">
                           {event.title}
-                          {event.assumedPickup || event.assumedDelivery ? " · datas incompletas" : ""}
+                          {event.assumedPickup || event.assumedDelivery ? " · datas" : ""}
                         </span>
                       </Link>
                     </div>
@@ -258,6 +242,7 @@ export function AlocacaoMateriais() {
       </div>
 
       <CatalogFilters
+        compact
         search={search}
         onSearch={setSearch}
         searchPlaceholder="Buscar material…"

@@ -1,6 +1,7 @@
 "use client";
 
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
+import { formatInt } from "@/lib/crm/format";
 import { formatLongDate } from "@/lib/dates";
 
 const colors = {
@@ -146,6 +147,136 @@ export async function downloadCountSheetPdf(opts: {
   const day = opts.date || new Date().toISOString().slice(0, 10);
   link.href = url;
   link.download = `contagem-inventario-${day}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export interface InventoryPrintRow {
+  name: string;
+  category: string;
+  previous: number;
+  counted: number;
+}
+
+function InventorySessionDocument({
+  date,
+  responsible,
+  participants,
+  note,
+  rows,
+  skipped,
+}: {
+  date: string;
+  responsible: string;
+  participants: string[];
+  note: string;
+  rows: InventoryPrintRow[];
+  skipped: number;
+}) {
+  const categories = Array.from(new Set(rows.map((row) => row.category))).sort((a, b) =>
+    a.localeCompare(b, "pt-BR"),
+  );
+  const changed = rows.filter((row) => row.counted !== row.previous).length;
+  const people = [responsible, ...participants].filter(Boolean).join(" · ");
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.brand}>Casa Braga · Inventário</Text>
+          <Text style={styles.title}>Inventário realizado</Text>
+          <Text style={styles.subtitle}>
+            {date ? formatLongDate(date) : "—"}
+            {people ? ` · ${people}` : ""}
+          </Text>
+        </View>
+        {note ? <Text style={styles.hint}>{note}</Text> : null}
+        <Text style={styles.hint}>
+          {rows.length} item(ns) contado(s)
+          {changed > 0 ? ` · ${changed} com diferença` : " · sem diferenças"}
+          {skipped > 0 ? ` · ${skipped} oculto(s)` : ""}
+        </Text>
+        <View style={styles.row}>
+          <Text style={[styles.name, { fontFamily: "Helvetica-Bold", fontSize: 8 }]}>MATERIAL</Text>
+          <Text style={{ width: 54, fontSize: 8, textAlign: "right", fontFamily: "Helvetica-Bold" }}>
+            ANT.
+          </Text>
+          <Text style={{ width: 54, fontSize: 8, textAlign: "right", fontFamily: "Helvetica-Bold" }}>
+            CONTADO
+          </Text>
+          <Text style={{ width: 54, fontSize: 8, textAlign: "right", fontFamily: "Helvetica-Bold" }}>
+            DIFF.
+          </Text>
+        </View>
+        {categories.map((category) => (
+          <View key={category}>
+            <Text style={styles.sectionTitle}>{category}</Text>
+            {rows
+              .filter((row) => row.category === category)
+              .map((row, index) => {
+                const diff = row.counted - row.previous;
+                return (
+                  <View key={`${row.name}-${index}`} style={styles.row} wrap={false}>
+                    <Text style={styles.name}>{row.name}</Text>
+                    <Text style={{ width: 54, fontSize: 10, textAlign: "right", color: colors.muted }}>
+                      {formatInt(row.previous)}
+                    </Text>
+                    <Text style={{ width: 54, fontSize: 10, textAlign: "right" }}>
+                      {formatInt(row.counted)}
+                    </Text>
+                    <Text
+                      style={{
+                        width: 54,
+                        fontSize: 10,
+                        textAlign: "right",
+                        color: diff === 0 ? colors.muted : diff > 0 ? colors.forest : "#C45C4A",
+                      }}
+                    >
+                      {diff > 0 ? "+" : ""}
+                      {formatInt(diff)}
+                    </Text>
+                  </View>
+                );
+              })}
+          </View>
+        ))}
+        <View style={styles.footer}>
+          <Text>Uso interno — sem valores financeiros</Text>
+          <Text>
+            Impresso em{" "}
+            {new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+          </Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
+export async function downloadInventorySessionPdf(opts: {
+  date: string;
+  responsible: string;
+  participants: string[];
+  note: string;
+  rows: InventoryPrintRow[];
+  skipped: number;
+}) {
+  const blob = await pdf(
+    <InventorySessionDocument
+      date={opts.date}
+      responsible={opts.responsible}
+      participants={opts.participants}
+      note={opts.note}
+      rows={opts.rows}
+      skipped={opts.skipped}
+    />,
+  ).toBlob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const day = opts.date || new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `inventario-${day}.pdf`;
   document.body.appendChild(link);
   link.click();
   link.remove();

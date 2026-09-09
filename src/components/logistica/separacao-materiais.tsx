@@ -15,7 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CatalogFilters, Chip } from "@/components/cadastros/ui";
+import { CadastrosHeader, CatalogFilters, Chip } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { useEvents } from "@/components/events/events-provider";
 import { StatusBadge } from "@/components/events/status-badge";
@@ -120,16 +120,11 @@ export function SeparacaoMateriais() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <header className="border-b border-forest/10 pb-6">
-        <p className="font-section text-[0.68rem] text-terracotta">Logística</p>
-        <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">
-          Separação de Materiais
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm font-light text-forest/60">
-          Escolha o evento para ver a lista calculada a partir dos pratos, kits, extras e da
-          proporção de cada material.
-        </p>
-      </header>
+      <CadastrosHeader
+        eyebrow="Logística"
+        title="Separação de Materiais"
+        description="Escolha o evento para montar a lista."
+      />
 
       {!ready ? (
         <p className="py-16 text-center text-sm font-light text-forest/50">Carregando…</p>
@@ -149,9 +144,10 @@ export function SeparacaoMateriais() {
       ) : (
         <>
           <CatalogFilters
+            compact
             search={search}
             onSearch={setSearch}
-            searchPlaceholder="Buscar por nome, código, cliente ou local…"
+            searchPlaceholder="Buscar evento…"
             facets={[
               {
                 id: "status",
@@ -191,7 +187,7 @@ export function SeparacaoMateriais() {
                     key={event.id}
                     href={`/logistica/separacao-materiais/${event.id}`}
                     className={cn(
-                      "grid gap-3 px-5 py-4 transition-colors hover:bg-cream md:grid-cols-[110px_1fr_auto] md:items-center",
+                      "grid gap-2 px-5 py-3 transition-colors hover:bg-cream md:grid-cols-[110px_1fr_auto] md:items-center",
                       index > 0 && "border-t border-forest/8",
                     )}
                   >
@@ -199,13 +195,12 @@ export function SeparacaoMateriais() {
                       {event.date ? formatShortDate(event.date) : "Sem data"}
                     </p>
                     <div>
-                      <p className="font-display text-2xl text-forest">
+                      <p className="font-list text-forest">
                         {event.title || "Evento sem nome"}
                       </p>
-                      <p className="font-list mt-1 text-sm text-forest/55">
-                        {event.code} · {EVENT_TYPE_LABELS[event.type]}
-                        {client ? ` · ${client}` : ""} · {event.venue.name || "Local a definir"} ·{" "}
-                        {guestTotal(event.guests)} pax
+                      <p className="mt-0.5 text-xs font-light text-forest/50">
+                        {event.venue.name || "Local a definir"}
+                        {client ? ` · ${client}` : ""}
                       </p>
                     </div>
                     <div className="flex flex-col items-start gap-1 md:items-end">
@@ -258,7 +253,7 @@ export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <header className="flex flex-col gap-4 border-b border-forest/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4 border-b border-forest/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link
             href="/logistica/separacao-materiais"
@@ -266,14 +261,12 @@ export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
           >
             ← Eventos
           </Link>
-          <p className="font-section mt-3 text-[0.68rem] text-terracotta">Logística</p>
-          <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">
-            Separação de Materiais
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm font-light text-forest/60">
-            {event.code ? `${event.code} · ` : ""}
+          <h1 className="font-display mt-3 text-4xl text-forest sm:text-5xl">
             {event.title || "Evento sem nome"}
-            {event.date ? ` · ${formatShortDate(event.date)}` : ""}
+          </h1>
+          <p className="mt-1 text-sm font-light text-forest/55">
+            {event.date ? formatShortDate(event.date) : "Sem data"}
+            {event.code ? ` · ${event.code}` : ""}
           </p>
         </div>
         <Link

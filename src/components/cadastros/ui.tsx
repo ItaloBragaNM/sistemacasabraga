@@ -13,15 +13,17 @@ export function CadastrosHeader({
 }: {
   eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   action?: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-forest/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <header className="flex flex-col gap-4 border-b border-forest/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="font-section text-[0.68rem] text-terracotta">{eyebrow}</p>
         <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">{title}</h1>
-        <p className="mt-2 max-w-2xl text-sm font-light text-forest/60">{description}</p>
+        {description ? (
+          <p className="mt-2 max-w-xl text-sm font-light text-forest/60">{description}</p>
+        ) : null}
       </div>
       {action}
     </header>
@@ -63,11 +65,13 @@ export function CatalogFilters({
   onSearch,
   searchPlaceholder = "Buscar…",
   facets = [],
+  compact = false,
 }: {
   search: string;
   onSearch: (value: string) => void;
   searchPlaceholder?: string;
   facets?: FilterFacet[];
+  compact?: boolean;
 }) {
   const active = Boolean(search.trim()) || facets.some((facet) => facet.value);
 
@@ -77,27 +81,44 @@ export function CatalogFilters({
   };
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-      <div className="min-w-[200px] flex-1">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="min-w-[180px] flex-1">
         <SearchInput value={search} onChange={onSearch} placeholder={searchPlaceholder} />
       </div>
-      {facets.map((facet) => (
-        <label key={facet.id} className="block min-w-[160px] space-y-1.5">
-          <span className="field-label">{facet.label}</span>
+      {facets.map((facet) =>
+        compact ? (
           <select
-            className={fieldControlClass}
+            key={facet.id}
+            aria-label={facet.label}
+            className={cn(fieldControlClass, "min-w-[9.5rem] sm:w-auto")}
             value={facet.value}
             onChange={(event) => facet.onChange(event.target.value)}
           >
-            <option value="">Todos</option>
+            <option value="">{facet.label}</option>
             {facet.options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
-        </label>
-      ))}
+        ) : (
+          <label key={facet.id} className="block min-w-[160px] space-y-1.5">
+            <span className="field-label">{facet.label}</span>
+            <select
+              className={fieldControlClass}
+              value={facet.value}
+              onChange={(event) => facet.onChange(event.target.value)}
+            >
+              <option value="">Todos</option>
+              {facet.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ),
+      )}
       {active ? (
         <button
           type="button"

@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Download, Eye, EyeOff, FileDown, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Download, Eye, EyeOff, FileDown, Pencil, Plus, Printer, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { CadastrosHeader, CatalogFilters, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
-import { downloadCountSheetPdf } from "@/components/logistica/inventario-pdf";
+import { downloadCountSheetPdf, downloadInventorySessionPdf } from "@/components/logistica/inventario-pdf";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,28 @@ export function InventarioMateriais() {
     setViewing((current) => (current?.id === session.id ? null : current));
     setEditing((current) => (current?.id === session.id ? null : current));
     toast.success("Inventário excluído.");
+  };
+
+  const printSession = async (session: InventorySession) => {
+    try {
+      await downloadInventorySessionPdf({
+        date: session.date.slice(0, 10),
+        responsible: session.responsible,
+        participants: session.participants ?? [],
+        note: session.note,
+        skipped: (session.skipped ?? []).length,
+        rows: session.items.map((item) => ({
+          name: inventoryItemLabel(materialById.get(item.materialId), item.variant, item.materialId),
+          category: materialById.get(item.materialId)?.category ?? "Outros",
+          previous: item.previous,
+          counted: item.counted,
+        })),
+      });
+      toast.success("PDF do inventário baixado.");
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível gerar o PDF.");
+    }
   };
 
   const exportTemplate = async () => {
@@ -191,7 +213,7 @@ export function InventarioMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Inventário de Materiais"
-        description="Cada variação é um item a contar. Exporte o modelo (já vem com o saldo atual), ajuste a coluna Quantidade e importe para revisar. Em branco ou Oculto não altera o estoque."
+        description="Conte no sistema, por PDF ou planilha."
         action={
           <div className="flex flex-wrap gap-2">
             <input
@@ -211,7 +233,7 @@ export function InventarioMateriais() {
               disabled={cadastros.materials.length === 0}
             >
               <FileDown data-icon="inline-start" />
-              PDF para contagem
+              PDF
             </Button>
             <Button
               variant="outline"
@@ -220,7 +242,7 @@ export function InventarioMateriais() {
               disabled={cadastros.materials.length === 0}
             >
               <Download data-icon="inline-start" />
-              Exportar modelo
+              Modelo
             </Button>
             <Button
               variant="outline"
@@ -229,7 +251,7 @@ export function InventarioMateriais() {
               disabled={cadastros.materials.length === 0 || importing}
             >
               <Upload data-icon="inline-start" />
-              {importing ? "Importando…" : "Importar planilha"}
+              {importing ? "Importando…" : "Importar"}
             </Button>
             <Button
               className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
@@ -240,7 +262,7 @@ export function InventarioMateriais() {
               disabled={cadastros.materials.length === 0}
             >
               <Plus data-icon="inline-start" />
-              Novo inventário
+              Novo
             </Button>
           </div>
         }
@@ -249,24 +271,16 @@ export function InventarioMateriais() {
       {inventories.length === 0 ? (
         <EmptyBlock
           title="Nenhum inventário"
-          description="Exporte o modelo, preencha as quantidades ou faça a primeira contagem no sistema."
+          description="Importe uma planilha ou faça a primeira contagem."
           action={
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => void exportTemplate()}
-                disabled={cadastros.materials.length === 0}
-              >
-                <Download data-icon="inline-start" />
-                Exportar modelo
-              </Button>
               <Button
                 variant="outline"
                 onClick={() => fileRef.current?.click()}
                 disabled={cadastros.materials.length === 0 || importing}
               >
                 <Upload data-icon="inline-start" />
-                Importar planilha
+                Importar
               </Button>
               <Button
                 className="bg-forest text-cream hover:bg-petrol"
@@ -277,7 +291,7 @@ export function InventarioMateriais() {
                 disabled={cadastros.materials.length === 0}
               >
                 <Plus data-icon="inline-start" />
-                Novo inventário
+                Novo
               </Button>
             </div>
           }
@@ -289,47 +303,31 @@ export function InventarioMateriais() {
               <tr className="border-b border-forest/10">
                 <th className="field-label py-3 pl-5 font-normal">Data</th>
                 <th className="field-label py-3 font-normal">Responsável</th>
-                <th className="field-label py-3 font-normal">Participantes</th>
-                <th className="field-label py-3 text-right font-normal">Itens</th>
                 <th className="field-label py-3 text-right font-normal">Ajustes</th>
-                <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
+                <th className="field-label py-3 pr-5 text-right font-normal" />
               </tr>
             </thead>
             <tbody>
               {inventories.map((session) => {
                 const changed = session.items.filter((i) => i.counted !== i.previous).length;
-                const people = session.participants ?? [];
                 return (
                   <tr key={session.id} className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]">
                     <td className="py-3 pl-5 font-list text-forest">{formatShortDate(session.date.slice(0, 10))}</td>
                     <td className="py-3 text-forest/70">{session.responsible || "—"}</td>
-                    <td className="py-3 text-forest/70">{people.length ? people.join(", ") : "—"}</td>
-                    <td className="py-3 text-right text-forest/70">{session.items.length}</td>
                     <td className="py-3 text-right text-forest/70">{changed}</td>
                     <td className="py-3 pr-5">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => setViewing(session)}>
-                          <Eye data-icon="inline-start" />
-                          Ver
-                        </Button>
                         <Button
                           variant="outline"
                           className="h-8 px-3 text-xs"
-                          onClick={() => {
-                            setViewing(null);
-                            setEditing(session);
-                          }}
+                          onClick={() => void printSession(session)}
                         >
-                          <Pencil data-icon="inline-start" />
-                          Editar
+                          <Printer data-icon="inline-start" />
+                          Imprimir
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="h-8 px-3 text-xs text-terracotta hover:text-terracotta"
-                          onClick={() => deleteInventory(session)}
-                        >
-                          <Trash2 data-icon="inline-start" />
-                          Excluir
+                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => setViewing(session)}>
+                          <Eye data-icon="inline-start" />
+                          Ver
                         </Button>
                       </div>
                     </td>
@@ -355,8 +353,7 @@ export function InventarioMateriais() {
             {viewing.note ? <p className="text-sm font-light text-forest/60">{viewing.note}</p> : null}
             {(viewing.skipped ?? []).length > 0 ? (
               <p className="text-sm text-forest/60">
-                {(viewing.skipped ?? []).length} item(ns) oculto(s) nesta contagem — o saldo desses SKUs
-                não foi alterado.
+                {(viewing.skipped ?? []).length} oculto(s) — saldo inalterado.
               </p>
             ) : null}
             <div className="overflow-hidden rounded-xl border border-forest/10">
@@ -398,6 +395,10 @@ export function InventarioMateriais() {
               </table>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="outline" className="h-10" onClick={() => void printSession(viewing)}>
+                <Printer data-icon="inline-start" />
+                Imprimir
+              </Button>
               <Button
                 variant="outline"
                 className="h-10 text-terracotta hover:text-terracotta"
@@ -414,7 +415,7 @@ export function InventarioMateriais() {
                 }}
               >
                 <Pencil data-icon="inline-start" />
-                Editar inventário
+                Editar
               </Button>
             </div>
           </div>
@@ -512,11 +513,10 @@ function CountSheetModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="PDF para contagem manual" wide>
+    <Modal open onClose={onClose} title="PDF para contagem" wide>
       <div className="space-y-5">
         <p className="text-sm font-light text-forest/60">
-          Folha para imprimir, anotar as quantidades e lançar depois no sistema. Cada variação
-          aparece em uma linha. Escolha todas as categorias e locais ou só alguns.
+          Folha em branco para anotar e lançar depois.
         </p>
         <Field label="Data da contagem">
           <input
@@ -952,10 +952,10 @@ function InventoryForm({
         </h1>
         <p className="mt-2 text-sm font-light text-forest/60">
           {isEditing
-            ? "Altere a data, quem participou ou as quantidades. Oculte o que não entra nesta contagem — esses itens não alteram o estoque. Ao salvar, o saldo é recalculado a partir do que foi contado."
+            ? "Altere quantidades ou quem participou. Ocultos não mudam o estoque."
             : fromSheet
-              ? "Revise as quantidades importadas da planilha. O que não veio na planilha fica oculto e não altera o estoque. O saldo só muda ao concluir."
-              : "Preencha a data, o responsável e quem participou. Cada variação é um item. Oculte o que não será contado: esses SKUs ficam de fora e o saldo deles não muda. Também dá para importar uma planilha."}
+              ? "Revise as quantidades. O que não veio na planilha fica oculto."
+              : "Preencha a data e a contagem. Oculte o que não entra desta vez."}
         </p>
       </div>
 
@@ -1017,9 +1017,10 @@ function InventoryForm({
       </div>
 
       <CatalogFilters
+        compact
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="Buscar material, variação, categoria ou local…"
+        searchPlaceholder="Buscar…"
         facets={[
           {
             id: "category",
@@ -1089,7 +1090,7 @@ function InventoryForm({
             disabled={formImporting}
           >
             <Upload data-icon="inline-start" />
-            {formImporting ? "Importando…" : "Importar planilha"}
+            {formImporting ? "Importando…" : "Importar"}
           </Button>
           <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={conclude}>
             <ClipboardCheck data-icon="inline-start" />
@@ -1100,8 +1101,7 @@ function InventoryForm({
 
       {skus.some((sku) => sku.label.endsWith("Não classificado")) ? (
         <p className="rounded-xl border border-terracotta/20 bg-terracotta/[0.06] px-4 py-3 text-sm text-forest/70">
-          Há saldo antigo sem variação. Conte cada variação (Liso, Rendado, etc.) e zere a linha
-          “Não classificado” para o total não duplicar.
+          Há saldo sem variação. Conte cada variação e zere “Não classificado”.
         </p>
       ) : null}
 
