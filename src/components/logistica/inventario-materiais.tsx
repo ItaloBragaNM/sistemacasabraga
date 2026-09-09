@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Eye, EyeOff, FileDown, Pencil, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Eye, EyeOff, FileDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -29,7 +29,7 @@ function todayIsoDate() {
 
 export function InventarioMateriais() {
   const { data: cadastros, ready: cadReady } = useCadastros();
-  const { data: logistica, ready: logReady, concludeInventory, updateInventory } = useLogistica();
+  const { data: logistica, ready: logReady, concludeInventory, updateInventory, removeInventory } = useLogistica();
   const [mode, setMode] = useState<"list" | "new">("list");
   const [editing, setEditing] = useState<InventorySession | null>(null);
   const [viewing, setViewing] = useState<InventorySession | null>(null);
@@ -50,6 +50,21 @@ export function InventarioMateriais() {
   }, [logistica, editing, balances]);
 
   const ready = cadReady && logReady;
+
+  const deleteInventory = (session: InventorySession) => {
+    const label = formatShortDate(session.date.slice(0, 10));
+    if (
+      !window.confirm(
+        `Excluir o inventário de ${label}? Os ajustes de estoque dessa contagem serão desfeitos.`,
+      )
+    ) {
+      return;
+    }
+    removeInventory(session.id);
+    setViewing((current) => (current?.id === session.id ? null : current));
+    setEditing((current) => (current?.id === session.id ? null : current));
+    toast.success("Inventário excluído.");
+  };
 
   if (!ready) {
     return (
@@ -185,6 +200,14 @@ export function InventarioMateriais() {
                           <Pencil data-icon="inline-start" />
                           Editar
                         </Button>
+                        <Button
+                          variant="outline"
+                          className="h-8 px-3 text-xs text-terracotta hover:text-terracotta"
+                          onClick={() => deleteInventory(session)}
+                        >
+                          <Trash2 data-icon="inline-start" />
+                          Excluir
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -251,7 +274,15 @@ export function InventarioMateriais() {
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="outline"
+                className="h-10 text-terracotta hover:text-terracotta"
+                onClick={() => deleteInventory(viewing)}
+              >
+                <Trash2 data-icon="inline-start" />
+                Excluir
+              </Button>
               <Button
                 className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
                 onClick={() => {

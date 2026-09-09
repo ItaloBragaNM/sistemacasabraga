@@ -28,6 +28,7 @@ interface LogisticaContextValue {
   upsertMeta: (meta: StockMeta) => void;
   concludeInventory: (session: InventorySession) => void;
   updateInventory: (session: InventorySession) => void;
+  removeInventory: (id: string) => void;
 }
 
 function movementsFromInventory(session: InventorySession): StockMovement[] {
@@ -133,6 +134,12 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
             ...movementsFromInventory(session),
           ],
           inventories: current.inventories.map((item) => (item.id === session.id ? session : item)),
+        })),
+      removeInventory: (id) =>
+        mutate((current) => ({
+          ...current,
+          movements: current.movements.filter((movement) => movement.ref !== id),
+          inventories: current.inventories.filter((item) => item.id !== id),
         })),
     }),
     [data, ready, error, saving, mutate],
