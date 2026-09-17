@@ -50,6 +50,7 @@ export function moduleIdFromPath(pathname: string): AppModuleId | null {
   if (pathname.startsWith("/api/veiculos")) return "veiculos";
   if (pathname.startsWith("/api/mao-de-obra")) return "administrativo";
   if (pathname.startsWith("/api/fichas-tecnicas")) return "cozinha";
+  if (pathname.startsWith("/api/cozinha-insumos")) return "cozinha";
 
   const first = pathname.split("/").filter(Boolean)[0];
   if (!first) return "eventos";

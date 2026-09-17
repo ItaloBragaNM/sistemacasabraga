@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { SeparacaoInsumos } from "@/components/cozinha/separacao-insumos";
 
 export default function Page() {
-  return <ComingSoon moduleName="Cozinha" pageName="Separação de Insumos" />;
+  return <SeparacaoInsumos />;
 }

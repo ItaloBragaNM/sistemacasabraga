@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { ControlePerdas } from "@/components/cozinha/controle-perdas";
 
 export default function Page() {
-  return <ComingSoon moduleName="Cozinha" pageName="Controle de Perdas" />;
+  return <ControlePerdas />;
 }

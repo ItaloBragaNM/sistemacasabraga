@@ -41,7 +41,7 @@ export const APP_MODULES: AppModule[] = [
   {
     id: "logistica",
     label: "Logística",
-    ready: false,
+    ready: true,
     pages: [
       { href: "/logistica/separacao-materiais", label: "Separação de Materiais" },
       { href: "/logistica/estoque-materiais", label: "Estoque de Materiais" },
