@@ -6,6 +6,8 @@ import {
   VEHICLE_KIND_LABELS,
   parseMaterialKind,
   parseVariants,
+  VEHICLE_USAGE_CATEGORY_LABELS,
+  isVehicleUsageCategory,
   type CadastrosData,
   type ClienteRecord,
   type ClientKind,
@@ -104,9 +106,9 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
       return { fileName: "cardapio", sheetName: "Cardápio", headers, rows };
     }
     case "insumos": {
-      const headers = ["Nome", "Categoria", "Unidade", "Observações"];
+      const headers = ["Nome", "Categoria", "Unidade", "Marca", "Custo unitário", "Aproveitamento %", "Observações"];
       const rows = data.insumos.map(
-        (i) => [i.name, i.category, i.unit, i.notes] as Cell[],
+        (i) => [i.name, i.category, i.unit, i.brand, i.unitCost, i.yieldPercent, i.notes] as Cell[],
       );
       return { fileName: "insumos", sheetName: "Insumos", headers, rows };
     }
@@ -139,8 +141,10 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
         "Identificação",
         "Placa",
         "Modelo",
+        "Chassi",
         "Ano",
         "Tipo",
+        "Categoria de uso",
         "Capacidade",
         "Observações",
       ];
@@ -150,8 +154,10 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
             v.name,
             v.plate,
             v.model,
+            v.chassis,
             v.year,
             VEHICLE_KIND_LABELS[v.kind],
+            VEHICLE_USAGE_CATEGORY_LABELS[v.usageCategory],
             v.capacity,
             v.notes,
           ] as Cell[],
@@ -183,6 +189,16 @@ function vehicleKindFromLabel(value: string): VehicleKind {
   if (lower.includes("moto")) return "moto";
   if (lower.includes("carro")) return "carro";
   return "outro";
+}
+
+function usageCategoryFromLabel(value: string) {
+  const lower = value.trim().toLowerCase();
+  if (isVehicleUsageCategory(lower)) return lower;
+  if (lower.includes("material")) return "entrega_material" as const;
+  if (lower.includes("comida") || lower.includes("alimento")) return "entrega_comida" as const;
+  if (lower.includes("equipe") || lower.includes("pessoas")) return "equipe" as const;
+  if (lower.includes("mist")) return "misto" as const;
+  return "misto" as const;
 }
 
 export function applyImport(
@@ -292,10 +308,17 @@ export function applyImport(
         const category = pick(row, "Categoria") || "Outros";
         if (!categories.has(category)) categories.add(category);
         const existing = byName.get(name.toLowerCase());
+        const brand = pick(row, "Marca");
+        const unitCost = parseNum(pick(row, "Custo unitário", "Custo unitario"));
+        const yieldRaw = pick(row, "Aproveitamento %", "Aproveitamento");
+        const yieldPercent = yieldRaw ? parseNum(yieldRaw) : existing?.yieldPercent || 100;
         if (existing) {
           Object.assign(existing, {
             category,
             unit: pick(row, "Unidade") || existing.unit,
+            brand: brand || existing.brand,
+            unitCost: yieldRaw || pick(row, "Custo unitário", "Custo unitario") ? unitCost : existing.unitCost,
+            yieldPercent: yieldPercent || 100,
             notes: pick(row, "Observações", "Observacoes"),
             updatedAt: now(),
           });
@@ -306,6 +329,9 @@ export function applyImport(
             name,
             category,
             unit: pick(row, "Unidade") || "un",
+            brand,
+            unitCost,
+            yieldPercent: yieldPercent || 100,
             notes: pick(row, "Observações", "Observacoes"),
             createdAt: now(),
             updatedAt: now(),
@@ -361,8 +387,10 @@ export function applyImport(
           name: name || plate,
           plate,
           model: pick(row, "Modelo"),
+          chassis: pick(row, "Chassi"),
           year: pick(row, "Ano"),
           kind: vehicleKindFromLabel(pick(row, "Tipo")),
+          usageCategory: usageCategoryFromLabel(pick(row, "Categoria de uso", "Categoria")),
           capacity: pick(row, "Capacidade"),
           notes: pick(row, "Observações", "Observacoes"),
           updatedAt: now(),

@@ -23,7 +23,7 @@ import {
   readLocalEvents,
   saveEvent,
 } from "@/lib/store";
-import type { EventRecord } from "@/lib/types";
+import type { EventRecord, EventSaveMeta } from "@/lib/types";
 import type { PublicUser } from "@/lib/auth/types";
 import { withChangeLog } from "@/lib/eventos/changelog";
 
@@ -31,7 +31,7 @@ type EventsContextValue = {
   events: EventRecord[];
   ready: boolean;
   getEvent: (id: string) => EventRecord | null;
-  upsert: (event: EventRecord) => EventRecord;
+  upsert: (event: EventRecord, meta?: EventSaveMeta) => EventRecord;
   remove: (id: string) => void;
   create: (draft?: Partial<EventRecord>) => EventRecord;
 };
@@ -122,9 +122,9 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
   }, [authed]);
 
   const upsert = useCallback(
-    (event: EventRecord) => {
+    (event: EventRecord, meta?: EventSaveMeta) => {
       const previous = findEvent(eventsRef.current, event.id);
-      const logged = withChangeLog(previous, event, actorRef.current);
+      const logged = withChangeLog(previous, event, actorRef.current, meta);
       persist(saveEvent(eventsRef.current, logged));
       return logged;
     },

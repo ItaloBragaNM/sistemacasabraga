@@ -15,7 +15,7 @@ import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
-import { VEHICLE_KIND_LABELS, type VehicleKind, type VeiculoRecord } from "@/lib/cadastros/types";
+import { VEHICLE_KIND_LABELS, VEHICLE_USAGE_CATEGORIES, VEHICLE_USAGE_CATEGORY_LABELS, type VehicleKind, type VehicleUsageCategory, type VeiculoRecord } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,8 @@ export function VeiculosAdmin() {
       return (
         item.name.toLowerCase().includes(term) ||
         item.plate.toLowerCase().includes(term) ||
-        item.model.toLowerCase().includes(term)
+        item.model.toLowerCase().includes(term) ||
+        item.chassis.toLowerCase().includes(term)
       );
     });
   }, [data, search, kindFilter]);
@@ -66,7 +67,7 @@ export function VeiculosAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Veículos"
-        description="Frota da casa para a logística de entregas e transporte de material."
+        description="Frota da casa: modelo, placa, chassi e categoria de uso. O vínculo com o evento e o checklist ficam em Veículos → Controle de Uso."
         action={
           <div className="flex flex-wrap gap-2">
             <ImportExport entity="veiculos" />
@@ -134,6 +135,7 @@ export function VeiculosAdmin() {
                     </th>
                     <th className="field-label py-3 font-normal">Veículo</th>
                     <th className="field-label py-3 font-normal">Placa</th>
+                    <th className="field-label py-3 font-normal">Uso</th>
                     <th className="field-label py-3 font-normal">Tipo</th>
                     <th className="field-label py-3 font-normal">Capacidade</th>
                     <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
@@ -161,6 +163,7 @@ export function VeiculosAdmin() {
                         ) : null}
                       </td>
                       <td className="py-3 font-mono text-forest/70">{item.plate || "—"}</td>
+                      <td className="py-3 text-forest/70">{VEHICLE_USAGE_CATEGORY_LABELS[item.usageCategory]}</td>
                       <td className="py-3 text-forest/70">{VEHICLE_KIND_LABELS[item.kind]}</td>
                       <td className="py-3 text-forest/70">{item.capacity || "—"}</td>
                       <td className="py-3 pr-5">
@@ -218,8 +221,10 @@ function VeiculoForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [plate, setPlate] = useState(initial?.plate ?? "");
   const [model, setModel] = useState(initial?.model ?? "");
+  const [chassis, setChassis] = useState(initial?.chassis ?? "");
   const [year, setYear] = useState(initial?.year ?? "");
   const [kind, setKind] = useState<VehicleKind>(initial?.kind ?? "van");
+  const [usageCategory, setUsageCategory] = useState<VehicleUsageCategory>(initial?.usageCategory ?? "misto");
   const [capacity, setCapacity] = useState(initial?.capacity ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
@@ -234,8 +239,10 @@ function VeiculoForm({
       name: name.trim() || plate.trim(),
       plate: plate.trim(),
       model: model.trim(),
+      chassis: chassis.trim(),
       year: year.trim(),
       kind,
+      usageCategory,
       capacity: capacity.trim(),
       notes: notes.trim(),
       createdAt: initial?.createdAt ?? stamp,
@@ -272,6 +279,22 @@ function VeiculoForm({
         </Field>
         <Field label="Modelo">
           <input className={fieldControlClass} value={model} onChange={(e) => setModel(e.target.value)} />
+        </Field>
+        <Field label="Chassi">
+          <input className={fieldControlClass} value={chassis} onChange={(e) => setChassis(e.target.value)} />
+        </Field>
+        <Field label="Categoria de uso">
+          <select
+            className={fieldControlClass}
+            value={usageCategory}
+            onChange={(e) => setUsageCategory(e.target.value as VehicleUsageCategory)}
+          >
+            {VEHICLE_USAGE_CATEGORIES.map((item) => (
+              <option key={item.key} value={item.key}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Ano">
           <input className={fieldControlClass} value={year} onChange={(e) => setYear(e.target.value)} />

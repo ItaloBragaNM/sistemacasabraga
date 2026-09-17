@@ -10,17 +10,18 @@ import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   DRINK_ITEMS,
   eventStaffLines,
+  formatUniformSizeLine,
   guestTotal,
   guestsSummary,
   MENU_SECTIONS,
-  UNIFORM_PIECES,
-  UNIFORM_SIZES,
+  uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
 
 export function KitchenSheet({ event }: { event: EventRecord }) {
   const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
   const staff = eventStaffLines(event);
+  const uniforms = uniformPiecesForReport(event.uniforms);
 
   return (
     <div className="min-h-screen bg-[#e8e2da] px-3 py-6 print:bg-white print:p-0">
@@ -161,23 +162,23 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           </section>
         )}
 
-        <section className="mt-6">
-          <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
-            Fardamentos
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {UNIFORM_PIECES.map((piece) => (
-              <div key={piece.key} className="border border-forest/10 px-3 py-2 text-sm">
-                <p className="field-label">{piece.label}</p>
-                <p className="font-list mt-1">
-                  {UNIFORM_SIZES.map(
-                    (size) => `${UNIFORM_SIZE_LABELS[size]} ${event.uniforms[piece.key][size]}`,
-                  ).join(" · ")}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+        {uniforms.length > 0 ? (
+          <section className="mt-6">
+            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+              Fardamentos
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {uniforms.map((piece) => (
+                <div key={piece.key} className="border border-forest/10 px-3 py-2 text-sm">
+                  <p className="field-label">{piece.label}</p>
+                  <p className="font-list mt-1">
+                    {formatUniformSizeLine(piece.sizes, UNIFORM_SIZE_LABELS)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {event.logistics.alcohol && (
           <section className="mt-6">

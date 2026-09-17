@@ -96,6 +96,9 @@ export interface InsumoRecord {
   name: string;
   category: string;
   unit: string;
+  brand: string;
+  unitCost: number;
+  yieldPercent: number;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -123,13 +126,35 @@ export const CLIENT_KIND_LABELS: Record<ClientKind, string> = {
 
 export type VehicleKind = "carro" | "van" | "caminhao" | "moto" | "outro";
 
+export const VEHICLE_USAGE_CATEGORIES = [
+  { key: "entrega_material", label: "Entrega de material" },
+  { key: "entrega_comida", label: "Entrega de comida" },
+  { key: "equipe", label: "Transporte de equipe" },
+  { key: "misto", label: "Uso misto" },
+] as const;
+
+export type VehicleUsageCategory = (typeof VEHICLE_USAGE_CATEGORIES)[number]["key"];
+
+export const VEHICLE_USAGE_CATEGORY_LABELS: Record<VehicleUsageCategory, string> = {
+  entrega_material: "Entrega de material",
+  entrega_comida: "Entrega de comida",
+  equipe: "Transporte de equipe",
+  misto: "Uso misto",
+};
+
+export function isVehicleUsageCategory(value: unknown): value is VehicleUsageCategory {
+  return VEHICLE_USAGE_CATEGORIES.some((item) => item.key === value);
+}
+
 export interface VeiculoRecord {
   id: string;
   name: string; // identificação/apelido
   plate: string;
   model: string;
+  chassis: string;
   year: string;
   kind: VehicleKind;
+  usageCategory: VehicleUsageCategory;
   capacity: string;
   notes: string;
   createdAt: string;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModule } from "@/lib/auth/server";
 import { readEventos, writeEventos } from "@/lib/eventos/store.server";
+import { syncLaborPaymentsFromEvents } from "@/lib/mao-de-obra/sync.server";
 import type { EventRecord } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,11 @@ export async function PUT(request: Request) {
 
   try {
     const data = await writeEventos(list as EventRecord[]);
+    try {
+      await syncLaborPaymentsFromEvents(data);
+    } catch (error) {
+      console.error("Falha ao sincronizar pagamentos de mão de obra", error);
+    }
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar os eventos", error);

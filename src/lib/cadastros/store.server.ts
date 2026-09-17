@@ -4,14 +4,17 @@ import { defaultCadastros } from "./defaults";
 import {
   isKitScale,
   isMaterialKind,
+  isVehicleUsageCategory,
   LEGACY_KIT_SCALE_TO_BASE,
   type CadastrosData,
   type CalcBase,
   type ExtraCatalogItem,
+  type InsumoRecord,
   type MaterialKit,
   type MaterialKitItem,
   type MaterialRecord,
   type StockLocation,
+  type VeiculoRecord,
 } from "./types";
 
 const KEY = "cadastros";
@@ -81,6 +84,50 @@ function normalizeExtra(input: Partial<ExtraCatalogItem> | null | undefined): Ex
   };
 }
 
+function num(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeInsumo(input: Partial<InsumoRecord> | null | undefined): InsumoRecord | null {
+  if (!input?.id || !input.name) return null;
+  return {
+    id: input.id,
+    name: input.name,
+    category: input.category || "Outros",
+    unit: input.unit || "un",
+    brand: typeof input.brand === "string" ? input.brand : "",
+    unitCost: num(input.unitCost),
+    yieldPercent: num(input.yieldPercent) || 100,
+    notes: typeof input.notes === "string" ? input.notes : "",
+    createdAt: input.createdAt || new Date().toISOString(),
+    updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeVeiculo(input: Partial<VeiculoRecord> | null | undefined): VeiculoRecord | null {
+  if (!input?.id) return null;
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  const plate = typeof input.plate === "string" ? input.plate.trim() : "";
+  if (!name && !plate) return null;
+  return {
+    id: input.id,
+    name: name || plate,
+    plate,
+    model: typeof input.model === "string" ? input.model : "",
+    chassis: typeof input.chassis === "string" ? input.chassis : "",
+    year: typeof input.year === "string" ? input.year : "",
+    kind: input.kind === "carro" || input.kind === "van" || input.kind === "caminhao" || input.kind === "moto"
+      ? input.kind
+      : "outro",
+    usageCategory: isVehicleUsageCategory(input.usageCategory) ? input.usageCategory : "misto",
+    capacity: typeof input.capacity === "string" ? input.capacity : "",
+    notes: typeof input.notes === "string" ? input.notes : "",
+    createdAt: input.createdAt || new Date().toISOString(),
+    updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
+  };
+}
+
 function normalizeLocation(input: Partial<StockLocation> | null | undefined): StockLocation | null {
   if (!input?.id || !input.name) return null;
   return {
@@ -140,13 +187,17 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
     materialCategories,
     dishCategories,
     bases: mergeBases(input.bases, base.bases),
-    insumos: Array.isArray(input.insumos) ? input.insumos : base.insumos,
+    insumos: Array.isArray(input.insumos)
+      ? input.insumos.map((item) => normalizeInsumo(item)).filter((item): item is InsumoRecord => Boolean(item))
+      : base.insumos,
     insumoCategories:
       Array.isArray(input.insumoCategories) && input.insumoCategories.length
         ? input.insumoCategories
         : base.insumoCategories,
     clientes: Array.isArray(input.clientes) ? input.clientes : base.clientes,
-    veiculos: Array.isArray(input.veiculos) ? input.veiculos : base.veiculos,
+    veiculos: Array.isArray(input.veiculos)
+      ? input.veiculos.map((item) => normalizeVeiculo(item)).filter((item): item is VeiculoRecord => Boolean(item))
+      : base.veiculos,
     kits: Array.isArray(input.kits)
       ? input.kits.map((kit) => normalizeKit(kit)).filter((kit): kit is MaterialKit => Boolean(kit))
       : base.kits,

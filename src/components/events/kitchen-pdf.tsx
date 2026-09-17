@@ -6,11 +6,11 @@ import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   DRINK_ITEMS,
   eventStaffLines,
+  formatUniformSizeLine,
   guestTotal,
   guestsSummary,
   MENU_SECTIONS,
-  UNIFORM_PIECES,
-  UNIFORM_SIZES,
+  uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
 
@@ -129,6 +129,7 @@ function eventPlaceLabel(event: EventRecord) {
 export function KitchenDocument({ event }: { event: EventRecord }) {
   const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
   const staff = eventStaffLines(event);
+  const uniforms = uniformPiecesForReport(event.uniforms);
 
   return (
     <Document>
@@ -223,19 +224,19 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           </View>
         )}
 
-        <View>
-          <Text style={styles.sectionTitle}>Fardamentos</Text>
-          {UNIFORM_PIECES.map((piece) => (
-            <View key={piece.key} style={styles.item}>
-              <Text style={styles.itemName}>{piece.label}</Text>
-              <Text style={styles.itemNotes}>
-                {UNIFORM_SIZES.map(
-                  (size) => `${UNIFORM_SIZE_LABELS[size]} ${event.uniforms[piece.key][size]}`,
-                ).join("   ")}
-              </Text>
-            </View>
-          ))}
-        </View>
+        {uniforms.length > 0 ? (
+          <View>
+            <Text style={styles.sectionTitle}>Fardamentos</Text>
+            {uniforms.map((piece) => (
+              <View key={piece.key} style={styles.item}>
+                <Text style={styles.itemName}>{piece.label}</Text>
+                <Text style={styles.itemNotes}>
+                  {formatUniformSizeLine(piece.sizes, UNIFORM_SIZE_LABELS, "   ")}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {event.logistics.alcohol ? (
           <View>

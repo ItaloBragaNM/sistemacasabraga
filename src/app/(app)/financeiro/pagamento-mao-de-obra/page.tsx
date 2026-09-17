@@ -1,10 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { PagamentoMaoDeObraPage } from "@/components/mao-de-obra/pagamento-mao-de-obra";
 
 export default function Page() {
-  return (
-    <ComingSoon
-      moduleName="Financeiro"
-      pageName="Pagamento de Mão de Obra Externa"
-    />
-  );
+  return <PagamentoMaoDeObraPage />;
 }

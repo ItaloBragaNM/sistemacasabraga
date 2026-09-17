@@ -1,10 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { MaoDeObraAdmin } from "@/components/mao-de-obra/mao-de-obra-admin";
 
 export default function Page() {
-  return (
-    <ComingSoon
-      moduleName="Administrativo"
-      pageName="Controle de Mão de Obra Externa"
-    />
-  );
+  return <MaoDeObraAdmin />;
 }

@@ -17,6 +17,7 @@ import {
   type EventChangeLogEntry,
   type EventFieldChange,
   type EventRecord,
+  type EventSaveMeta,
   type YesNo,
 } from "@/lib/types";
 
@@ -116,6 +117,19 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
   push(changes, "Obs. cardápio e montagem", previous.menuSetupNotes, next.menuSetupNotes);
   push(changes, "Obs. bebidas", previous.drinksNotes ?? "", next.drinksNotes ?? "");
   push(changes, "Obs. logística", previous.logisticsNotes ?? "", next.logisticsNotes ?? "");
+  push(changes, "Fora da cidade", previous.outOfTown ? "Sim" : "Não", next.outOfTown ? "Sim" : "Não");
+  push(
+    changes,
+    "Veículos",
+    String((previous.vehicleIds ?? []).length),
+    String((next.vehicleIds ?? []).length),
+  );
+  push(
+    changes,
+    "Equipe externa",
+    String((previous.laborAllocations ?? []).length),
+    String((next.laborAllocations ?? []).length),
+  );
 
   push(changes, "Adultos", String(previous.guests?.adults || 0), String(next.guests?.adults || 0));
   push(
@@ -238,6 +252,7 @@ export function withChangeLog(
   previous: EventRecord | null,
   next: EventRecord,
   actor: ChangeActor | null | undefined,
+  meta?: EventSaveMeta,
 ): EventRecord {
   if (!previous) {
     const createdAt = next.createdAt || new Date().toISOString();
@@ -263,13 +278,22 @@ export function withChangeLog(
   const last = log[log.length - 1];
   const sameUser = last && (userId ? last.userId === userId : last.userName === userName);
   const recent = last && Math.abs(Date.parse(at) - Date.parse(last.at)) <= COALESCE_MS;
+  const reason = meta?.reason?.trim() || undefined;
+  const clientLabel = meta?.clientLabel?.trim() || undefined;
+  const canCoalesce =
+    last &&
+    sameUser &&
+    recent &&
+    last.changes[0]?.label !== "Ficha" &&
+    !last.reason &&
+    !reason;
 
-  if (last && sameUser && recent && last.changes[0]?.label !== "Ficha") {
+  if (canCoalesce) {
     const merged = mergeChanges(last.changes, changes);
     if (merged.length === 0) return { ...next, changeLog: log.slice(0, -1) };
     log[log.length - 1] = { ...last, at, changes: merged };
   } else {
-    log.push({ id: uid(), at, userId, userName, changes });
+    log.push({ id: uid(), at, userId, userName, changes, reason, clientLabel });
   }
 
   return { ...next, changeLog: log.slice(-MAX_ENTRIES) };

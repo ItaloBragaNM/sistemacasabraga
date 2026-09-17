@@ -139,8 +139,9 @@ export const STAFF_ROLES = [
   { key: "garcons", label: "Garçons" },
   { key: "garconetes", label: "Garçonetes" },
   { key: "copeiros", label: "Copeiros(as)" },
-  { key: "chefes", label: "Chefes / staff" },
-  { key: "outros", label: "Outros" },
+  { key: "chefes", label: "Chefes" },
+  { key: "staff_producao", label: "Staff de produção" },
+  { key: "staff_montagem", label: "Staff de montagem" },
 ] as const;
 
 export type StaffRoleKey = (typeof STAFF_ROLES)[number]["key"];
@@ -187,6 +188,9 @@ export interface ExtraStaffLine {
 
 const EXTRA_STAFF_KEYS = new Set<string>(EXTRA_STAFF_ROLES.map((role) => role.key));
 
+/** Funções que ainda podem ser acrescentadas com “+”. O staff genérico virou produção/montagem. */
+export const PICKABLE_EXTRA_STAFF_ROLES = EXTRA_STAFF_ROLES.filter((role) => role.key !== "staff");
+
 export function extraStaffLabel(key: string) {
   return EXTRA_STAFF_ROLES.find((role) => role.key === key)?.label ?? key;
 }
@@ -219,7 +223,7 @@ export function normalizeStaff(input: unknown): StaffCounts {
     if (known.has(key)) next[key as StaffRoleKey] = amount;
     else extra += amount;
   }
-  if (extra) next.outros += extra;
+  if (extra) next.staff_producao += extra;
   return next;
 }
 
@@ -290,6 +294,24 @@ export type UniformPieceKey = (typeof UNIFORM_PIECES)[number]["key"];
 export type UniformSize = (typeof UNIFORM_SIZES)[number];
 export type UniformSizes = Record<UniformSize, number>;
 export type Uniforms = Record<UniformPieceKey, UniformSizes>;
+
+/** Peças com pelo menos um tamanho > 0, para relatórios de fardamento. */
+export function uniformPiecesForReport(uniforms: Uniforms | undefined) {
+  return UNIFORM_PIECES.map((piece) => {
+    const sizes = UNIFORM_SIZES.filter((size) => (uniforms?.[piece.key]?.[size] || 0) > 0).map(
+      (size) => ({ size, quantity: uniforms![piece.key][size] }),
+    );
+    return { key: piece.key, label: piece.label, sizes };
+  }).filter((piece) => piece.sizes.length > 0);
+}
+
+export function formatUniformSizeLine(
+  sizes: { size: UniformSize; quantity: number }[],
+  labels: Record<UniformSize, string>,
+  separator = " · ",
+) {
+  return sizes.map((item) => `${labels[item.size]} ${item.quantity}`).join(separator);
+}
 
 export interface Logistics {
   alcohol: string;
@@ -372,6 +394,47 @@ export function normalizeMaterialSeparation(
   };
 }
 
+export interface EventLaborAllocation {
+  id: string;
+  workerId: string;
+  functionKey: string;
+  overtime: boolean;
+  overtimeHours: number;
+  /** Quando false, não aplica ajuda de custo mesmo fora da cidade. */
+  applyAllowance: boolean;
+}
+
+export function emptyLaborAllocations(): EventLaborAllocation[] {
+  return [];
+}
+
+export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const next: EventLaborAllocation[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Partial<EventLaborAllocation>;
+    const workerId = typeof row.workerId === "string" ? row.workerId : "";
+    if (!workerId || seen.has(workerId)) continue;
+    seen.add(workerId);
+    next.push({
+      id: typeof row.id === "string" && row.id ? row.id : workerId,
+      workerId,
+      functionKey: typeof row.functionKey === "string" ? row.functionKey : "",
+      overtime: Boolean(row.overtime),
+      overtimeHours: Number(row.overtimeHours) || 0,
+      applyAllowance: row.applyAllowance !== false,
+    });
+  }
+  return next;
+}
+
+export function normalizeVehicleIds(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return [...new Set(input.filter((id): id is string => typeof id === "string" && Boolean(id)))];
+}
+
 export interface EventRecord {
   id: string;
   code: string;
@@ -412,6 +475,12 @@ export interface EventRecord {
   drinksNotes: string;
   uniforms: Uniforms;
   logistics: Logistics;
+  /** Evento fora da cidade — dispara ajuda de custo da equipe externa. */
+  outOfTown: boolean;
+  /** Veículos da frota alocados neste evento. */
+  vehicleIds: string[];
+  /** Prestadores da base de mão de obra externa. */
+  laborAllocations: EventLaborAllocation[];
   dietaryNotes: string;
   menuSetupNotes: string;
   logisticsNotes: string;
@@ -433,7 +502,14 @@ export interface EventChangeLogEntry {
   userId: string;
   userName: string;
   changes: EventFieldChange[];
+  reason?: string;
+  clientLabel?: string;
 }
+
+export type EventSaveMeta = {
+  reason?: string;
+  clientLabel?: string;
+};
 
 export function guestTotal(guests: Guests) {
   const kids =
@@ -489,6 +565,9 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     staff: normalizeStaff(event.staff),
     extraStaff: normalizeExtraStaff(event.extraStaff),
     clientId: event.clientId ?? "",
+    outOfTown: Boolean(event.outOfTown),
+    vehicleIds: normalizeVehicleIds(event.vehicleIds),
+    laborAllocations: normalizeLaborAllocations(event.laborAllocations),
     ceremonyTime: typeof event.ceremonyTime === "string" ? event.ceremonyTime : "",
     drinksNotes: typeof event.drinksNotes === "string" ? event.drinksNotes : "",
     logisticsNotes: typeof event.logisticsNotes === "string" ? event.logisticsNotes : "",
@@ -532,6 +611,11 @@ function normalizeChangeLog(input: unknown): EventChangeLogEntry[] {
         userId: typeof row.userId === "string" ? row.userId : "",
         userName: typeof row.userName === "string" && row.userName.trim() ? row.userName.trim() : "Alguém",
         changes,
+        reason: typeof row.reason === "string" && row.reason.trim() ? row.reason.trim() : undefined,
+        clientLabel:
+          typeof row.clientLabel === "string" && row.clientLabel.trim()
+            ? row.clientLabel.trim()
+            : undefined,
       };
     })
     .filter((item): item is EventChangeLogEntry => Boolean(item));

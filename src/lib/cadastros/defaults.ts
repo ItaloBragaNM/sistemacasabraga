@@ -243,7 +243,18 @@ function insumo(
   category: string,
   unit: string,
 ): InsumoRecord {
-  return { id, name, category, unit, notes: "", createdAt: SEED_DATE, updatedAt: SEED_DATE };
+  return {
+    id,
+    name,
+    category,
+    unit,
+    brand: "",
+    unitCost: 0,
+    yieldPercent: 100,
+    notes: "",
+    createdAt: SEED_DATE,
+    updatedAt: SEED_DATE,
+  };
 }
 
 export const DEFAULT_INSUMOS: InsumoRecord[] = [

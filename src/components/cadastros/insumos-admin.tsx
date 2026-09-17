@@ -67,7 +67,7 @@ export function InsumosAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Insumos"
-        description="Base da cozinha. Os insumos alimentam as fichas técnicas dos pratos (em breve)."
+        description="Base da cozinha: marca, custo unitário e aproveitamento alimentam as fichas técnicas."
         action={
           <div className="flex flex-wrap gap-2">
             <ImportExport entity="insumos" />
@@ -136,6 +136,7 @@ export function InsumosAdmin() {
                     <th className="field-label py-3 font-normal">Insumo</th>
                     <th className="field-label py-3 font-normal">Categoria</th>
                     <th className="field-label py-3 text-center font-normal">Unid.</th>
+                    <th className="field-label py-3 font-normal">Custo</th>
                     <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
                   </tr>
                 </thead>
@@ -152,11 +153,19 @@ export function InsumosAdmin() {
                           onChange={() => selection.toggle(item.id)}
                         />
                       </td>
-                      <td className="py-3 font-list font-medium text-forest">{item.name}</td>
+                      <td className="py-3 font-list font-medium text-forest">
+                        {item.name}
+                        {item.brand ? (
+                          <span className="block text-xs font-light text-forest/45">{item.brand}</span>
+                        ) : null}
+                      </td>
                       <td className="py-3">
                         <Chip className="bg-forest/6 text-forest/70">{item.category}</Chip>
                       </td>
                       <td className="py-3 text-center text-forest/70">{item.unit || "—"}</td>
+                      <td className="py-3 text-forest/70">
+                        {item.unitCost ? item.unitCost.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                      </td>
                       <td className="py-3 pr-5">
                         <RecordRowActions
                           label={item.name}
@@ -215,6 +224,9 @@ function InsumoForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [category, setCategory] = useState(initial?.category ?? categories[0] ?? "Outros");
   const [unit, setUnit] = useState(initial?.unit ?? "kg");
+  const [brand, setBrand] = useState(initial?.brand ?? "");
+  const [unitCost, setUnitCost] = useState(String(initial?.unitCost || ""));
+  const [yieldPercent, setYieldPercent] = useState(String(initial?.yieldPercent || 100));
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
   const submit = () => {
@@ -228,6 +240,9 @@ function InsumoForm({
       name: name.trim(),
       category,
       unit: unit.trim(),
+      brand: brand.trim(),
+      unitCost: Number(unitCost.replace(",", ".")) || 0,
+      yieldPercent: Number(yieldPercent.replace(",", ".")) || 100,
       notes: notes.trim(),
       createdAt: initial?.createdAt ?? stamp,
       updatedAt: stamp,
@@ -260,6 +275,25 @@ function InsumoForm({
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
             placeholder="kg, g, L, un…"
+          />
+        </Field>
+        <Field label="Marca">
+          <input className={fieldControlClass} value={brand} onChange={(e) => setBrand(e.target.value)} />
+        </Field>
+        <Field label="Custo unitário">
+          <input
+            className={fieldControlClass}
+            value={unitCost}
+            onChange={(e) => setUnitCost(e.target.value)}
+            placeholder="0,00"
+          />
+        </Field>
+        <Field label="% de aproveitamento">
+          <input
+            className={fieldControlClass}
+            value={yieldPercent}
+            onChange={(e) => setYieldPercent(e.target.value)}
+            placeholder="100"
           />
         </Field>
       </div>

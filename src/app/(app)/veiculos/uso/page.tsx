@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { VeiculosUsoPage } from "@/components/veiculos/veiculos-uso-page";
 
 export default function Page() {
-  return <ComingSoon moduleName="Veículos" pageName="Controle de Uso dos Veículos" />;
+  return <VeiculosUsoPage />;
 }

@@ -2,6 +2,17 @@ export function formatInt(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(Math.round(value || 0));
 }
 
+export function formatBRL(value: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
+}
+
+export function formatDecimal(value: number, digits = 2): string {
+  return (Number.isFinite(value) ? value : 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
 export function formatPercent(value: number, digits = 1): string {
   return `${(Number.isFinite(value) ? value * 100 : 0).toLocaleString("pt-BR", {
     minimumFractionDigits: digits,

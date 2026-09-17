@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { FichasTecnicasAdmin } from "@/components/cozinha/fichas-tecnicas-admin";
 
 export default function Page() {
-  return <ComingSoon moduleName="Cozinha" pageName="Fichas Técnicas" />;
+  return <FichasTecnicasAdmin />;
 }

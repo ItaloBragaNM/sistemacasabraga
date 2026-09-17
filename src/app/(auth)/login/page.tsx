@@ -1,10 +1,12 @@
 "use client";
 
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { CasaBragaMark } from "@/components/brand/mark";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 function LoginForm() {
   const router = useRouter();
@@ -112,29 +114,21 @@ function LoginForm() {
               required
             />
           </Field>
-          <Field label="Senha">
-            <input
-              className={fieldControlClass}
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete={setupRequired ? "new-password" : "current-password"}
-              required
-              minLength={setupRequired ? 8 : undefined}
-            />
-          </Field>
+          <PasswordField
+            label="Senha"
+            value={password}
+            onChange={setPassword}
+            autoComplete={setupRequired ? "new-password" : "current-password"}
+            minLength={setupRequired ? 8 : undefined}
+          />
           {setupRequired ? (
-            <Field label="Confirmar senha">
-              <input
-                className={fieldControlClass}
-                type="password"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                autoComplete="new-password"
-                required
-                minLength={8}
-              />
-            </Field>
+            <PasswordField
+              label="Confirmar senha"
+              value={confirm}
+              onChange={setConfirm}
+              autoComplete="new-password"
+              minLength={8}
+            />
           ) : null}
           {error ? <p className="text-sm text-terracotta">{error}</p> : null}
           <Button
@@ -148,6 +142,46 @@ function LoginForm() {
         </>
       )}
     </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  minLength,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: string;
+  minLength?: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <Field label={label}>
+      <div className="relative">
+        <input
+          className={cn(fieldControlClass, "pr-11")}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete={autoComplete}
+          required
+          minLength={minLength}
+        />
+        <button
+          type="button"
+          aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+          aria-pressed={visible}
+          className="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-forest/45 hover:text-forest"
+          onClick={() => setVisible((current) => !current)}
+        >
+          {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </div>
+    </Field>
   );
 }
 

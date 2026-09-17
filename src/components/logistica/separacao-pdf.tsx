@@ -5,10 +5,10 @@ import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   DRINK_ITEMS,
+  formatUniformSizeLine,
   guestTotal,
   suggestedDrinkQuantities,
-  UNIFORM_PIECES,
-  UNIFORM_SIZES,
+  uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
 
@@ -135,6 +135,7 @@ function SeparationDocument({
     a.localeCompare(b, "pt-BR"),
   );
   const total = rows.reduce((sum, row) => sum + row.quantity, 0);
+  const uniforms = uniformPiecesForReport(event.uniforms);
 
   return (
     <Document>
@@ -243,20 +244,22 @@ function SeparationDocument({
           );
         })}
 
-        <Text style={styles.sectionTitle}>Fardamentos</Text>
-        {UNIFORM_PIECES.map((piece) => (
-          <View key={piece.key} style={styles.row}>
-            <Text style={styles.check}>{"\u2610"}</Text>
-            <Text style={styles.name}>{piece.label}</Text>
-            <Text style={styles.qty}>
-              {UNIFORM_SIZES.map(
-                (size) => `${UNIFORM_SIZE_LABELS[size]} ${event.uniforms[piece.key][size] || 0}`,
-              ).join("  ·  ")}
-            </Text>
-            <Text style={styles.unit} />
-            <Text style={styles.note} />
-          </View>
-        ))}
+        {uniforms.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>Fardamentos</Text>
+            {uniforms.map((piece) => (
+              <View key={piece.key} style={styles.row}>
+                <Text style={styles.check}>{"\u2610"}</Text>
+                <Text style={styles.name}>{piece.label}</Text>
+                <Text style={styles.qty}>
+                  {formatUniformSizeLine(piece.sizes, UNIFORM_SIZE_LABELS, "  ·  ")}
+                </Text>
+                <Text style={styles.unit} />
+                <Text style={styles.note} />
+              </View>
+            ))}
+          </>
+        ) : null}
 
         {extra?.notes?.trim() ? (
           <View>

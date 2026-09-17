@@ -2,25 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, ClipboardList, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ChevronDown, ClipboardList, FileDown, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ClienteForm } from "@/components/cadastros/cliente-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { Modal } from "@/components/cadastros/ui";
+import { Modal, SearchInput } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
 import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
+import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { downloadVehicleChecklistPdf } from "@/components/veiculos/checklist-pdf";
+import { useVeiculosUso } from "@/components/veiculos/veiculos-uso-provider";
 import type { DishRecord } from "@/lib/cadastros/types";
+import { VEHICLE_USAGE_CATEGORY_LABELS } from "@/lib/cadastros/types";
+import { formatBRL } from "@/lib/crm/format";
 import { formatDateTime, formatLongDate, formatWeekday } from "@/lib/dates";
 import { insertDishesIntoMenu } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import {
   EVENT_STATUSES,
   EVENT_TYPES,
-  EXTRA_STAFF_ROLES,
+  PICKABLE_EXTRA_STAFF_ROLES,
   extraStaffLabel,
   guestTotal,
   MENU_SECTIONS,
@@ -29,47 +34,59 @@ import {
   STAFF_ROLES,
   suggestedDrinkQuantities,
   type ExtraStaffRoleKey,
+  type EventLaborAllocation,
   type EventRecord,
+  type EventSaveMeta,
   type Guests,
   type MenuSectionKey,
   type VenueKind,
   type YesNo,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { laborLineAmounts, rateFor } from "@/lib/mao-de-obra/calc";
+import { LABOR_FUNCTIONS, laborFunctionLabel, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
 
 type Props = {
   event: EventRecord;
-  onSave: (event: EventRecord) => void;
+  onSave: (event: EventRecord, meta?: EventSaveMeta) => EventRecord | void;
   onDelete: (id: string) => void;
 };
+
+function snapshotForDirty(event: EventRecord) {
+  const { changeLog: _changeLog, updatedAt: _updatedAt, ...rest } = normalizeEventRecord(event);
+  return JSON.stringify(rest);
+}
 
 export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
   const { data: cadastros, upsertCliente } = useCadastros();
+  const { data: maoDeObra, reload: reloadLabor } = useMaoDeObra();
+  const { markGenerated } = useVeiculosUso();
   const [draft, setDraft] = useState(() => normalizeEventRecord(event));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
   const [catalogOpen, setCatalogOpen] = useState(true);
   const [clientModal, setClientModal] = useState(false);
-  const skip = useRef(true);
+  const [reasonModal, setReasonModal] = useState(false);
+  const [reason, setReason] = useState("");
+  const [changeAtLabel, setChangeAtLabel] = useState("");
+  const [baseline, setBaseline] = useState(() => snapshotForDirty(event));
   const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
   );
   const clientName = clientes.find((cliente) => cliente.id === draft.clientId)?.name;
   const clientMissing = Boolean(draft.clientId) && !clientName;
+  const clientLabel = clientName || (clientMissing ? "Cliente não encontrado" : "Sem cliente");
+  const dirty = useMemo(() => snapshotForDirty(draft) !== baseline, [baseline, draft]);
 
   useEffect(() => {
-    if (skip.current) {
-      skip.current = false;
-      return;
-    }
-    setSaveState("saving");
-    const timer = window.setTimeout(() => {
-      onSave(draft);
-      setSaveState("saved");
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [draft, onSave]);
+    if (!dirty) return;
+    const onBeforeUnload = (browserEvent: BeforeUnloadEvent) => {
+      browserEvent.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   const update = <K extends keyof EventRecord>(key: K, value: EventRecord[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -101,6 +118,36 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
     );
   };
 
+  const openSaveModal = () => {
+    if (!dirty) {
+      toast.message("Nenhuma alteração para salvar.");
+      return;
+    }
+    setReason("");
+    setChangeAtLabel(formatDateTime(new Date().toISOString()));
+    setReasonModal(true);
+  };
+
+  const confirmSave = () => {
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      toast.error("Informe o motivo da alteração.");
+      return;
+    }
+    setSaveState("saving");
+    const saved = onSave(draft, { reason: trimmed, clientLabel });
+    const next = normalizeEventRecord(saved || draft);
+    setDraft(next);
+    setBaseline(snapshotForDirty(next));
+    setReasonModal(false);
+    setReason("");
+    setSaveState("saved");
+    toast.success("Alterações salvas.");
+    window.setTimeout(() => {
+      void reloadLabor();
+    }, 600);
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-16">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -118,9 +165,11 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <span className="text-xs font-light text-forest/45">
               {saveState === "saving"
                 ? "Salvando…"
-                : saveState === "saved"
-                  ? "Alterações salvas neste aparelho"
-                  : "Ficha operacional — uso interno"}
+                : dirty
+                  ? "Alterações não salvas"
+                  : saveState === "saved"
+                    ? "Alterações salvas"
+                    : "Ficha operacional — uso interno"}
             </span>
           </div>
           <h1 className="font-display mt-2 text-4xl tracking-tight text-forest sm:text-5xl">
@@ -136,6 +185,13 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            className="h-10 bg-forest px-4 text-cream hover:bg-petrol"
+            disabled={!dirty || saveState === "saving"}
+            onClick={openSaveModal}
+          >
+            Salvar alterações
+          </Button>
           <Button
             className="h-10 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
             disabled={pdfState === "working"}
@@ -408,7 +464,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           title="Equipe"
           hint="Quantidade por função. Use + para acrescentar outras funções opcionais."
         />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {STAFF_ROLES.map((role) => (
             <Field key={role.key} label={role.label}>
               <input
@@ -465,7 +521,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             ))}
           </div>
         ) : null}
-        {EXTRA_STAFF_ROLES.some(
+        {PICKABLE_EXTRA_STAFF_ROLES.some(
           (role) => !(draft.extraStaff ?? []).some((line) => line.key === role.key),
         ) ? (
           <div className="mt-4">
@@ -477,6 +533,101 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             />
           </div>
         ) : null}
+      </section>
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle
+          title="Veículos"
+          hint="Selecione a frota deste evento. Marque fora da cidade para disparar a ajuda de custo da equipe externa."
+        />
+        <YesNoField
+          label="Evento fora da cidade?"
+          value={draft.outOfTown ? "sim" : "nao"}
+          onChange={(value) => update("outOfTown", value === "sim")}
+        />
+        {(cadastros?.veiculos ?? []).length === 0 ? (
+          <p className="mt-4 text-sm font-light text-forest/50">
+            Cadastre a frota em Cadastros → Veículos para alocar aqui.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {(cadastros?.veiculos ?? [])
+              .slice()
+              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+              .map((vehicle) => {
+                const selected = (draft.vehicleIds ?? []).includes(vehicle.id);
+                return (
+                  <div
+                    key={vehicle.id}
+                    className="flex flex-col gap-2 rounded-xl border border-forest/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={selected}
+                        onChange={() => {
+                          const current = draft.vehicleIds ?? [];
+                          update(
+                            "vehicleIds",
+                            selected ? current.filter((id) => id !== vehicle.id) : [...current, vehicle.id],
+                          );
+                        }}
+                      />
+                      <span>
+                        <span className="block font-list text-sm font-medium text-forest">{vehicle.name}</span>
+                        <span className="block text-xs font-light text-forest/45">
+                          {[vehicle.plate, vehicle.model, VEHICLE_USAGE_CATEGORY_LABELS[vehicle.usageCategory]]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                    </label>
+                    {selected ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 shrink-0 px-3"
+                        onClick={async () => {
+                          try {
+                            await downloadVehicleChecklistPdf(draft, vehicle);
+                            markGenerated(draft.id, vehicle.id);
+                            toast.success("Checklist baixado para preenchimento e assinatura.");
+                          } catch (error) {
+                            console.error(error);
+                            toast.error("Não foi possível gerar o PDF.");
+                          }
+                        }}
+                      >
+                        <FileDown data-icon="inline-start" />
+                        Checklist PDF
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle
+          title="Equipe externa"
+          hint="Puxe da base cadastrada. Ao salvar, o financeiro recebe o lançamento automaticamente."
+        />
+        {(maoDeObra?.workers ?? []).length === 0 ? (
+          <p className="text-sm font-light text-forest/50">
+            Cadastre os prestadores em Administrativo → Mão de obra externa. Depois selecione quem vai a este evento.
+          </p>
+        ) : (
+          <EventLaborAllocations
+            allocations={draft.laborAllocations ?? []}
+            outOfTown={Boolean(draft.outOfTown)}
+            workers={maoDeObra?.workers ?? []}
+            rates={maoDeObra?.rates ?? []}
+            onChange={(next) => update("laborAllocations", next)}
+          />
+        )}
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
@@ -685,7 +836,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </section>
 
       <EventChangeHistory
-        entries={event.changeLog ?? []}
+        entries={draft.changeLog ?? []}
         clientNameById={new Map(clientes.map((cliente) => [cliente.id, cliente.name]))}
       />
 
@@ -701,6 +852,193 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           }}
         />
       </Modal>
+
+      <Modal open={reasonModal} onClose={() => setReasonModal(false)} title="Motivo da alteração">
+        <div className="space-y-4">
+          <p className="text-sm font-light text-forest/65">
+            Informe por que esta ficha está sendo alterada. O registro fica no histórico.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-forest/10 bg-white px-3 py-2">
+              <p className="field-label">Cliente</p>
+              <p className="mt-1 text-sm text-forest">{clientLabel}</p>
+            </div>
+            <div className="rounded-xl border border-forest/10 bg-white px-3 py-2">
+              <p className="field-label">Data da alteração</p>
+              <p className="mt-1 text-sm text-forest">{changeAtLabel}</p>
+            </div>
+          </div>
+          <Field label="Motivo">
+            <textarea
+              className={cn(fieldControlClass, "min-h-28 py-3")}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Ex.: ajuste de equipe a pedido do cliente"
+              autoFocus
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" className="h-10" onClick={() => setReasonModal(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" className="h-10 bg-forest text-cream hover:bg-petrol" onClick={confirmSave}>
+              Confirmar e salvar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function EventLaborAllocations({
+  allocations,
+  outOfTown,
+  workers,
+  rates,
+  onChange,
+}: {
+  allocations: EventLaborAllocation[];
+  outOfTown: boolean;
+  workers: ExternalWorker[];
+  rates: LaborRate[];
+  onChange: (next: EventLaborAllocation[]) => void;
+}) {
+  const used = new Set(allocations.map((item) => item.workerId));
+  const available = workers.filter((worker) => !used.has(worker.id)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const workerById = new Map(workers.map((worker) => [worker.id, worker]));
+
+  return (
+    <div className="space-y-3">
+      {allocations.map((row) => {
+        const worker = workerById.get(row.workerId);
+        const functionKey = row.functionKey || worker?.functionKey || "";
+        const amounts = laborLineAmounts(row, rateFor(rates, functionKey), outOfTown);
+        return (
+          <div key={row.workerId} className="rounded-xl border border-forest/10 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-list text-sm font-medium text-forest">{worker?.name || "Prestador removido"}</p>
+                <p className="text-xs font-light text-forest/45">
+                  {formatBRL(amounts.total)}
+                  {amounts.allowance ? " · ajuda de custo" : outOfTown ? "" : " · ajuda só fora da cidade"}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Remover prestador"
+                className="flex size-8 items-center justify-center text-forest/35 hover:text-terracotta"
+                onClick={() => onChange(allocations.filter((item) => item.workerId !== row.workerId))}
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-4">
+              <Field label="Função" className="sm:col-span-2">
+                <select
+                  className={fieldControlClass}
+                  value={functionKey}
+                  onChange={(event) =>
+                    onChange(
+                      allocations.map((item) =>
+                        item.workerId === row.workerId ? { ...item, functionKey: event.target.value } : item,
+                      ),
+                    )
+                  }
+                >
+                  {LABOR_FUNCTIONS.map((role) => (
+                    <option key={role.key} value={role.key}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Hora extra">
+                <select
+                  className={fieldControlClass}
+                  value={row.overtime ? "sim" : "nao"}
+                  onChange={(event) =>
+                    onChange(
+                      allocations.map((item) =>
+                        item.workerId === row.workerId
+                          ? { ...item, overtime: event.target.value === "sim" }
+                          : item,
+                      ),
+                    )
+                  }
+                >
+                  <option value="nao">Não</option>
+                  <option value="sim">Sim</option>
+                </select>
+              </Field>
+              <Field label="Horas">
+                <input
+                  type="number"
+                  min={0}
+                  className={fieldControlClass}
+                  disabled={!row.overtime}
+                  value={row.overtimeHours || ""}
+                  onChange={(event) =>
+                    onChange(
+                      allocations.map((item) =>
+                        item.workerId === row.workerId
+                          ? { ...item, overtimeHours: Number(event.target.value) || 0 }
+                          : item,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+            </div>
+            {outOfTown ? (
+              <label className="mt-3 flex items-center gap-2 text-sm text-forest/70">
+                <input
+                  type="checkbox"
+                  checked={row.applyAllowance !== false}
+                  onChange={(event) =>
+                    onChange(
+                      allocations.map((item) =>
+                        item.workerId === row.workerId ? { ...item, applyAllowance: event.target.checked } : item,
+                      ),
+                    )
+                  }
+                />
+                Aplicar ajuda de custo ({formatBRL(rateFor(rates, functionKey).allowance)})
+              </label>
+            ) : null}
+          </div>
+        );
+      })}
+      {available.length ? (
+        <select
+          className={fieldControlClass}
+          value=""
+          onChange={(event) => {
+            const worker = workers.find((item) => item.id === event.target.value);
+            if (!worker) return;
+            onChange([
+              ...allocations,
+              {
+                id: worker.id,
+                workerId: worker.id,
+                functionKey: worker.functionKey,
+                overtime: false,
+                overtimeHours: 0,
+                applyAllowance: true,
+              },
+            ]);
+          }}
+        >
+          <option value="">Selecionar prestador…</option>
+          {available.map((worker) => (
+            <option key={worker.id} value={worker.id}>
+              {worker.name} · {laborFunctionLabel(worker.functionKey)}
+            </option>
+          ))}
+        </select>
+      ) : allocations.length ? (
+        <p className="text-xs font-light text-forest/45">Todos os prestadores cadastrados já estão neste evento.</p>
+      ) : null}
     </div>
   );
 }
@@ -713,7 +1051,7 @@ function ExtraStaffPicker({
   onAdd: (key: ExtraStaffRoleKey) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const available = EXTRA_STAFF_ROLES.filter((role) => !used.has(role.key));
+  const available = PICKABLE_EXTRA_STAFF_ROLES.filter((role) => !used.has(role.key));
   if (available.length === 0) return null;
 
   return (
@@ -775,6 +1113,13 @@ function EventChangeHistory({
                 <span className="font-medium">{entry.userName}</span>
                 <span className="font-light text-forest/50"> · {formatDateTime(entry.at)}</span>
               </p>
+              {entry.clientLabel || entry.reason ? (
+                <p className="mt-1 text-sm font-light text-forest/60">
+                  {entry.clientLabel ? `Cliente: ${entry.clientLabel}` : null}
+                  {entry.clientLabel && entry.reason ? " · " : null}
+                  {entry.reason ? `Motivo: ${entry.reason}` : null}
+                </p>
+              ) : null}
               <ul className="mt-2 space-y-1 text-sm font-light text-forest/70">
                 {entry.changes.map((change, index) => (
                   <li key={`${entry.id}-${change.label}-${index}`}>
@@ -802,6 +1147,7 @@ function CatalogDishPicker({
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
+  const [search, setSearch] = useState("");
   if (dishes.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
@@ -809,6 +1155,11 @@ function CatalogDishPicker({
       </p>
     );
   }
+
+  const query = search.trim().toLocaleLowerCase("pt-BR");
+  const visibleDishes = query
+    ? dishes.filter((dish) => dish.name.toLocaleLowerCase("pt-BR").includes(query))
+    : dishes;
 
   const selectedSet = new Set(selected);
   const toggle = (id: string) => {
@@ -819,12 +1170,12 @@ function CatalogDishPicker({
   };
 
   const extras = [
-    ...new Set(dishes.map((dish) => dish.category).filter((category) => !categoryOrder.includes(category))),
+    ...new Set(visibleDishes.map((dish) => dish.category).filter((category) => !categoryOrder.includes(category))),
   ];
   const groups = [...categoryOrder, ...extras]
     .map((category) => ({
       category,
-      items: dishes
+      items: visibleDishes
         .filter((dish) => dish.category === category)
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
     }))
@@ -832,35 +1183,42 @@ function CatalogDishPicker({
 
   return (
     <div className="space-y-4">
-      {groups.map((group) => (
-        <div key={group.category}>
-          <h3 className="font-section mb-2 text-[0.66rem] text-forest/55">{group.category}</h3>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {group.items.map((dish) => {
-              const checked = selectedSet.has(dish.id);
-              return (
-                <label
-                  key={dish.id}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
-                    checked
-                      ? "border-forest/30 bg-forest/8"
-                      : "border-forest/10 hover:bg-forest/[0.03]",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-forest"
-                    checked={checked}
-                    onChange={() => toggle(dish.id)}
-                  />
-                  <span className="font-list text-forest">{dish.name}</span>
-                </label>
-              );
-            })}
+      <SearchInput value={search} onChange={setSearch} placeholder="Buscar prato…" />
+      {groups.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+          Nenhum prato encontrado para “{search.trim()}”.
+        </p>
+      ) : (
+        groups.map((group) => (
+          <div key={group.category}>
+            <h3 className="font-section mb-2 text-[0.66rem] text-forest/55">{group.category}</h3>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {group.items.map((dish) => {
+                const checked = selectedSet.has(dish.id);
+                return (
+                  <label
+                    key={dish.id}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
+                      checked
+                        ? "border-forest/30 bg-forest/8"
+                        : "border-forest/10 hover:bg-forest/[0.03]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-forest"
+                      checked={checked}
+                      onChange={() => toggle(dish.id)}
+                    />
+                    <span className="font-list text-forest">{dish.name}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        ))
+      )}
     </div>
   );
 }

@@ -37,7 +37,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 4,
       copeiros: 3,
       chefes: 2,
-      outros: 7,
+      staff_producao: 7,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(
@@ -127,7 +128,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 1,
-      outros: 1,
+      staff_producao: 1,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(
@@ -192,7 +194,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 2,
       chefes: 1,
-      outros: 4,
+      staff_producao: 4,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(
@@ -252,7 +255,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 1,
-      outros: 1,
+      staff_producao: 1,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(["Cesta de pães e geleias", "45", ""], ["Iogurte com granola e manga", "45", ""]),
@@ -313,7 +317,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 0,
-      outros: 0,
+      staff_producao: 0,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(
@@ -378,7 +383,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 3,
       copeiros: 1,
       chefes: 1,
-      outros: 2,
+      staff_producao: 2,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(
@@ -439,7 +445,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 2,
       chefes: 1,
-      outros: 3,
+      staff_producao: 3,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(["Torresmo e aipim", "110", ""]),
@@ -536,7 +543,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 1,
       chefes: 2,
-      outros: 2,
+      staff_producao: 2,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(["Amuse-bouche de abacaxi e queijo de coalho", "70", ""]),
@@ -593,7 +601,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 3,
       copeiros: 2,
       chefes: 1,
-      outros: 6,
+      staff_producao: 6,
+      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(["Salgados fritos e assados", "300", ""], ["Canapé doce de morango", "140", ""]),

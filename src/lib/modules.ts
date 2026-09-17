@@ -30,7 +30,7 @@ export const APP_MODULES: AppModule[] = [
   {
     id: "cozinha",
     label: "Cozinha",
-    ready: false,
+    ready: true,
     pages: [
       { href: "/cozinha/separacao-insumos", label: "Separação de Insumos" },
       { href: "/cozinha/fichas-tecnicas", label: "Fichas Técnicas" },
@@ -56,7 +56,7 @@ export const APP_MODULES: AppModule[] = [
   {
     id: "veiculos",
     label: "Veículos",
-    ready: false,
+    ready: true,
     pages: [
       { href: "/veiculos/uso", label: "Controle de Uso dos Veículos" },
       { href: "/veiculos/multas", label: "Controle de Multas" },
@@ -65,7 +65,7 @@ export const APP_MODULES: AppModule[] = [
   {
     id: "administrativo",
     label: "Administrativo",
-    ready: false,
+    ready: true,
     pages: [
       {
         href: "/administrativo/mao-de-obra-externa",
@@ -76,7 +76,7 @@ export const APP_MODULES: AppModule[] = [
   {
     id: "financeiro",
     label: "Financeiro",
-    ready: false,
+    ready: true,
     pages: [
       { href: "/financeiro/contas-a-receber", label: "Contas a Receber" },
       {
