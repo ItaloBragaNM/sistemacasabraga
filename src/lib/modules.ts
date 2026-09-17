@@ -78,7 +78,6 @@ export const APP_MODULES: AppModule[] = [
     label: "Financeiro",
     ready: true,
     pages: [
-      { href: "/financeiro/contas-a-receber", label: "Contas a Receber" },
       {
         href: "/financeiro/pagamento-mao-de-obra",
         label: "Pagamento de Mão de Obra Externa",

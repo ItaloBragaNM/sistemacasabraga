@@ -18,7 +18,7 @@ A ficha foi modelada como a ordem de serviço que a casa já usa no dia a dia e 
 | Cardápio, restrições e observações | Separação de Insumos, Fichas Técnicas, Estoque, Perdas |
 | Equipe por função | Administrativo e Pagamento de Mão de Obra |
 | Entrega de material, cavalete, estrutura do local | Logística |
-| Per capita | Comercial e Contas a Receber |
+| Per capita | Comercial |
 | Fardamentos | Administrativo |
 
 A ficha alimenta os módulos de Comercial (dashboard) e Cadastros/Logística
