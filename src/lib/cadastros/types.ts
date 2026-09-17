@@ -81,7 +81,7 @@ export interface DishRecord {
   category: string;
   /** Materiais (logística) vinculados ao prato. */
   materialIds: string[];
-  /** Insumos (cozinha) vinculados — reservado para o cadastro de insumos. */
+  /** Insumos da cozinha vinculados a este prato (separação por cadastro). */
   insumoIds: string[];
   /** O prato vai ao evento em rechaud — entra na base Rechauds. */
   hasRechaud?: boolean;

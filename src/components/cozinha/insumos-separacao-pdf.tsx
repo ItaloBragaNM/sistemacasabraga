@@ -4,7 +4,7 @@ import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer
 import { formatBRL, formatDecimal } from "@/lib/crm/format";
 import { formatLongDate } from "@/lib/dates";
 import { downloadBlob, slugify } from "@/lib/download";
-import type { InsumoNeed } from "@/lib/cozinha/calc";
+import type { CatalogInsumoLine, InsumoNeed } from "@/lib/cozinha/calc";
 import type { EventRecord } from "@/lib/types";
 
 const colors = {
@@ -45,9 +45,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   box: { width: 12, height: 12, borderWidth: 0.8, borderColor: colors.line, marginRight: 8 },
-  name: { flex: 3, fontSize: 9 },
+  name: { flex: 2.4, fontSize: 9 },
+  dishes: { flex: 2.2, fontSize: 7.5, color: colors.muted },
   qty: { flex: 1.4, fontSize: 9, textAlign: "right" },
   cost: { flex: 1.4, fontSize: 8, color: colors.muted, textAlign: "right" },
+  qtyBox: {
+    width: 52,
+    height: 14,
+    borderWidth: 0.8,
+    borderColor: colors.line,
+    marginLeft: 6,
+  },
   totalRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 10 },
   totalBox: { borderWidth: 0.8, borderColor: colors.forest, paddingVertical: 6, paddingHorizontal: 12 },
   footer: {
@@ -62,19 +70,45 @@ const styles = StyleSheet.create({
   },
 });
 
-function SeparationDocument({ event, needs, notes }: { event: EventRecord; needs: InsumoNeed[]; notes: string }) {
+function Header({ event, source }: { event: EventRecord; source: string }) {
+  return (
+    <View style={styles.header}>
+      <Text style={styles.brand}>Casa Braga · Cozinha</Text>
+      <Text style={styles.title}>Separação de insumos</Text>
+      <Text style={styles.subtitle}>
+        {event.code} · {event.title || "Evento"} · {event.date ? formatLongDate(event.date) : "Data a definir"} · {source}
+      </Text>
+    </View>
+  );
+}
+
+function Notes({ notes }: { notes: string }) {
+  if (!notes.trim()) return null;
+  return (
+    <View style={{ marginTop: 14, borderWidth: 0.6, borderColor: colors.line, padding: 8 }}>
+      <Text style={{ fontSize: 7, letterSpacing: 1, textTransform: "uppercase", color: colors.muted, marginBottom: 4 }}>
+        Observações
+      </Text>
+      <Text style={{ fontSize: 9 }}>{notes}</Text>
+    </View>
+  );
+}
+
+function Footer({ event }: { event: EventRecord }) {
+  return (
+    <View style={styles.footer} fixed>
+      <Text>Separação de insumos · {event.code}</Text>
+      <Text render={({ pageNumber, totalPages }) => `Pág. ${pageNumber} de ${totalPages}`} />
+    </View>
+  );
+}
+
+function SheetDocument({ event, needs, notes }: { event: EventRecord; needs: InsumoNeed[]; notes: string }) {
   const total = needs.reduce((sum, need) => sum + need.totalCost, 0);
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.brand}>Casa Braga · Cozinha</Text>
-          <Text style={styles.title}>Separação de insumos</Text>
-          <Text style={styles.subtitle}>
-            {event.code} · {event.title || "Evento"} · {event.date ? formatLongDate(event.date) : "Data a definir"}
-          </Text>
-        </View>
-
+        <Header event={event} source="por ficha técnica" />
         <View style={styles.tableHeader}>
           <Text style={[styles.th, { width: 20 }]}> </Text>
           <Text style={[styles.th, { flex: 3 }]}>Insumo</Text>
@@ -91,7 +125,6 @@ function SeparationDocument({ event, needs, notes }: { event: EventRecord; needs
             <Text style={styles.cost}>{formatBRL(need.totalCost)}</Text>
           </View>
         ))}
-
         <View style={styles.totalRow}>
           <View style={styles.totalBox}>
             <Text style={{ fontSize: 9 }}>
@@ -99,26 +132,63 @@ function SeparationDocument({ event, needs, notes }: { event: EventRecord; needs
             </Text>
           </View>
         </View>
+        <Notes notes={notes} />
+        <Footer event={event} />
+      </Page>
+    </Document>
+  );
+}
 
-        {notes.trim() ? (
-          <View style={{ marginTop: 14, borderWidth: 0.6, borderColor: colors.line, padding: 8 }}>
-            <Text style={{ fontSize: 7, letterSpacing: 1, textTransform: "uppercase", color: colors.muted, marginBottom: 4 }}>
-              Observações
-            </Text>
-            <Text style={{ fontSize: 9 }}>{notes}</Text>
-          </View>
-        ) : null}
-
-        <View style={styles.footer} fixed>
-          <Text>Separação de insumos · {event.code}</Text>
-          <Text render={({ pageNumber, totalPages }) => `Pág. ${pageNumber} de ${totalPages}`} />
+function CatalogDocument({
+  event,
+  lines,
+  notes,
+}: {
+  event: EventRecord;
+  lines: CatalogInsumoLine[];
+  notes: string;
+}) {
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <Header event={event} source="por cadastro do prato" />
+        <Text style={{ fontSize: 8, color: colors.muted, marginBottom: 8 }}>
+          Lista sem quantidade calculada. Marque o que foi separado e anote a quantidade à mão.
+        </Text>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.th, { width: 20 }]}> </Text>
+          <Text style={[styles.th, { flex: 2.4 }]}>Insumo</Text>
+          <Text style={[styles.th, { flex: 2.2 }]}>Pratos</Text>
+          <Text style={[styles.th, { width: 70, textAlign: "right" }]}>Qtd</Text>
         </View>
+        {lines.map((line) => (
+          <View key={line.insumoId} style={styles.row} wrap={false}>
+            <View style={styles.box} />
+            <Text style={styles.name}>
+              {line.name}
+              {line.unit ? ` (${line.unit})` : ""}
+            </Text>
+            <Text style={styles.dishes}>{line.dishes.join(", ")}</Text>
+            <View style={styles.qtyBox} />
+          </View>
+        ))}
+        <Notes notes={notes} />
+        <Footer event={event} />
       </Page>
     </Document>
   );
 }
 
 export async function downloadInsumoSeparationPdf(event: EventRecord, needs: InsumoNeed[], notes: string) {
-  const blob = await pdf(<SeparationDocument event={event} needs={needs} notes={notes} />).toBlob();
+  const blob = await pdf(<SheetDocument event={event} needs={needs} notes={notes} />).toBlob();
   downloadBlob(blob, `separacao-insumos-${event.code.toLowerCase()}-${slugify(event.title) || "evento"}.pdf`);
+}
+
+export async function downloadCatalogSeparationPdf(
+  event: EventRecord,
+  lines: CatalogInsumoLine[],
+  notes: string,
+) {
+  const blob = await pdf(<CatalogDocument event={event} lines={lines} notes={notes} />).toBlob();
+  downloadBlob(blob, `separacao-insumos-pratos-${event.code.toLowerCase()}-${slugify(event.title) || "evento"}.pdf`);
 }

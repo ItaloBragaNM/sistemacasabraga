@@ -135,3 +135,43 @@ export function insumoNeedsForEvent(params: {
 
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
+
+/** Lista de insumos a partir do cadastro do prato — sem quantidade calculada. */
+export interface CatalogInsumoLine {
+  insumoId: string;
+  name: string;
+  unit: string;
+  dishes: string[];
+}
+
+export function insumoListFromDishes(
+  selectedDishIds: string[],
+  dishes: DishRecord[],
+  insumos: InsumoRecord[],
+): CatalogInsumoLine[] {
+  const dishById = new Map(dishes.map((dish) => [dish.id, dish]));
+  const insumoById = new Map(insumos.map((insumo) => [insumo.id, insumo]));
+  const map = new Map<string, CatalogInsumoLine>();
+
+  for (const dishId of selectedDishIds) {
+    const dish = dishById.get(dishId);
+    if (!dish) continue;
+    for (const insumoId of dish.insumoIds ?? []) {
+      const insumo = insumoById.get(insumoId);
+      if (!insumo) continue;
+      const existing = map.get(insumoId);
+      if (existing) {
+        if (!existing.dishes.includes(dish.name)) existing.dishes.push(dish.name);
+      } else {
+        map.set(insumoId, {
+          insumoId,
+          name: insumo.name,
+          unit: insumo.unit,
+          dishes: [dish.name],
+        });
+      }
+    }
+  }
+
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}

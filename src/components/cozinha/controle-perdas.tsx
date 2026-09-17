@@ -1,11 +1,12 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { FileDown, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { CadastrosHeader, Chip, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { useCozinhaInsumos } from "@/components/cozinha/cozinha-insumos-provider";
+import { downloadLossRegisterPdf } from "@/components/cozinha/perdas-pdf";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { InsumoRecord } from "@/lib/cadastros/types";
@@ -20,6 +21,7 @@ export function ControlePerdas() {
   const { data, ready: stockReady, addLoss, removeLoss } = useCozinhaInsumos();
   const [open, setOpen] = useState(false);
   const [reasonFilter, setReasonFilter] = useState("");
+  const [workingPdf, setWorkingPdf] = useState(false);
 
   const insumoById = useMemo(
     () => new Map((cadastros?.insumos ?? []).map((item) => [item.id, item])),
@@ -39,16 +41,38 @@ export function ControlePerdas() {
       <CadastrosHeader
         eyebrow="Cozinha"
         title="Controle de Perdas"
-        description="Registre perdas de insumos. Cada perda baixa o estoque e soma no custo do desperdício."
+        description="Registre perdas de insumos. Cada perda baixa o estoque e soma no custo do desperdício. Imprima a ficha de 1 página para anotar na cozinha e lançar depois."
         action={
-          <Button
-            className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
-            disabled={!cadastros || cadastros.insumos.length === 0}
-            onClick={() => setOpen(true)}
-          >
-            <Plus data-icon="inline-start" />
-            Registrar perda
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              className="h-10 px-4"
+              disabled={workingPdf}
+              onClick={async () => {
+                try {
+                  setWorkingPdf(true);
+                  await downloadLossRegisterPdf();
+                  toast.success("Ficha de perdas baixada.");
+                } catch (error) {
+                  console.error(error);
+                  toast.error("Não foi possível gerar o PDF.");
+                } finally {
+                  setWorkingPdf(false);
+                }
+              }}
+            >
+              <FileDown data-icon="inline-start" />
+              Ficha para registro
+            </Button>
+            <Button
+              className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+              disabled={!cadastros || cadastros.insumos.length === 0}
+              onClick={() => setOpen(true)}
+            >
+              <Plus data-icon="inline-start" />
+              Registrar perda
+            </Button>
+          </div>
         }
       />
 

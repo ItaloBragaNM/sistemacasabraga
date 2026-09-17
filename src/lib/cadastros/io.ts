@@ -94,13 +94,15 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
       return { fileName: "materiais", sheetName: "Materiais", headers, rows };
     }
     case "dishes": {
-      const headers = ["Nome", "Categoria", "Materiais"];
+      const insumoName = new Map(data.insumos.map((i) => [i.id, i.name]));
+      const headers = ["Nome", "Categoria", "Materiais", "Insumos"];
       const rows = data.dishes.map(
         (d) =>
           [
             d.name,
             d.category,
             d.materialIds.map((id) => materialName.get(id)).filter(Boolean).join("; "),
+            (d.insumoIds ?? []).map((id) => insumoName.get(id)).filter(Boolean).join("; "),
           ] as Cell[],
       );
       return { fileName: "cardapio", sheetName: "Cardápio", headers, rows };
@@ -266,6 +268,7 @@ export function applyImport(
     }
     case "dishes": {
       const materialByName = new Map(next.materials.map((m) => [m.name.toLowerCase(), m.id]));
+      const insumoByName = new Map(next.insumos.map((i) => [i.name.toLowerCase(), i.id]));
       const byName = new Map(next.dishes.map((d) => [d.name.toLowerCase(), d]));
       const categories = new Set(next.dishCategories);
       for (const row of rows) {
@@ -277,9 +280,21 @@ export function applyImport(
           .split(/[;,]/)
           .map((token) => materialByName.get(token.trim().toLowerCase()))
           .filter((id): id is string => Boolean(id));
+        const insumoRaw = pick(row, "Insumos");
+        const insumoIds = insumoRaw
+          ? insumoRaw
+              .split(/[;,]/)
+              .map((token) => insumoByName.get(token.trim().toLowerCase()))
+              .filter((id): id is string => Boolean(id))
+          : undefined;
         const existing = byName.get(name.toLowerCase());
         if (existing) {
-          Object.assign(existing, { category, materialIds, updatedAt: now() });
+          Object.assign(existing, {
+            category,
+            materialIds,
+            insumoIds: insumoIds ?? existing.insumoIds ?? [],
+            updatedAt: now(),
+          });
           updated += 1;
         } else {
           const record: DishRecord = {
@@ -287,7 +302,7 @@ export function applyImport(
             name,
             category,
             materialIds,
-            insumoIds: [],
+            insumoIds: insumoIds ?? [],
             createdAt: now(),
             updatedAt: now(),
           };

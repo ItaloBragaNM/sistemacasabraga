@@ -170,6 +170,7 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
     ? input.dishes.map((dish) => ({
         ...dish,
         category: dishCategoryLabel(dish.category || dishCategoriesSource[0] || "Menu"),
+        insumoIds: Array.isArray(dish.insumoIds) ? dish.insumoIds : [],
         hasRechaud: Boolean(dish.hasRechaud),
         hasFritadeira: Boolean(dish.hasFritadeira),
       }))

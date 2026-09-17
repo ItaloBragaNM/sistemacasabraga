@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, UtensilsCrossed } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -15,7 +15,7 @@ import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, Chip, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
-import type { DishRecord } from "@/lib/cadastros/types";
+import type { DishRecord, InsumoRecord, MaterialRecord } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,10 @@ export function CardapioAdmin() {
 
   const materialName = useMemo(
     () => new Map((data?.materials ?? []).map((material) => [material.id, material.name])),
+    [data],
+  );
+  const insumoName = useMemo(
+    () => new Map((data?.insumos ?? []).map((insumo) => [insumo.id, insumo.name])),
     [data],
   );
 
@@ -87,7 +91,7 @@ export function CardapioAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Cardápio"
-        description="Catálogo de pratos do buffet. Cada prato reúne os materiais (logística) usados no serviço — e, futuramente, sua ficha técnica de insumos."
+        description="Catálogo de pratos do buffet. Cada prato reúne os materiais da logística e os insumos da cozinha usados no serviço."
         action={
           <div className="flex flex-wrap gap-2">
             <ImportExport entity="dishes" />
@@ -186,13 +190,25 @@ export function CardapioAdmin() {
                             <p className="font-list font-medium text-forest">{dish.name}</p>
                             <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-light text-forest/55">
                               {dish.materialIds.length > 0
-                                ? dish.materialIds
+                                ? `Materiais: ${dish.materialIds
                                     .map((id) => materialName.get(id))
                                     .filter(Boolean)
-                                    .join(", ")
+                                    .join(", ")}`
                                 : (
                                   <Chip size="sm" className="bg-terracotta/10 text-terracotta">
-                                    Sem materiais vinculados
+                                    Sem materiais
+                                  </Chip>
+                                )}
+                            </p>
+                            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-light text-forest/55">
+                              {(dish.insumoIds ?? []).length > 0
+                                ? `Insumos: ${(dish.insumoIds ?? [])
+                                    .map((id) => insumoName.get(id))
+                                    .filter(Boolean)
+                                    .join(", ")}`
+                                : (
+                                  <Chip size="sm" className="bg-forest/8 text-forest/55">
+                                    Sem insumos
                                   </Chip>
                                 )}
                             </p>
@@ -239,6 +255,7 @@ export function CardapioAdmin() {
             key={editing?.id ?? "new"}
             initial={editing}
             materials={data.materials}
+            insumos={data.insumos}
             categories={data.dishCategories}
             onCancel={() => setOpen(false)}
             onSubmit={(dish) => {
@@ -256,12 +273,14 @@ export function CardapioAdmin() {
 function DishForm({
   initial,
   materials,
+  insumos,
   categories,
   onSubmit,
   onCancel,
 }: {
   initial: DishRecord | null;
-  materials: import("@/lib/cadastros/types").MaterialRecord[];
+  materials: MaterialRecord[];
+  insumos: InsumoRecord[];
   categories: string[];
   onSubmit: (dish: DishRecord) => void;
   onCancel: () => void;
@@ -269,9 +288,11 @@ function DishForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [category, setCategory] = useState(initial?.category ?? categories[0] ?? "Menu");
   const [materialIds, setMaterialIds] = useState<string[]>(initial?.materialIds ?? []);
+  const [insumoIds, setInsumoIds] = useState<string[]>(initial?.insumoIds ?? []);
   const [hasRechaud, setHasRechaud] = useState(Boolean(initial?.hasRechaud));
   const [hasFritadeira, setHasFritadeira] = useState(Boolean(initial?.hasFritadeira));
   const [materialSearch, setMaterialSearch] = useState("");
+  const [insumoSearch, setInsumoSearch] = useState("");
 
   const filteredMaterials = useMemo(() => {
     const term = materialSearch.trim().toLowerCase();
@@ -287,8 +308,29 @@ function DishForm({
     );
   }, [materials, materialSearch]);
 
-  const toggle = (id: string) => {
+  const filteredInsumos = useMemo(() => {
+    const term = insumoSearch.trim().toLowerCase();
+    const list = [...insumos].sort(
+      (a, b) =>
+        a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
+    );
+    if (!term) return list;
+    return list.filter(
+      (insumo) =>
+        insumo.name.toLowerCase().includes(term) ||
+        insumo.category.toLowerCase().includes(term) ||
+        (insumo.brand ?? "").toLowerCase().includes(term),
+    );
+  }, [insumos, insumoSearch]);
+
+  const toggleMaterial = (id: string) => {
     setMaterialIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  };
+
+  const toggleInsumo = (id: string) => {
+    setInsumoIds((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     );
   };
@@ -304,7 +346,7 @@ function DishForm({
       name: name.trim(),
       category,
       materialIds,
-      insumoIds: initial?.insumoIds ?? [],
+      insumoIds,
       hasRechaud,
       hasFritadeira,
       createdAt: initial?.createdAt ?? now,
@@ -403,7 +445,7 @@ function DishForm({
                       type="checkbox"
                       className="size-4 accent-forest"
                       checked={checked}
-                      onChange={() => toggle(material.id)}
+                      onChange={() => toggleMaterial(material.id)}
                     />
                     <span className="font-list text-forest">{material.name}</span>
                   </span>
@@ -415,9 +457,63 @@ function DishForm({
         )}
       </div>
 
-      <div className="flex items-center gap-2 rounded-xl border border-forest/10 bg-forest/[0.02] p-3 text-xs font-light text-forest/55">
-        <UtensilsCrossed className="size-4 text-forest/40" />
-        Insumos (cozinha) serão vinculados quando o Cadastro de Insumos entrar no ar.
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="field-label">Insumos vinculados</p>
+          <span className="text-xs font-light text-forest/45">
+            {insumoIds.length} selecionado(s)
+          </span>
+        </div>
+        <p className="mb-2 text-xs font-light text-forest/50">
+          Usados na separação de insumos quando a lista é gerada pelo cadastro do prato (sem
+          quantidade calculada).
+        </p>
+        {insumoIds.length === 0 ? (
+          <p className="mb-2 rounded-lg bg-forest/8 px-3 py-2 text-xs text-forest/60">
+            Este prato não possui insumos vinculados.
+          </p>
+        ) : null}
+        <div className="mb-2">
+          <SearchInput
+            value={insumoSearch}
+            onChange={setInsumoSearch}
+            placeholder="Buscar insumo…"
+          />
+        </div>
+        {insumos.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+            Cadastre insumos primeiro para vinculá-los aos pratos.
+          </p>
+        ) : (
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-forest/10 p-2">
+            {filteredInsumos.map((insumo) => {
+              const checked = insumoIds.includes(insumo.id);
+              return (
+                <label
+                  key={insumo.id}
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                    checked ? "bg-forest/8" : "hover:bg-forest/[0.03]",
+                  )}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-forest"
+                      checked={checked}
+                      onChange={() => toggleInsumo(insumo.id)}
+                    />
+                    <span className="font-list text-forest">{insumo.name}</span>
+                  </span>
+                  <span className="text-xs font-light text-forest/45">
+                    {insumo.category}
+                    {insumo.unit ? ` · ${insumo.unit}` : ""}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
