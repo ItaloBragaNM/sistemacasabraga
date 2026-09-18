@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requireModule("cadastros");
+  const { user, error } = await requireModule("cadastros");
   if (error) return error;
   let payload: CadastrosData;
   try {
@@ -32,7 +32,24 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const previous = await readCadastros();
     const data = await writeCadastros(payload);
+    const { appendAudit, diffRecords, scalarChange, tagged } = await import("@/lib/auditoria/store.server");
+    await appendAudit(user, [
+      ...tagged(diffRecords(previous.dishes, data.dishes, (item) => item.name), "cadastros", "prato"),
+      ...tagged(diffRecords(previous.materials, data.materials, (item) => item.name), "cadastros", "material"),
+      ...tagged(diffRecords(previous.insumos, data.insumos, (item) => item.name), "cadastros", "insumo"),
+      ...tagged(diffRecords(previous.clientes, data.clientes, (item) => item.name), "cadastros", "cliente"),
+      ...tagged(diffRecords(previous.veiculos, data.veiculos, (item) => item.name), "cadastros", "veículo"),
+      ...tagged(diffRecords(previous.kits, data.kits, (item) => item.name), "cadastros", "kit"),
+      ...tagged(diffRecords(previous.extras, data.extras, (item) => item.name), "cadastros", "extra"),
+      ...tagged(diffRecords(previous.stockLocations, data.stockLocations, (item) => item.name), "cadastros", "local de estoque"),
+      ...tagged(diffRecords(previous.bases, data.bases, (item) => item.label), "cadastros", "base de cálculo"),
+      ...scalarChange("cadastros", "categorias do cardápio", previous.dishCategories, data.dishCategories),
+      ...scalarChange("cadastros", "categorias de materiais", previous.materialCategories, data.materialCategories),
+      ...scalarChange("cadastros", "categorias de insumos", previous.insumoCategories, data.insumoCategories),
+      ...scalarChange("cadastros", "premissas de bebidas", previous.drinkPremises, data.drinkPremises),
+    ]);
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar os cadastros", error);

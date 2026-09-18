@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requireModule("logistica");
+  const { user, error } = await requireModule("logistica");
   if (error) return error;
   let payload: LogisticaData;
   try {
@@ -29,7 +29,21 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const previous = await readLogistica();
     const data = await writeLogistica(payload);
+    const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
+    await appendAudit(user, [
+      ...tagged(
+        diffRecords(previous.movements, data.movements, (item) => item.note || item.id),
+        "logistica",
+        "movimento de estoque",
+      ),
+      ...tagged(
+        diffRecords(previous.inventories, data.inventories, (item) => item.date || item.id),
+        "logistica",
+        "inventário",
+      ),
+    ]);
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar a logística", error);

@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requireModule("cozinha");
+  const { user, error } = await requireModule("cozinha");
   if (error) return error;
   let payload: CozinhaInsumosData;
   try {
@@ -29,7 +29,17 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const previous = await readCozinhaInsumos();
     const data = await writeCozinhaInsumos(payload);
+    const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
+    await appendAudit(user, [
+      ...tagged(
+        diffRecords(previous.movements, data.movements, (item) => item.note || item.id),
+        "cozinha",
+        "movimento de insumo",
+      ),
+      ...tagged(diffRecords(previous.losses, data.losses, (item) => item.note || item.id), "cozinha", "perda"),
+    ]);
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar o estoque de insumos", error);

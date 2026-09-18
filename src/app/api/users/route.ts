@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requireModule("configuracoes");
+  const { user: actor, error } = await requireModule("configuracoes");
   if (error) return error;
 
   let body: { name?: string; username?: string; password?: string; role?: string };
@@ -40,6 +40,15 @@ export async function POST(request: Request) {
       password: body.password ?? "",
       role: body.role,
     });
+    const { appendAudit } = await import("@/lib/auditoria/store.server");
+    await appendAudit(actor, [
+      {
+        module: "configuracoes",
+        entity: "usuário",
+        action: "criar",
+        summary: `Criou usuário ${user.name} (${user.username})`,
+      },
+    ]);
     return NextResponse.json({ user }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Não foi possível cadastrar o usuário.";

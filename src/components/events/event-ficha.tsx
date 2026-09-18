@@ -33,6 +33,7 @@ import {
   normalizeGuests,
   STAFF_ROLES,
   suggestedDrinkQuantities,
+  DEFAULT_DRINK_PREMISES,
   type ExtraStaffRoleKey,
   type EventLaborAllocation,
   type EventRecord,
@@ -44,7 +45,7 @@ import {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { laborLineAmounts, rateFor } from "@/lib/mao-de-obra/calc";
-import { LABOR_FUNCTIONS, laborFunctionLabel, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
+import { LABOR_FUNCTIONS, workerFunctionKeys, workerFunctionsLabel, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
 
 type Props = {
   event: EventRecord;
@@ -71,6 +72,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const [reason, setReason] = useState("");
   const [changeAtLabel, setChangeAtLabel] = useState("");
   const [baseline, setBaseline] = useState(() => snapshotForDirty(event));
+  const drinkPremises = cadastros?.drinkPremises ?? DEFAULT_DRINK_PREMISES;
   const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
   );
@@ -100,7 +102,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       drinks:
         current.drinksAuto === false
           ? current.drinks
-          : suggestedDrinkQuantities(guestTotal(next)),
+          : suggestedDrinkQuantities(guestTotal(next), drinkPremises),
     }));
   };
 
@@ -617,7 +619,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         />
         {(maoDeObra?.workers ?? []).length === 0 ? (
           <p className="text-sm font-light text-forest/50">
-            Cadastre os prestadores em Administrativo → Mão de obra externa. Depois selecione quem vai a este evento.
+            Cadastre os prestadores em Administrativo → Mão de obra externa (com as funções que a pessoa pode exercer). Na ficha, escolha a função deste evento.
           </p>
         ) : (
           <EventLaborAllocations
@@ -712,6 +714,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       <EventDrinksFields
         drinks={draft.drinks}
         notes={draft.drinksNotes}
+        premises={drinkPremises}
         onNotesChange={(value) => update("drinksNotes", value)}
         onChange={(key, value) =>
           setDraft((current) => ({
@@ -724,7 +727,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           setDraft((current) => ({
             ...current,
             drinksAuto: true,
-            drinks: suggestedDrinkQuantities(guestTotal(current.guests)),
+            drinks: suggestedDrinkQuantities(guestTotal(current.guests), drinkPremises),
           }))
         }
       />
@@ -763,13 +766,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             value={draft.logistics.trestleTable}
             onChange={(value) =>
               update("logistics", { ...draft.logistics, trestleTable: value })
-            }
-          />
-          <YesNoField
-            label="Menu volante?"
-            value={draft.logistics.flyingMenu}
-            onChange={(value) =>
-              update("logistics", { ...draft.logistics, flyingMenu: value })
             }
           />
           <YesNoField
@@ -912,7 +908,11 @@ function EventLaborAllocations({
     <div className="space-y-3">
       {allocations.map((row) => {
         const worker = workerById.get(row.workerId);
-        const functionKey = row.functionKey || worker?.functionKey || "";
+        const allowed = worker ? workerFunctionKeys(worker) : [];
+        const functionOptions = allowed.length
+          ? LABOR_FUNCTIONS.filter((role) => allowed.includes(role.key))
+          : LABOR_FUNCTIONS;
+        const functionKey = row.functionKey || allowed[0] || "";
         const amounts = laborLineAmounts(row, rateFor(rates, functionKey), outOfTown);
         return (
           <div key={row.workerId} className="rounded-xl border border-forest/10 p-3">
@@ -934,7 +934,7 @@ function EventLaborAllocations({
               </button>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
-              <Field label="Função" className="sm:col-span-2">
+              <Field label="Função neste evento" className="sm:col-span-2">
                 <select
                   className={fieldControlClass}
                   value={functionKey}
@@ -946,7 +946,7 @@ function EventLaborAllocations({
                     )
                   }
                 >
-                  {LABOR_FUNCTIONS.map((role) => (
+                  {functionOptions.map((role) => (
                     <option key={role.key} value={role.key}>
                       {role.label}
                     </option>
@@ -1021,7 +1021,7 @@ function EventLaborAllocations({
               {
                 id: worker.id,
                 workerId: worker.id,
-                functionKey: worker.functionKey,
+                functionKey: workerFunctionKeys(worker)[0] || "",
                 overtime: false,
                 overtimeHours: 0,
                 applyAllowance: true,
@@ -1032,7 +1032,7 @@ function EventLaborAllocations({
           <option value="">Selecionar prestador…</option>
           {available.map((worker) => (
             <option key={worker.id} value={worker.id}>
-              {worker.name} · {laborFunctionLabel(worker.functionKey)}
+              {worker.name} · {workerFunctionsLabel(worker)}
             </option>
           ))}
         </select>

@@ -11,13 +11,28 @@ export function laborFunctionLabel(key: string) {
   return LABOR_FUNCTIONS.find((role) => role.key === key)?.label ?? extraStaffLabel(key);
 }
 
+export function workerFunctionKeys(worker: Pick<ExternalWorker, "functionKey" | "functionKeys">): string[] {
+  if (Array.isArray(worker.functionKeys) && worker.functionKeys.length > 0) {
+    return [...new Set(worker.functionKeys.filter(Boolean))];
+  }
+  return worker.functionKey ? [worker.functionKey] : [];
+}
+
+export function workerFunctionsLabel(worker: Pick<ExternalWorker, "functionKey" | "functionKeys">) {
+  const keys = workerFunctionKeys(worker);
+  return keys.length ? keys.map(laborFunctionLabel).join(", ") : "Sem função cadastrada";
+}
+
 export interface ExternalWorker {
   id: string;
   name: string;
   cpf: string;
   pix: string;
   bankAccount: string;
+  /** @deprecated Use functionKeys. Kept for registros antigos. */
   functionKey: string;
+  /** Funções que o prestador pode exercer. A função do evento é escolhida na ficha. */
+  functionKeys: string[];
   notes: string;
   createdAt: string;
   updatedAt: string;

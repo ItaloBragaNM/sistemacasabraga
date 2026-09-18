@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requireModule("cozinha");
+  const { user, error } = await requireModule("cozinha");
   if (error) return error;
   let payload: FichasTecnicasData;
   try {
@@ -29,7 +29,13 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const previous = await readFichasTecnicas();
     const data = await writeFichasTecnicas(payload);
+    const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
+    await appendAudit(
+      user,
+      tagged(diffRecords(previous.sheets, data.sheets, (item) => item.name), "cozinha", "ficha técnica"),
+    );
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar as fichas técnicas", error);

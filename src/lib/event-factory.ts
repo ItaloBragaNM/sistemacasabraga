@@ -138,7 +138,11 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     logisticsNotes: typeof partial.logisticsNotes === "string" ? partial.logisticsNotes : "",
     menu: emptyMenu(partial.menu),
     drinksAuto,
-    drinks: drinksAuto ? suggestedDrinkQuantities(guestTotal(guests)) : drinks,
+    drinks: drinksAuto && !partial.drinks
+      ? suggestedDrinkQuantities(guestTotal(guests))
+      : drinksAuto
+        ? normalizeDrinks(partial.drinks)
+        : drinks,
     uniforms: {
       dolma: { ...uniforms.dolma, ...partial.uniforms?.dolma },
       bata: { ...uniforms.bata, ...partial.uniforms?.bata },

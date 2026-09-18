@@ -255,14 +255,63 @@ function countLabel(n: number, singular: string, plural: string) {
   return `${n} ${n === 1 ? singular : plural}`;
 }
 
+/** Premissas do cálculo automático de bebidas (editáveis em Configurações). */
+export interface DrinkPremises {
+  aguaGuestsPerCarboy: number;
+  aguaCarboyLiters: number;
+  refrigeranteMlPerPerson: number;
+  refrigeranteBottleMl: number;
+  sucoMlPerPerson: number;
+}
+
+export const DEFAULT_DRINK_PREMISES: DrinkPremises = {
+  aguaGuestsPerCarboy: 50,
+  aguaCarboyLiters: 20,
+  refrigeranteMlPerPerson: 400,
+  refrigeranteBottleMl: 2000,
+  sucoMlPerPerson: 200,
+};
+
+export function normalizeDrinkPremises(input: unknown): DrinkPremises {
+  const src = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  const num = (key: keyof DrinkPremises, fallback: number) => {
+    const parsed = Number(src[key]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+  return {
+    aguaGuestsPerCarboy: num("aguaGuestsPerCarboy", DEFAULT_DRINK_PREMISES.aguaGuestsPerCarboy),
+    aguaCarboyLiters: num("aguaCarboyLiters", DEFAULT_DRINK_PREMISES.aguaCarboyLiters),
+    refrigeranteMlPerPerson: num(
+      "refrigeranteMlPerPerson",
+      DEFAULT_DRINK_PREMISES.refrigeranteMlPerPerson,
+    ),
+    refrigeranteBottleMl: num("refrigeranteBottleMl", DEFAULT_DRINK_PREMISES.refrigeranteBottleMl),
+    sucoMlPerPerson: num("sucoMlPerPerson", DEFAULT_DRINK_PREMISES.sucoMlPerPerson),
+  };
+}
+
+export function drinkPremisesHint(premises: DrinkPremises = DEFAULT_DRINK_PREMISES): string {
+  const bottleL = premises.refrigeranteBottleMl / 1000;
+  const bottleLabel = Number.isInteger(bottleL) ? String(bottleL) : bottleL.toFixed(1).replace(".", ",");
+  return `Água: 1 garrafão de ${premises.aguaCarboyLiters} L a cada ${premises.aguaGuestsPerCarboy} convidados · Refrigerante: ${premises.refrigeranteMlPerPerson} ml por pessoa, em garrafas de ${bottleLabel} L · Suco: ${premises.sucoMlPerPerson} ml por pessoa, em litros.`;
+}
+
 /** Bebidas da logística a partir do total de convidados (a servir). */
-export function suggestedDrinkQuantities(guests: number): DrinkQuantities {
+export function suggestedDrinkQuantities(
+  guests: number,
+  premises: DrinkPremises = DEFAULT_DRINK_PREMISES,
+): DrinkQuantities {
   const n = Math.max(0, Math.floor(Number(guests)) || 0);
   if (n <= 0) return emptyDrinks();
+  const rules = normalizeDrinkPremises(premises);
+  const bottleMl = rules.refrigeranteBottleMl || 2000;
   return {
-    agua: `${countLabel(Math.ceil(n / 50), "garrafão", "garrafões")} de 20 L`,
-    refrigerante: `${countLabel(Math.ceil((n * 450) / 2000), "garrafa", "garrafas")} de 2 L`,
-    suco: `${Math.ceil((n * 200) / 1000)} L`,
+    agua: `${countLabel(Math.ceil(n / rules.aguaGuestsPerCarboy), "garrafão", "garrafões")} de ${rules.aguaCarboyLiters} L`,
+    refrigerante: `${countLabel(Math.ceil((n * rules.refrigeranteMlPerPerson) / bottleMl), "garrafa", "garrafas")} de ${bottleMl / 1000} L`.replace(
+      ".0 L",
+      " L",
+    ),
+    suco: `${Math.ceil((n * rules.sucoMlPerPerson) / 1000)} L`,
   };
 }
 
@@ -270,9 +319,10 @@ export function syncDrinksToGuests(
   drinks: DrinkQuantities,
   previousGuests: number,
   nextGuests: number,
+  premises: DrinkPremises = DEFAULT_DRINK_PREMISES,
 ): DrinkQuantities {
-  const previous = suggestedDrinkQuantities(previousGuests);
-  const next = suggestedDrinkQuantities(nextGuests);
+  const previous = suggestedDrinkQuantities(previousGuests, premises);
+  const next = suggestedDrinkQuantities(nextGuests, premises);
   const current = normalizeDrinks(drinks);
   const result = emptyDrinks();
   for (const item of DRINK_ITEMS) {
@@ -576,9 +626,7 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     materialPickupDate: normalizeIsoDate(event.materialPickupDate),
     foodDeliveryDate: normalizeIsoDate(event.foodDeliveryDate),
     drinksAuto,
-    drinks: drinksAuto
-      ? suggestedDrinkQuantities(guestTotal(guests))
-      : normalizeDrinks(event.drinks),
+    drinks: normalizeDrinks(event.drinks),
     changeLog: normalizeChangeLog(event.changeLog),
   };
 }

@@ -1,4 +1,4 @@
-import { MENU_SECTIONS } from "@/lib/types";
+import { DEFAULT_DRINK_PREMISES, MENU_SECTIONS } from "@/lib/types";
 import type {
   CadastrosData,
   CalcBase,
@@ -295,5 +295,6 @@ export function defaultCadastros(): CadastrosData {
     kits: [],
     extras: structuredClone(DEFAULT_EXTRAS),
     stockLocations: [],
+    drinkPremises: { ...DEFAULT_DRINK_PREMISES },
   };
 }

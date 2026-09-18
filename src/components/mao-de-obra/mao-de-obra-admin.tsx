@@ -8,7 +8,7 @@ import { fieldControlClass, Field } from "@/components/events/field";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button } from "@/components/ui/button";
 import { uid } from "@/lib/event-factory";
-import { LABOR_FUNCTIONS, laborFunctionLabel, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
+import { LABOR_FUNCTIONS, laborFunctionLabel, workerFunctionKeys, workerFunctionsLabel, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
 import { cn } from "@/lib/utils";
 
 export function MaoDeObraAdmin() {
@@ -25,7 +25,8 @@ export function MaoDeObraAdmin() {
       (item) =>
         item.name.toLowerCase().includes(term) ||
         item.cpf.toLowerCase().includes(term) ||
-        laborFunctionLabel(item.functionKey).toLowerCase().includes(term),
+        laborFunctionLabel(item.functionKey).toLowerCase().includes(term) ||
+        workerFunctionsLabel(item).toLowerCase().includes(term),
     );
   }, [data?.workers, search]);
 
@@ -36,7 +37,7 @@ export function MaoDeObraAdmin() {
       <CadastrosHeader
         eyebrow="Administrativo"
         title="Mão de obra externa"
-        description="Cadastro único de prestadores e tabela de valores por função. Na ficha do evento, a pessoa só é selecionada."
+        description="Cadastre prestadores e as funções que cada um pode exercer. Na ficha do evento, escolha a função daquele dia."
         action={
           <Button
             className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
@@ -150,7 +151,7 @@ export function MaoDeObraAdmin() {
                     <tr className="border-b border-forest/10">
                       <th className="field-label py-3 pl-5 font-normal">Nome</th>
                       <th className="field-label py-3 font-normal">CPF</th>
-                      <th className="field-label py-3 font-normal">Função</th>
+                      <th className="field-label py-3 font-normal">Funções</th>
                       <th className="field-label py-3 font-normal">PIX / conta</th>
                       <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
                     </tr>
@@ -160,7 +161,7 @@ export function MaoDeObraAdmin() {
                       <tr key={item.id} className="border-b border-forest/5 last:border-0">
                         <td className="py-3 pl-5 font-list font-medium text-forest">{item.name}</td>
                         <td className="py-3 font-mono text-forest/70">{item.cpf || "—"}</td>
-                        <td className="py-3 text-forest/70">{laborFunctionLabel(item.functionKey)}</td>
+                        <td className="py-3 text-forest/70">{workerFunctionsLabel(item)}</td>
                         <td className="py-3 text-forest/70">{item.pix || item.bankAccount || "—"}</td>
                         <td className="py-3 pr-5 text-right">
                           <button
@@ -226,7 +227,9 @@ function WorkerForm({
   const [cpf, setCpf] = useState(initial?.cpf ?? "");
   const [pix, setPix] = useState(initial?.pix ?? "");
   const [bankAccount, setBankAccount] = useState(initial?.bankAccount ?? "");
-  const [functionKey, setFunctionKey] = useState(initial?.functionKey || LABOR_FUNCTIONS[0]?.key || "garcons");
+  const [functionKeys, setFunctionKeys] = useState<string[]>(
+    workerFunctionKeys(initial ?? { functionKey: LABOR_FUNCTIONS[0]?.key || "garcons", functionKeys: [] }),
+  );
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
   return (
@@ -238,18 +241,35 @@ function WorkerForm({
         <Field label="CPF">
           <input className={fieldControlClass} value={cpf} onChange={(event) => setCpf(event.target.value)} />
         </Field>
-        <Field label="Função">
-          <select
-            className={fieldControlClass}
-            value={functionKey}
-            onChange={(event) => setFunctionKey(event.target.value)}
-          >
-            {LABOR_FUNCTIONS.map((role) => (
-              <option key={role.key} value={role.key}>
-                {role.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Funções que pode exercer" className="sm:col-span-2">
+          <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-forest/10 p-2">
+            {LABOR_FUNCTIONS.map((role) => {
+              const checked = functionKeys.includes(role.key);
+              return (
+                <label
+                  key={role.key}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm",
+                    checked ? "bg-forest/8" : "hover:bg-forest/[0.03]",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-forest"
+                    checked={checked}
+                    onChange={() =>
+                      setFunctionKeys((current) =>
+                        current.includes(role.key)
+                          ? current.filter((key) => key !== role.key)
+                          : [...current, role.key],
+                      )
+                    }
+                  />
+                  {role.label}
+                </label>
+              );
+            })}
+          </div>
         </Field>
         <Field label="PIX">
           <input className={fieldControlClass} value={pix} onChange={(event) => setPix(event.target.value)} />
@@ -276,6 +296,10 @@ function WorkerForm({
               toast.error("Informe o nome.");
               return;
             }
+            if (!functionKeys.length) {
+              toast.error("Selecione ao menos uma função.");
+              return;
+            }
             const stamp = new Date().toISOString();
             onSubmit({
               id: initial?.id ?? uid(),
@@ -283,7 +307,8 @@ function WorkerForm({
               cpf: cpf.trim(),
               pix: pix.trim(),
               bankAccount: bankAccount.trim(),
-              functionKey,
+              functionKey: functionKeys[0],
+              functionKeys,
               notes: notes.trim(),
               createdAt: initial?.createdAt ?? stamp,
               updatedAt: stamp,

@@ -7,7 +7,6 @@ import {
   DRINK_ITEMS,
   formatUniformSizeLine,
   guestTotal,
-  suggestedDrinkQuantities,
   uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
@@ -228,21 +227,15 @@ function SeparationDocument({
         ) : null}
 
         <Text style={styles.sectionTitle}>Bebidas</Text>
-        {DRINK_ITEMS.map((drink) => {
-          const drinks =
-            event.drinksAuto === false
-              ? event.drinks
-              : suggestedDrinkQuantities(guestTotal(event.guests));
-          return (
+        {DRINK_ITEMS.map((drink) => (
             <View key={drink.key} style={styles.row}>
               <Text style={styles.check}>{"\u2610"}</Text>
               <Text style={styles.name}>{drink.label}</Text>
-              <Text style={styles.qty}>{drinks[drink.key] || "—"}</Text>
+              <Text style={styles.qty}>{event.drinks[drink.key] || "—"}</Text>
               <Text style={styles.unit} />
               <Text style={styles.note} />
             </View>
-          );
-        })}
+        ))}
 
         {uniforms.length > 0 ? (
           <>

@@ -53,7 +53,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
   const [cursor, setCursor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("mes");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<string>("todos");
+  const [statuses, setStatuses] = useState<string[]>([]);
   const [type, setType] = useState<string>("todos");
 
   const filtered = useMemo(() => {
@@ -61,11 +61,11 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
       const clientName = event.clientId ? (clientNames.get(event.clientId) ?? "") : "";
       const hay = `${event.title} ${event.code} ${event.venue.name} ${event.venue.address} ${clientName}`.toLowerCase();
       const matchesQuery = hay.includes(query.trim().toLowerCase());
-      const matchesStatus = status === "todos" || event.status === status;
+      const matchesStatus = statuses.length === 0 || statuses.includes(event.status);
       const matchesType = type === "todos" || event.type === type;
       return matchesQuery && matchesStatus && matchesType;
     });
-  }, [events, query, status, type, clientNames]);
+  }, [events, query, statuses, type, clientNames]);
 
   const days = view === "mes" ? monthGrid(cursor) : weekDays(cursor);
   const listDays = useMemo(() => {
@@ -120,18 +120,38 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           placeholder="Buscar por nome, cliente ou código"
           className="h-10 flex-1 border-forest/15 bg-cream"
         />
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          className="h-10 rounded-lg border border-forest/15 bg-cream px-3 text-sm"
-        >
-          <option value="todos">Todos os status</option>
-          {EVENT_STATUSES.map((item) => (
-            <option key={item} value={item}>
-              {EVENT_STATUS_LABELS[item]}
-            </option>
-          ))}
-        </select>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-sm",
+              statuses.length === 0 ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
+            )}
+            onClick={() => setStatuses([])}
+          >
+            Todos os status
+          </button>
+          {EVENT_STATUSES.map((item) => {
+            const active = statuses.includes(item);
+            return (
+              <button
+                key={item}
+                type="button"
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-sm",
+                  active ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
+                )}
+                onClick={() =>
+                  setStatuses((current) =>
+                    current.includes(item) ? current.filter((status) => status !== item) : [...current, item],
+                  )
+                }
+              >
+                {EVENT_STATUS_LABELS[item]}
+              </button>
+            );
+          })}
+        </div>
         <select
           value={type}
           onChange={(event) => setType(event.target.value)}

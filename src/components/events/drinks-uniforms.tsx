@@ -4,9 +4,12 @@ import { fieldControlClass, Field, SectionTitle } from "@/components/events/fiel
 import { UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   DRINK_ITEMS,
+  drinkPremisesHint,
+  DEFAULT_DRINK_PREMISES,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
   type DrinkKey,
+  type DrinkPremises,
   type DrinkQuantities,
   type UniformPieceKey,
   type UniformSize,
@@ -19,12 +22,14 @@ export function EventDrinksFields({
   onNotesChange,
   onChange,
   onRecalculate,
+  premises,
 }: {
   drinks: DrinkQuantities;
   notes: string;
   onNotesChange: (value: string) => void;
   onChange: (key: DrinkKey, value: string) => void;
   onRecalculate: () => void;
+  premises?: DrinkPremises;
 }) {
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
@@ -52,8 +57,7 @@ export function EventDrinksFields({
         />
       </Field>
       <p className="mt-3 text-xs font-light text-forest/50">
-        Água: 1 garrafão de 20 L a cada 50 convidados · Refrigerante: 450 ml por pessoa, em
-        garrafas de 2 L · Suco: 200 ml por pessoa, em litros.
+        {drinkPremisesHint(premises ?? DEFAULT_DRINK_PREMISES)}
       </p>
       <button
         type="button"

@@ -1,6 +1,7 @@
 import type { EventLaborAllocation } from "@/lib/types";
 import {
   laborFunctionLabel,
+  workerFunctionKeys,
   type ExternalWorker,
   type LaborPayment,
   type LaborRate,
@@ -47,7 +48,7 @@ export function paymentFromAllocation(input: {
   rates: LaborRate[];
   previous?: LaborPayment | null;
 }): LaborPayment {
-  const rate = rateFor(input.rates, input.allocation.functionKey || input.worker.functionKey);
+  const rate = rateFor(input.rates, input.allocation.functionKey || workerFunctionKeys(input.worker)[0] || "");
   const amounts = laborLineAmounts(
     { ...input.allocation, functionKey: rate.functionKey },
     rate,

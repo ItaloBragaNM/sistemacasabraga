@@ -13,7 +13,7 @@ import {
 import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
-import { dishSheetLinks, insumoListFromDishes, insumoNeedsForEvent } from "@/lib/cozinha/calc";
+import { dishSheetLinks, insumoListGroupedByDish, insumoNeedsGroupedByDish } from "@/lib/cozinha/calc";
 import { formatBRL, formatDecimal } from "@/lib/crm/format";
 import { formatLongDate } from "@/lib/dates";
 import { guestTotal } from "@/lib/types";
@@ -47,9 +47,9 @@ export function SeparacaoInsumos() {
     return dishSheetLinks(selectedDishIds, cadastros.dishes, fichas.sheets);
   }, [event, cadastros, fichas, selectedDishIds]);
 
-  const catalogLines = useMemo(() => {
+  const catalogGroups = useMemo(() => {
     if (!event || !cadastros) return [];
-    return insumoListFromDishes(selectedDishIds, cadastros.dishes, cadastros.insumos);
+    return insumoListGroupedByDish(selectedDishIds, cadastros.dishes, cadastros.insumos);
   }, [event, cadastros, selectedDishIds]);
 
   const dishesWithoutSheet = useMemo(() => {
@@ -73,21 +73,24 @@ export function SeparacaoInsumos() {
     setNotes("");
   };
 
-  const needs = useMemo(() => {
+  const groups = useMemo(() => {
     if (!event || !cadastros) return [];
-    return insumoNeedsForEvent({ links, portions, defaultPortions, insumos: cadastros.insumos });
+    return insumoNeedsGroupedByDish({ links, portions, defaultPortions, insumos: cadastros.insumos });
   }, [event, cadastros, links, portions, defaultPortions]);
 
-  const totalCost = needs.reduce((sum, need) => sum + need.totalCost, 0);
+  const totalCost = groups.reduce(
+    (sum, group) => sum + group.items.reduce((inner, need) => inner + need.totalCost, 0),
+    0,
+  );
 
   const exportPdf = async () => {
     if (!event) return;
     try {
       setWorking(true);
       if (source === "cadastro") {
-        await downloadCatalogSeparationPdf(event, catalogLines, notes);
+        await downloadCatalogSeparationPdf(event, catalogGroups, notes);
       } else {
-        await downloadInsumoSeparationPdf(event, needs, notes);
+        await downloadInsumoSeparationPdf(event, groups, notes);
       }
       toast.success("PDF de separação baixado.");
     } catch (error) {
@@ -98,7 +101,7 @@ export function SeparacaoInsumos() {
     }
   };
 
-  const canExport = source === "ficha" ? needs.length > 0 : catalogLines.length > 0;
+  const canExport = source === "ficha" ? groups.length > 0 : catalogGroups.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
@@ -165,7 +168,7 @@ export function SeparacaoInsumos() {
                   : "Selecione pratos do catálogo na ficha do evento e crie as fichas técnicas correspondentes."
               }
             />
-          ) : source === "cadastro" && catalogLines.length === 0 ? (
+          ) : source === "cadastro" && catalogGroups.length === 0 ? (
             <EmptyBlock
               title="Nenhum insumo no cadastro dos pratos"
               description={
@@ -234,62 +237,72 @@ export function SeparacaoInsumos() {
                   </Button>
                 </div>
                 {source === "ficha" ? (
-                  needs.length === 0 ? (
+                  groups.length === 0 ? (
                     <p className="text-sm font-light text-forest/50">
                       As fichas destes pratos ainda não têm ingredientes cadastrados.
                     </p>
                   ) : (
-                    <div className="overflow-hidden rounded-xl border border-forest/10">
-                      <table className="w-full text-left text-sm">
-                        <thead>
-                          <tr className="border-b border-forest/10">
-                            <th className="field-label py-2 pl-4 font-normal">Insumo</th>
-                            <th className="field-label py-2 font-normal">Pratos</th>
-                            <th className="field-label py-2 text-right font-normal">Quantidade</th>
-                            <th className="field-label py-2 pr-4 text-right font-normal">Custo</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {needs.map((need) => (
-                            <tr key={need.key} className="border-b border-forest/5 last:border-0">
-                              <td className="py-2 pl-4 font-list text-forest">{need.name}</td>
-                              <td className="py-2 text-xs font-light text-forest/45">{need.dishes.join(", ")}</td>
-                              <td className="py-2 text-right tabular-nums text-forest/80">
-                                {formatDecimal(need.quantity, 2)} {need.unit}
-                              </td>
-                              <td className="py-2 pr-4 text-right text-forest/60">{formatBRL(need.totalCost)}</td>
-                            </tr>
-                          ))}
-                          <tr className="bg-forest/[0.03]">
-                            <td className="py-2 pl-4 font-medium text-forest" colSpan={3}>
-                              Custo estimado total
-                            </td>
-                            <td className="py-2 pr-4 text-right font-medium text-forest">{formatBRL(totalCost)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="space-y-5">
+                      {groups.map((group) => (
+                        <div key={group.dishId} className="overflow-hidden rounded-xl border border-forest/10">
+                          <p className="border-b border-forest/10 bg-forest/[0.03] px-4 py-2 font-list text-sm font-medium text-forest">
+                            {group.dishName}
+                            <span className="ml-2 text-xs font-light text-forest/45">
+                              {formatDecimal(group.portions, 0)} porções
+                            </span>
+                          </p>
+                          <table className="w-full text-left text-sm">
+                            <thead>
+                              <tr className="border-b border-forest/10">
+                                <th className="field-label py-2 pl-4 font-normal">Insumo</th>
+                                <th className="field-label py-2 text-right font-normal">Quantidade</th>
+                                <th className="field-label py-2 pr-4 text-right font-normal">Custo</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.items.map((need) => (
+                                <tr key={need.key} className="border-b border-forest/5 last:border-0">
+                                  <td className="py-2 pl-4 font-list text-forest">{need.name}</td>
+                                  <td className="py-2 text-right tabular-nums text-forest/80">
+                                    {formatDecimal(need.quantity, 2)} {need.unit}
+                                  </td>
+                                  <td className="py-2 pr-4 text-right text-forest/60">{formatBRL(need.totalCost)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                      <p className="text-right text-sm font-medium text-forest">
+                        Custo estimado total {formatBRL(totalCost)}
+                      </p>
                     </div>
                   )
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-forest/10">
-                    <table className="w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-forest/10">
-                          <th className="field-label py-2 pl-4 font-normal">Insumo</th>
-                          <th className="field-label py-2 font-normal">Unidade</th>
-                          <th className="field-label py-2 pr-4 font-normal">Pratos vinculados</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {catalogLines.map((line) => (
-                          <tr key={line.insumoId} className="border-b border-forest/5 last:border-0">
-                            <td className="py-2 pl-4 font-list text-forest">{line.name}</td>
-                            <td className="py-2 text-forest/60">{line.unit}</td>
-                            <td className="py-2 pr-4 text-xs font-light text-forest/45">{line.dishes.join(", ")}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-5">
+                    {catalogGroups.map((group) => (
+                      <div key={group.dishId} className="overflow-hidden rounded-xl border border-forest/10">
+                        <p className="border-b border-forest/10 bg-forest/[0.03] px-4 py-2 font-list text-sm font-medium text-forest">
+                          {group.dishName}
+                        </p>
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-forest/10">
+                              <th className="field-label py-2 pl-4 font-normal">Insumo</th>
+                              <th className="field-label py-2 pr-4 font-normal">Unidade</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.items.map((line) => (
+                              <tr key={line.insumoId} className="border-b border-forest/5 last:border-0">
+                                <td className="py-2 pl-4 font-list text-forest">{line.name}</td>
+                                <td className="py-2 pr-4 text-forest/60">{line.unit}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
                   </div>
                 )}
                 <Field label="Observações para a cozinha" className="mt-4">

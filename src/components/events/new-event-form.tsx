@@ -13,7 +13,7 @@ import { fieldControlClass, Field } from "@/components/events/field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { casaBragaVenue } from "@/lib/event-factory";
 import { EVENT_TYPE_LABELS } from "@/lib/labels";
-import { EVENT_TYPES, type EventType } from "@/lib/types";
+import { DEFAULT_DRINK_PREMISES, EVENT_TYPES, guestTotal, suggestedDrinkQuantities, type EventType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function NewEventForm() {
@@ -50,13 +50,16 @@ export function NewEventForm() {
         }
         try {
           setSaving(true);
+          const guests = { adults, children: 0, children0to5: 0, children5to10: 0, professionals: 0 };
           const created = create({
             title: title.trim(),
             date,
             type,
             clientId,
             status: "rascunho",
-            guests: { adults, children: 0, children0to5: 0, children5to10: 0, professionals: 0 },
+            guests,
+            drinksAuto: true,
+            drinks: suggestedDrinkQuantities(guestTotal(guests), cadastros?.drinkPremises ?? DEFAULT_DRINK_PREMISES),
             venue: { ...casaBragaVenue(), address },
           });
           toast.success("Ficha criada. Complete os demais campos.");

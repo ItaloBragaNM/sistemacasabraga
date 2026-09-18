@@ -8,6 +8,7 @@ import { CadastrosHeader, Chip, ChipRow, LoadingBlock } from "@/components/cadas
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import type { BaseKind, CalcBase } from "@/lib/cadastros/types";
+import { drinkPremisesHint, DEFAULT_DRINK_PREMISES, type DrinkPremises } from "@/lib/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
@@ -53,12 +54,13 @@ export function ConfiguracoesAdmin() {
       <CadastrosHeader
         eyebrow="Configurações do Sistema"
         title="Configurações do Módulo de Cadastros"
-        description="Ajuste as categorias do cardápio, de materiais e de insumos, os locais do estoque e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
+        description="Ajuste as premissas de bebidas, as categorias do cardápio, de materiais e de insumos, os locais do estoque e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
       />
       {!ready ? (
         <LoadingBlock />
       ) : !data ? null : (
         <>
+          <DrinkPremisesSection />
           <DishCategoriesSection />
           <MaterialCategoriesSection />
           <InsumoCategoriesSection />
@@ -67,6 +69,72 @@ export function ConfiguracoesAdmin() {
         </>
       )}
     </div>
+  );
+}
+
+function DrinkPremisesSection() {
+  const { data, setDrinkPremises } = useCadastros();
+  if (!data) return null;
+  const premises = data.drinkPremises ?? DEFAULT_DRINK_PREMISES;
+  const patch = (key: keyof DrinkPremises, value: number) => {
+    setDrinkPremises({ ...premises, [key]: value > 0 ? value : premises[key] });
+  };
+  return (
+    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+      <h2 className="font-section text-[0.82rem] text-forest">Premissas de bebidas</h2>
+      <p className="mt-1 text-xs font-light text-forest/50">
+        Usadas no cálculo automático da ficha do evento e da separação de materiais. Ajuste
+        manual na ficha continua possível.
+      </p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Field label="Água — convidados por garrafão">
+          <input
+            type="number"
+            min={1}
+            className={fieldControlClass}
+            value={premises.aguaGuestsPerCarboy}
+            onChange={(event) => patch("aguaGuestsPerCarboy", Number(event.target.value))}
+          />
+        </Field>
+        <Field label="Água — litros do garrafão">
+          <input
+            type="number"
+            min={1}
+            className={fieldControlClass}
+            value={premises.aguaCarboyLiters}
+            onChange={(event) => patch("aguaCarboyLiters", Number(event.target.value))}
+          />
+        </Field>
+        <Field label="Refrigerante — ml por pessoa">
+          <input
+            type="number"
+            min={1}
+            className={fieldControlClass}
+            value={premises.refrigeranteMlPerPerson}
+            onChange={(event) => patch("refrigeranteMlPerPerson", Number(event.target.value))}
+          />
+        </Field>
+        <Field label="Refrigerante — ml da garrafa">
+          <input
+            type="number"
+            min={1}
+            className={fieldControlClass}
+            value={premises.refrigeranteBottleMl}
+            onChange={(event) => patch("refrigeranteBottleMl", Number(event.target.value))}
+          />
+        </Field>
+        <Field label="Suco — ml por pessoa" className="sm:col-span-2">
+          <input
+            type="number"
+            min={1}
+            className={fieldControlClass}
+            value={premises.sucoMlPerPerson}
+            onChange={(event) => patch("sucoMlPerPerson", Number(event.target.value))}
+          />
+        </Field>
+      </div>
+      <p className="mt-3 text-xs font-light text-forest/50">{drinkPremisesHint(premises)}</p>
+    </section>
   );
 }
 

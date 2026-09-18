@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   itemName: { flex: 3, fontSize: 10 },
-  itemQty: { flex: 1, fontSize: 10, textAlign: "right" },
+  itemQty: { width: 72, fontSize: 10 },
   itemNotes: { flex: 2, fontSize: 9, color: colors.muted, textAlign: "right" },
   note: { fontSize: 10, lineHeight: 1.4 },
   footer: {
@@ -172,7 +172,6 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
             label="Local"
             value={`Cozinha ${flag(event.logistics.hasKitchen)} · Forno ${flag(event.logistics.hasOven)} · Freezer ${flag(event.logistics.hasFreezer)} · Micro ${flag(event.logistics.hasMicrowave)}`}
           />
-          <Meta label="Menu volante" value={flag(event.logistics.flyingMenu)} />
         </View>
 
         {event.dietaryNotes ? (
@@ -188,10 +187,21 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           return (
             <View key={section.key}>
               <Text style={styles.sectionTitle}>{section.label}</Text>
+              <View style={styles.item}>
+                <Text style={[styles.itemQty, { fontSize: 7, letterSpacing: 0.6, textTransform: "uppercase", color: colors.muted }]}>
+                  Per capita
+                </Text>
+                <Text style={[styles.itemName, { fontSize: 7, letterSpacing: 0.6, textTransform: "uppercase", color: colors.muted }]}>
+                  Prato
+                </Text>
+                <Text style={[styles.itemNotes, { fontSize: 7, letterSpacing: 0.6, textTransform: "uppercase" }]}>
+                  Obs
+                </Text>
+              </View>
               {items.map((item) => (
                 <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemName}>{item.name}</Text>
                   <Text style={styles.itemQty}>{item.quantity}</Text>
+                  <Text style={styles.itemName}>{item.name}</Text>
                   <Text style={styles.itemNotes}>{item.notes}</Text>
                 </View>
               ))}

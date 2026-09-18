@@ -44,6 +44,7 @@ import {
   guestTotal,
   normalizeMaterialSeparation,
   suggestedDrinkQuantities,
+  DEFAULT_DRINK_PREMISES,
   type DrinkKey,
   type EventRecord,
   type MaterialSeparationOverride,
@@ -359,10 +360,11 @@ function SeparationEditor({
   const ruptureIds = useMemo(() => new Set(ruptureById.keys()), [ruptureById]);
   const allocWindow = allocationWindow(liveEvent);
 
+  const drinkPremises = cadastros?.drinkPremises ?? DEFAULT_DRINK_PREMISES;
   const drinks =
     event.drinksAuto === false
       ? event.drinks
-      : suggestedDrinkQuantities(guestTotal(event.guests));
+      : suggestedDrinkQuantities(guestTotal(event.guests), drinkPremises);
 
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = [];
@@ -818,6 +820,7 @@ function SeparationEditor({
       <EventDrinksFields
         drinks={drinks}
         notes={event.drinksNotes ?? ""}
+        premises={drinkPremises}
         onNotesChange={(value) => persistEvent({ drinksNotes: value })}
         onChange={(key: DrinkKey, value: string) =>
           persistEvent({
@@ -828,7 +831,7 @@ function SeparationEditor({
         onRecalculate={() =>
           persistEvent({
             drinksAuto: true,
-            drinks: suggestedDrinkQuantities(guestTotal(event.guests)),
+            drinks: suggestedDrinkQuantities(guestTotal(event.guests), drinkPremises),
           })
         }
       />

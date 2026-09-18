@@ -110,6 +110,10 @@ export const APP_MODULES: AppModule[] = [
         href: "/configuracoes/usuarios",
         label: "Cadastro de Usuários",
       },
+      {
+        href: "/configuracoes/movimentacoes",
+        label: "Registro de Movimentações",
+      },
     ],
   },
 ];

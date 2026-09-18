@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requireModule("eventos");
+  const { user, error } = await requireModule("eventos");
   if (error) return error;
   let payload: unknown;
   try {
@@ -42,12 +42,25 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const previous = await readEventos();
     const data = await writeEventos(list as EventRecord[]);
     try {
       await syncLaborPaymentsFromEvents(data);
     } catch (error) {
       console.error("Falha ao sincronizar pagamentos de mão de obra", error);
     }
+    const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
+    await appendAudit(
+      user,
+      tagged(
+        diffRecords(previous, data, (event) => `${event.code} ${event.title || "sem nome"}`, (event) => {
+          const { changeLog: _changeLog, updatedAt: _updatedAt, ...rest } = event;
+          return rest;
+        }),
+        "eventos",
+        "evento",
+      ),
+    );
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar os eventos", error);

@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requireModule("administrativo");
+  const { user, error } = await requireModule("administrativo");
   if (error) return error;
   let payload: MaoDeObraData;
   try {
@@ -29,7 +29,18 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const previous = await readMaoDeObra();
     const data = await writeMaoDeObra(payload);
+    const { appendAudit, diffRecords, scalarChange, tagged } = await import("@/lib/auditoria/store.server");
+    await appendAudit(user, [
+      ...tagged(diffRecords(previous.workers, data.workers, (item) => item.name), "administrativo", "prestador"),
+      ...tagged(
+        diffRecords(previous.payments, data.payments, (item) => `${item.workerName} · ${item.eventCode}`),
+        "administrativo",
+        "pagamento",
+      ),
+      ...scalarChange("administrativo", "tabela de valores", previous.rates, data.rates),
+    ]);
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar a mão de obra", error);

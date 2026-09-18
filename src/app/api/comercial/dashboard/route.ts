@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requireModule("comercial");
+  const { user, error } = await requireModule("comercial");
   if (error) return error;
   let form: FormData;
   try {
@@ -68,6 +68,15 @@ export async function POST(request: Request) {
       leads,
     };
     await writeSnapshot(snapshot);
+    const { appendAudit } = await import("@/lib/auditoria/store.server");
+    await appendAudit(user, [
+      {
+        module: "comercial",
+        entity: "CRM",
+        action: "editar",
+        summary: `Importou planilha ${snapshot.fileName} (${snapshot.rowCount} leads)`,
+      },
+    ]);
     return NextResponse.json({ snapshot });
   } catch (error) {
     console.error("Falha ao processar a planilha do CRM", error);

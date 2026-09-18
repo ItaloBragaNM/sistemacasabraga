@@ -1,3 +1,5 @@
+import type { DrinkPremises } from "@/lib/types";
+
 /**
  * A "base" is a quantity taken from the event ficha (or derived from it) that
  * feeds the material calculation model. Each material multiplies up to three
@@ -228,6 +230,8 @@ export interface CadastrosData {
   kits: MaterialKit[];
   extras: ExtraCatalogItem[];
   stockLocations: StockLocation[];
+  /** Premissas do cálculo automático de água, refrigerante e suco. */
+  drinkPremises: DrinkPremises;
 }
 
 export const MAX_FACTORS = 3;

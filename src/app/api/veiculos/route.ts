@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requireModule("veiculos");
+  const { user, error } = await requireModule("veiculos");
   if (error) return error;
   let payload: VeiculosUsoData;
   try {
@@ -29,7 +29,17 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const previous = await readVeiculosUso();
     const data = await writeVeiculosUso(payload);
+    const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
+    await appendAudit(
+      user,
+      tagged(
+        diffRecords(previous.usages, data.usages, (item) => `${item.eventId} · ${item.vehicleId}`),
+        "veiculos",
+        "uso de veículo",
+      ),
+    );
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar o uso de veículos", error);

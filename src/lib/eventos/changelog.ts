@@ -214,7 +214,6 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
   push(changes, "Álcool", prevLog?.alcohol ?? "", nextLog?.alcohol ?? "");
   push(changes, "Material dia anterior", yesNo(prevLog?.materialPreviousDay), yesNo(nextLog?.materialPreviousDay));
   push(changes, "Mesa cavalete", yesNo(prevLog?.trestleTable), yesNo(nextLog?.trestleTable));
-  push(changes, "Menu volante", yesNo(prevLog?.flyingMenu), yesNo(nextLog?.flyingMenu));
   push(changes, "Local com cozinha", yesNo(prevLog?.hasKitchen), yesNo(nextLog?.hasKitchen));
   push(changes, "Local com freezer", yesNo(prevLog?.hasFreezer), yesNo(nextLog?.hasFreezer));
   push(changes, "Local com forno", yesNo(prevLog?.hasOven), yesNo(nextLog?.hasOven));

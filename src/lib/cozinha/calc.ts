@@ -136,6 +136,37 @@ export function insumoNeedsForEvent(params: {
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
+export interface DishInsumoGroup {
+  dishId: string;
+  dishName: string;
+  portions: number;
+  items: InsumoNeed[];
+}
+
+export function insumoNeedsGroupedByDish(params: {
+  links: DishSheetLink[];
+  portions: Record<string, number>;
+  defaultPortions: number;
+  insumos: InsumoRecord[];
+}): DishInsumoGroup[] {
+  return params.links
+    .map((link) => {
+      const portions = params.portions[link.dishId] ?? params.defaultPortions;
+      return {
+        dishId: link.dishId,
+        dishName: link.dishName,
+        portions,
+        items: insumoNeedsForEvent({
+          links: [link],
+          portions: params.portions,
+          defaultPortions: params.defaultPortions,
+          insumos: params.insumos,
+        }),
+      };
+    })
+    .filter((group) => group.items.length > 0);
+}
+
 /** Lista de insumos a partir do cadastro do prato — sem quantidade calculada. */
 export interface CatalogInsumoLine {
   insumoId: string;
@@ -174,4 +205,42 @@ export function insumoListFromDishes(
   }
 
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}
+
+export interface CatalogDishGroup {
+  dishId: string;
+  dishName: string;
+  items: CatalogInsumoLine[];
+}
+
+export function insumoListGroupedByDish(
+  selectedDishIds: string[],
+  dishes: DishRecord[],
+  insumos: InsumoRecord[],
+): CatalogDishGroup[] {
+  const dishById = new Map(dishes.map((dish) => [dish.id, dish]));
+  const insumoById = new Map(insumos.map((insumo) => [insumo.id, insumo]));
+  const groups: CatalogDishGroup[] = [];
+  for (const dishId of selectedDishIds) {
+    const dish = dishById.get(dishId);
+    if (!dish) continue;
+    const items: CatalogInsumoLine[] = [];
+    for (const insumoId of dish.insumoIds ?? []) {
+      const insumo = insumoById.get(insumoId);
+      if (!insumo) continue;
+      items.push({
+        insumoId,
+        name: insumo.name,
+        unit: insumo.unit,
+        dishes: [dish.name],
+      });
+    }
+    if (items.length === 0) continue;
+    groups.push({
+      dishId: dish.id,
+      dishName: dish.name,
+      items: items.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    });
+  }
+  return groups;
 }

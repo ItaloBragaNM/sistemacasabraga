@@ -33,6 +33,15 @@ export async function PATCH(request: Request, { params }: Params) {
       role: body.role && isUserRole(body.role) ? body.role : undefined,
       password: body.password?.trim() ? body.password : undefined,
     });
+    const { appendAudit } = await import("@/lib/auditoria/store.server");
+    await appendAudit(user, [
+      {
+        module: "configuracoes",
+        entity: "usuário",
+        action: "editar",
+        summary: `Editou usuário ${updated.name} (${updated.username})`,
+      },
+    ]);
     return NextResponse.json({ user: updated });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Não foi possível atualizar o usuário.";
@@ -49,7 +58,19 @@ export async function DELETE(_request: Request, { params }: Params) {
   const { id } = await params;
 
   try {
+    const { listPublicUsers } = await import("@/lib/auth/store.server");
+    const users = await listPublicUsers();
+    const target = users.find((item) => item.id === id);
     await deleteUser(id, user.id);
+    const { appendAudit } = await import("@/lib/auditoria/store.server");
+    await appendAudit(user, [
+      {
+        module: "configuracoes",
+        entity: "usuário",
+        action: "excluir",
+        summary: `Excluiu usuário ${target?.name || id}`,
+      },
+    ]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Não foi possível excluir o usuário.";

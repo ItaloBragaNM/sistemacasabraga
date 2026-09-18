@@ -1,4 +1,4 @@
-import { MENU_SECTIONS } from "@/lib/types";
+import { MENU_SECTIONS, normalizeDrinkPremises } from "@/lib/types";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { defaultCadastros } from "./defaults";
 import {
@@ -212,6 +212,7 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
           .map((item) => normalizeLocation(item))
           .filter((item): item is StockLocation => Boolean(item))
       : base.stockLocations,
+    drinkPremises: normalizeDrinkPremises(input.drinkPremises ?? base.drinkPremises),
   };
 }
 

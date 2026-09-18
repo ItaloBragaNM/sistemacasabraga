@@ -23,6 +23,7 @@ import type {
   VeiculoRecord,
 } from "@/lib/cadastros/types";
 import { duplicateManyIn, type NamedRecord } from "@/lib/cadastros/clone";
+import { DEFAULT_DRINK_PREMISES } from "@/lib/types";
 
 export type CatalogListKey =
   | "materials"
@@ -60,6 +61,7 @@ interface CadastrosContextValue {
   removeExtra: (id: string) => void;
   upsertStockLocation: (location: StockLocation) => void;
   removeStockLocation: (id: string) => void;
+  setDrinkPremises: (premises: CadastrosData["drinkPremises"]) => void;
   removeMany: (key: CatalogListKey, ids: string[]) => void;
   duplicateMany: (key: CatalogListKey, ids: string[]) => void;
   replaceAll: (next: CadastrosData) => void;
@@ -96,6 +98,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
             kits: json.data.kits ?? [],
             extras: json.data.extras ?? [],
             stockLocations: json.data.stockLocations ?? [],
+            drinkPremises: json.data.drinkPremises ?? DEFAULT_DRINK_PREMISES,
           });
         }
       } catch {
@@ -211,6 +214,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
           ...current,
           stockLocations: (current.stockLocations ?? []).filter((item) => item.id !== id),
         })),
+      setDrinkPremises: (premises) => mutate((current) => ({ ...current, drinkPremises: premises })),
       removeMany: (key, ids) => {
         const drop = new Set(ids);
         mutate((current) => ({

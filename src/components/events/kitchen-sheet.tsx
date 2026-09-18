@@ -113,10 +113,10 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
                 {items.map((item) => (
                   <li
                     key={item.id}
-                    className="grid grid-cols-[1fr_auto_auto] gap-4 py-2 text-sm"
+                    className="grid grid-cols-[5.5rem_1fr_auto] gap-4 py-2 text-sm"
                   >
-                    <span>{item.name}</span>
                     <span className="text-forest/70">{item.quantity}</span>
+                    <span>{item.name}</span>
                     <span className="text-right text-forest/50">{item.notes}</span>
                   </li>
                 ))}

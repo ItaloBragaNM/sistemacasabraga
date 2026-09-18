@@ -18,13 +18,19 @@ function num(value: unknown) {
 
 function normalizeWorker(input: Partial<ExternalWorker> | null | undefined): ExternalWorker | null {
   if (!input?.id || !input.name) return null;
+  const functionKeys = Array.isArray(input.functionKeys)
+    ? [...new Set(input.functionKeys.filter((key): key is string => typeof key === "string" && Boolean(key)))]
+    : input.functionKey
+      ? [input.functionKey]
+      : [];
   return {
     id: input.id,
     name: input.name.trim(),
     cpf: typeof input.cpf === "string" ? input.cpf : "",
     pix: typeof input.pix === "string" ? input.pix : "",
     bankAccount: typeof input.bankAccount === "string" ? input.bankAccount : "",
-    functionKey: typeof input.functionKey === "string" ? input.functionKey : "garcons",
+    functionKey: functionKeys[0] || (typeof input.functionKey === "string" ? input.functionKey : "garcons"),
+    functionKeys: functionKeys.length ? functionKeys : ["garcons"],
     notes: typeof input.notes === "string" ? input.notes : "",
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
