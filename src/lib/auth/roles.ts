@@ -10,10 +10,10 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
 
 export const ROLE_MODULES: Record<UserRole, readonly string[] | "*"> = {
   gestao: "*",
-  comercial: ["eventos", "comercial", "cadastros"],
-  logistica: ["eventos", "cadastros", "logistica", "veiculos"],
-  gerencia: ["eventos", "cozinha", "logistica", "veiculos", "administrativo"],
-  financeiro: ["eventos", "administrativo", "financeiro"],
+  comercial: "*",
+  logistica: "*",
+  gerencia: "*",
+  financeiro: "*",
 };
 
 const MODULE_PREFIXES = [
