@@ -17,12 +17,12 @@ export function CadastrosHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-forest/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
+    <header className="flex flex-col gap-4 border-b border-forest/10 pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="font-section text-[0.68rem] text-terracotta">{eyebrow}</p>
-        <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">{title}</h1>
+        <p className="text-[13px] font-medium text-forest/50">{eyebrow}</p>
+        <h1 className="page-title mt-1">{title}</h1>
         {description ? (
-          <p className="mt-2 max-w-xl text-sm font-light text-forest/60">{description}</p>
+          <p className="mt-2 max-w-xl text-sm text-forest/60">{description}</p>
         ) : null}
       </div>
       {action}
@@ -123,7 +123,7 @@ export function CatalogFilters({
         <button
           type="button"
           onClick={clear}
-          className="h-10 shrink-0 text-sm font-light text-forest/55 hover:text-forest"
+          className="h-10 shrink-0 text-sm text-forest/55 hover:text-forest"
         >
           Limpar filtros
         </button>
@@ -161,17 +161,17 @@ export function Modal({
       <button
         type="button"
         aria-label="Fechar"
-        className="fixed inset-0 bg-forest/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-forest/40"
         onClick={onClose}
       />
       <div
         className={cn(
-          "relative z-10 my-4 w-full rounded-2xl border border-forest/10 bg-cream shadow-2xl",
+          "relative z-10 my-4 w-full rounded-lg border border-forest/10 bg-cream shadow-sm",
           wide ? "max-w-3xl" : "max-w-xl",
         )}
       >
         <div className="flex items-center justify-between border-b border-forest/10 px-5 py-4">
-          <h2 className="font-section text-[0.82rem] text-forest">{title}</h2>
+          <h2 className="text-[15px] font-semibold text-forest">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -189,7 +189,7 @@ export function Modal({
 
 export function LoadingBlock({ label = "Carregando…" }: { label?: string }) {
   return (
-    <p className="py-16 text-center text-sm font-light text-forest/50">{label}</p>
+    <p className="py-16 text-center text-sm text-forest/50">{label}</p>
   );
 }
 
@@ -203,10 +203,10 @@ export function EmptyBlock({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
-      <h3 className="font-display text-2xl text-forest">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm font-light text-forest/55">{description}</p>
-      {action ? <div className="mt-5">{action}</div> : null}
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-forest/20 bg-white p-8 text-center">
+      <h3 className="text-[15px] font-semibold text-forest">{title}</h3>
+      <p className="mt-2 max-w-sm text-sm text-forest/55">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
@@ -226,7 +226,7 @@ export function Chip({
       className={cn(
         "inline-block max-w-full rounded-md text-left align-middle leading-snug break-words",
         size === "sm"
-          ? "px-2 py-0.5 text-[0.58rem] uppercase tracking-wide"
+          ? "px-2 py-0.5 text-[13px] font-medium"
           : "px-2.5 py-1 text-xs",
         className,
       )}

@@ -312,7 +312,7 @@ export function InventarioMateriais() {
                 const changed = session.items.filter((i) => i.counted !== i.previous).length;
                 return (
                   <tr key={session.id} className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]">
-                    <td className="py-3 pl-5 font-list text-forest">{formatShortDate(session.date.slice(0, 10))}</td>
+                    <td className="py-3 pl-5 text-forest">{formatShortDate(session.date.slice(0, 10))}</td>
                     <td className="py-3 text-forest/70">{session.responsible || "—"}</td>
                     <td className="py-3 text-right text-forest/70">{changed}</td>
                     <td className="py-3 pr-5">
@@ -947,7 +947,7 @@ function InventoryForm({
           <ArrowLeft className="size-4" />
           Voltar ao histórico
         </button>
-        <h1 className="font-display mt-3 text-4xl text-forest sm:text-5xl">
+        <h1 className="page-title mt-3">
           {isEditing ? "Editar inventário" : "Novo inventário"}
         </h1>
         <p className="mt-2 text-sm font-light text-forest/60">
@@ -1182,7 +1182,7 @@ function InventoryForm({
                   )}
                 >
                   <td className="py-2.5 pl-5">
-                    <p className={cn("font-list font-medium text-forest", hidden && "text-forest/50")}>
+                    <p className={cn("font-medium text-forest", hidden && "text-forest/50")}>
                       {sku.label}
                     </p>
                     {sku.unit ? (

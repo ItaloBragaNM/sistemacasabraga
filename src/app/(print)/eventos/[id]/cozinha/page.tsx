@@ -20,7 +20,7 @@ export default function CozinhaPage() {
   if (!event) {
     return (
       <div className="py-20 text-center">
-        <h1 className="font-display text-4xl">Ficha não encontrada</h1>
+        <h1 className="page-title">Ficha não encontrada</h1>
       </div>
     );
   }

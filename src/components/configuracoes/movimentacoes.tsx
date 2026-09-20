@@ -125,7 +125,7 @@ export function MovimentacoesAdmin() {
                       <td className="py-3">
                         <span
                           className={cn(
-                            "rounded-full px-2.5 py-1 text-xs",
+                            "rounded-md px-2.5 py-1 text-xs",
                             ACTION_CLASS[item.action] ?? "bg-forest/8 text-forest/70",
                           )}
                         >

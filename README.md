@@ -80,14 +80,7 @@ efêmero e os dados compartilhados não persistem.
 
 ## Tipografia
 
-A casa pediu Hatton Semi-Bold, TT Barrels Bold, Open Sauce e Montserrat. Hatton e TT Barrels são fontes comerciais; nesta fase usamos equivalentes abertos:
-
-- Títulos e nomes: Cormorant Garamond ( Semi-Bold ), no lugar de Hatton
-- Subtítulos de seção em caixa alta: Oswald Bold, no lugar de TT Barrels
-- Textos e labels: Open Sauce One (Light/Bold)
-- Listas: Montserrat
-
-Quando as fontes originais estiverem licenciadas, basta trocar os arquivos em `src/fonts` e o `layout`.
+A interface usa **Inter** (sans-serif neutra), com escala de 13–18px e o título da página a 22px. A hierarquia vem de peso e contraste, não de fontes display.
 
 ## Próximo passo
 

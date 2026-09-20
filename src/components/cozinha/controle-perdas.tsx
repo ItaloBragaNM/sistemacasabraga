@@ -93,7 +93,7 @@ export function ControlePerdas() {
                 type="button"
                 onClick={() => setReasonFilter("")}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-sm",
+                  "rounded-md border px-3 py-1 text-sm",
                   reasonFilter === "" ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
                 )}
               >
@@ -105,7 +105,7 @@ export function ControlePerdas() {
                   type="button"
                   onClick={() => setReasonFilter(reason.key)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-sm",
+                    "rounded-md border px-3 py-1 text-sm",
                     reasonFilter === reason.key ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
                   )}
                 >
@@ -143,7 +143,7 @@ export function ControlePerdas() {
                       <tr key={loss.id} className="border-b border-forest/5 last:border-0">
                         <td className="py-3 pl-5 text-forest/60">{formatShortDate(loss.date)}</td>
                         <td className="py-3">
-                          <p className="font-list text-forest">{insumo?.name ?? "Insumo removido"}</p>
+                          <p className="text-forest">{insumo?.name ?? "Insumo removido"}</p>
                           {loss.note ? <p className="text-xs font-light text-forest/45">{loss.note}</p> : null}
                         </td>
                         <td className="py-3">

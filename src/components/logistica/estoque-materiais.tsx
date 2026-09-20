@@ -280,7 +280,7 @@ export function EstoqueMateriais() {
                         )}
                       >
                         <td className="py-3 pl-5">
-                          <p className="font-list text-forest">{material.name}</p>
+                          <p className="text-forest">{material.name}</p>
                           <p className="text-xs font-light text-forest/40">{material.category}</p>
                         </td>
                         <td className="py-3 text-right">
@@ -443,7 +443,7 @@ function MaterialStockPanel({
               {lastCount ? ` · última contagem ${formatShortDate(lastCount)}` : " · ainda sem inventário"}
             </p>
           </div>
-          <span className="font-display text-3xl text-forest">
+          <span className="text-[15px] font-semibold text-forest">
             {formatInt(total)} <span className="text-base text-forest/50">{material.unit}</span>
           </span>
         </div>
@@ -452,7 +452,7 @@ function MaterialStockPanel({
             {variants.map((item) => (
               <li
                 key={item.variant || "__unclassified__"}
-                className="flex items-baseline justify-between rounded-lg bg-white/70 px-3 py-1.5 text-sm"
+                className="flex items-baseline justify-between rounded-lg bg-white px-3 py-1.5 text-sm"
               >
                 <span className="text-forest/70">{item.label}</span>
                 <span className="font-medium text-forest">

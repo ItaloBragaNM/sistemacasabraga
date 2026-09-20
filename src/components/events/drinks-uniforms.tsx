@@ -83,7 +83,7 @@ export function EventUniformsFields({
       <div className="grid gap-6 md:grid-cols-3">
         {UNIFORM_PIECES.map((piece) => (
           <div key={piece.key} className="rounded-xl border border-forest/10 p-4">
-            <p className="font-section mb-3 text-[0.7rem] text-forest">{piece.label}</p>
+            <p className="mb-3 text-[13px] font-semibold text-forest">{piece.label}</p>
             <div className="grid grid-cols-4 gap-2">
               {UNIFORM_SIZES.map((size) => (
                 <Field key={size} label={UNIFORM_SIZE_LABELS[size]}>

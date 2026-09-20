@@ -132,7 +132,7 @@ export function SeparacaoInsumos() {
                   <button
                     type="button"
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm",
+                      "rounded-md border px-3 py-1.5 text-sm",
                       source === "ficha" ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
                     )}
                     onClick={() => setSource("ficha")}
@@ -142,7 +142,7 @@ export function SeparacaoInsumos() {
                   <button
                     type="button"
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm",
+                      "rounded-md border px-3 py-1.5 text-sm",
                       source === "cadastro" ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
                     )}
                     onClick={() => setSource("cadastro")}
@@ -245,7 +245,7 @@ export function SeparacaoInsumos() {
                     <div className="space-y-5">
                       {groups.map((group) => (
                         <div key={group.dishId} className="overflow-hidden rounded-xl border border-forest/10">
-                          <p className="border-b border-forest/10 bg-forest/[0.03] px-4 py-2 font-list text-sm font-medium text-forest">
+                          <p className="border-b border-forest/10 bg-forest/[0.03] px-4 py-2 text-sm font-medium text-forest">
                             {group.dishName}
                             <span className="ml-2 text-xs font-light text-forest/45">
                               {formatDecimal(group.portions, 0)} porções
@@ -262,7 +262,7 @@ export function SeparacaoInsumos() {
                             <tbody>
                               {group.items.map((need) => (
                                 <tr key={need.key} className="border-b border-forest/5 last:border-0">
-                                  <td className="py-2 pl-4 font-list text-forest">{need.name}</td>
+                                  <td className="py-2 pl-4 text-forest">{need.name}</td>
                                   <td className="py-2 text-right tabular-nums text-forest/80">
                                     {formatDecimal(need.quantity, 2)} {need.unit}
                                   </td>
@@ -282,7 +282,7 @@ export function SeparacaoInsumos() {
                   <div className="space-y-5">
                     {catalogGroups.map((group) => (
                       <div key={group.dishId} className="overflow-hidden rounded-xl border border-forest/10">
-                        <p className="border-b border-forest/10 bg-forest/[0.03] px-4 py-2 font-list text-sm font-medium text-forest">
+                        <p className="border-b border-forest/10 bg-forest/[0.03] px-4 py-2 text-sm font-medium text-forest">
                           {group.dishName}
                         </p>
                         <table className="w-full text-left text-sm">
@@ -295,7 +295,7 @@ export function SeparacaoInsumos() {
                           <tbody>
                             {group.items.map((line) => (
                               <tr key={line.insumoId} className="border-b border-forest/5 last:border-0">
-                                <td className="py-2 pl-4 font-list text-forest">{line.name}</td>
+                                <td className="py-2 pl-4 text-forest">{line.name}</td>
                                 <td className="py-2 pr-4 text-forest/60">{line.unit}</td>
                               </tr>
                             ))}

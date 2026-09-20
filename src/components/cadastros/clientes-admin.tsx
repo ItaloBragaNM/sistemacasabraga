@@ -152,7 +152,7 @@ export function ClientesAdmin() {
                         />
                       </td>
                       <td className="py-3">
-                        <p className="font-list font-medium text-forest">{item.name}</p>
+                        <p className="font-medium text-forest">{item.name}</p>
                         {item.address ? (
                           <p className="text-xs font-light text-forest/45">{item.address}</p>
                         ) : null}

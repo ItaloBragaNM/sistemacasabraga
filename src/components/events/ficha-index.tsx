@@ -23,8 +23,8 @@ export function FichaIndex() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-section text-[0.68rem] text-terracotta">Eventos</p>
-          <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">
+          <p className="text-[13px] font-medium text-forest/50">Eventos</p>
+          <h1 className="page-title mt-1">
             Ficha do Evento
           </h1>
           <p className="mt-2 max-w-xl text-sm font-light leading-6 text-forest/65">
@@ -45,7 +45,7 @@ export function FichaIndex() {
         <p className="text-sm font-light text-forest/50">Carregando fichas…</p>
       ) : sorted.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-forest/20 px-6 py-16 text-center">
-          <p className="font-display text-3xl">Nenhuma ficha ainda</p>
+          <p className="text-[15px] font-semibold">Nenhuma ficha ainda</p>
           <p className="mt-2 text-sm font-light text-forest/55">
             Crie o primeiro evento da casa para começar a operação.
           </p>
@@ -61,10 +61,10 @@ export function FichaIndex() {
                 index > 0 && "border-t border-forest/8",
               )}
             >
-              <p className="font-list text-sm text-forest/60">{formatShortDate(event.date)}</p>
+              <p className="text-sm text-forest/60">{formatShortDate(event.date)}</p>
               <div>
-                <p className="font-display text-2xl text-forest">{event.title}</p>
-                <p className="font-list mt-1 text-sm text-forest/55">
+                <p className="text-[15px] font-semibold text-forest">{event.title}</p>
+                <p className="mt-1 text-sm text-forest/55">
                   {event.code} · {EVENT_TYPE_LABELS[event.type]}
                   {event.clientId && clientNames.get(event.clientId)
                     ? ` · ${clientNames.get(event.clientId)}`

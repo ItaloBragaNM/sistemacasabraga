@@ -186,7 +186,7 @@ export function MateriaisAdmin() {
                         />
                       </td>
                       <td className="py-3">
-                        <p className="font-list font-medium text-forest">{material.name}</p>
+                        <p className="font-medium text-forest">{material.name}</p>
                         {material.variants.length > 0 ? (
                           <p className="mt-0.5 text-xs font-light text-forest/45">
                             {material.variants.join(" · ")}
@@ -206,7 +206,7 @@ export function MateriaisAdmin() {
                           {MATERIAL_KIND_LABELS[material.kind]}
                         </Chip>
                       </td>
-                      <td className="py-3 pr-3 font-list text-[0.8rem] font-light text-forest/60">
+                      <td className="py-3 pr-3 text-[13px] font-light text-forest/60">
                         {material.factors.length === 0 ? (
                           <Chip className="bg-terracotta/10 text-terracotta">
                             Sem proporção cadastrada

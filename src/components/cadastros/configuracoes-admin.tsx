@@ -81,7 +81,7 @@ function DrinkPremisesSection() {
   };
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-      <h2 className="font-section text-[0.82rem] text-forest">Premissas de bebidas</h2>
+      <h2 className="text-[15px] font-semibold text-forest">Premissas de bebidas</h2>
       <p className="mt-1 text-xs font-light text-forest/50">
         Usadas no cálculo automático da ficha do evento e da separação de materiais. Ajuste
         manual na ficha continua possível.
@@ -230,7 +230,7 @@ function StockLocationsSection() {
 
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5">
-      <h2 className="font-section text-[0.82rem] text-forest">Locais do estoque</h2>
+      <h2 className="text-[15px] font-semibold text-forest">Locais do estoque</h2>
       <p className="mt-1 text-sm font-light text-forest/55">
         Onde cada material fica na casa (depósito, cozinha, prateleira…). O estoque e o inventário
         usam esta lista.
@@ -266,7 +266,7 @@ function StockLocationsSection() {
         <ul className="mt-4 divide-y divide-forest/8">
           {locations.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-3 py-2.5">
-              <span className="font-list text-sm text-forest">{item.name}</span>
+              <span className="text-sm text-forest">{item.name}</span>
               <div className="flex gap-1">
                 <button
                   type="button"
@@ -374,7 +374,7 @@ function CategoriesEditor({
 
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5">
-      <h2 className="font-section text-[0.82rem] text-forest">{title}</h2>
+      <h2 className="text-[15px] font-semibold text-forest">{title}</h2>
       <p className="mt-1 text-sm font-light text-forest/55">{description}</p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -461,7 +461,7 @@ function BasesSection() {
     <section className="rounded-2xl border border-forest/10 bg-white p-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-section text-[0.82rem] text-forest">Bases de cálculo</h2>
+          <h2 className="text-[15px] font-semibold text-forest">Bases de cálculo</h2>
           <p className="mt-1 text-sm font-light text-forest/55">
             Cada base é um valor lido da ficha do evento (ou derivado dele) usado nas proporções.
           </p>
@@ -487,7 +487,7 @@ function BasesSection() {
         {data.bases.map((base) => (
           <li key={base.id} className="flex items-start justify-between gap-3 py-3">
             <div>
-              <p className="font-list font-medium text-forest">
+              <p className="font-medium text-forest">
                 {base.label}
                 {base.builtIn ? (
                   <Chip size="sm" className="ml-2 bg-forest/6 text-forest/45">

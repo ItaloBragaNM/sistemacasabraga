@@ -130,8 +130,8 @@ export function SeparacaoMateriais() {
       {!ready ? (
         <p className="py-16 text-center text-sm font-light text-forest/50">Carregando…</p>
       ) : events.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
-          <h2 className="font-display text-2xl text-forest">Nenhum evento</h2>
+        <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-10 text-center">
+          <h2 className="text-[15px] font-semibold text-forest">Nenhum evento</h2>
           <p className="mt-2 text-sm font-light text-forest/55">
             Crie uma ficha de evento para separar materiais.
           </p>
@@ -173,8 +173,8 @@ export function SeparacaoMateriais() {
             ]}
           />
           {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
-              <h2 className="font-display text-2xl text-forest">Nenhum evento encontrado</h2>
+            <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-10 text-center">
+              <h2 className="text-[15px] font-semibold text-forest">Nenhum evento encontrado</h2>
               <p className="mt-2 text-sm font-light text-forest/55">
                 Ajuste a busca ou os filtros para localizar a ficha.
               </p>
@@ -192,11 +192,11 @@ export function SeparacaoMateriais() {
                       index > 0 && "border-t border-forest/8",
                     )}
                   >
-                    <p className="font-list text-sm text-forest/60">
+                    <p className="text-sm text-forest/60">
                       {event.date ? formatShortDate(event.date) : "Sem data"}
                     </p>
                     <div>
-                      <p className="font-list text-forest">
+                      <p className="text-forest">
                         {event.title || "Evento sem nome"}
                       </p>
                       <p className="mt-0.5 text-xs font-light text-forest/50">
@@ -238,7 +238,7 @@ export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
   if (!event) {
     return (
       <div className="mx-auto max-w-5xl py-20 text-center">
-        <h1 className="font-display text-4xl text-forest">Evento não encontrado</h1>
+        <h1 className="page-title">Evento não encontrado</h1>
         <p className="mt-2 text-sm font-light text-forest/55">
           Esta ficha pode ter sido excluída neste aparelho.
         </p>
@@ -262,7 +262,7 @@ export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
           >
             ← Eventos
           </Link>
-          <h1 className="font-display mt-3 text-4xl text-forest sm:text-5xl">
+          <h1 className="page-title mt-3">
             {event.title || "Evento sem nome"}
           </h1>
           <p className="mt-1 text-sm font-light text-forest/55">
@@ -644,9 +644,9 @@ function SeparationEditor({
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
+        <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-10 text-center">
           <ClipboardList className="mx-auto mb-3 size-7 text-forest/30" />
-          <h3 className="font-display text-2xl text-forest">Lista vazia</h3>
+          <h3 className="text-[15px] font-semibold text-forest">Lista vazia</h3>
           <p className="mt-2 text-sm font-light text-forest/55">
             Selecione pratos na ficha do evento ou inclua um material do cadastro. Kits e extras
             ficam nas seções abaixo.
@@ -698,7 +698,7 @@ function SeparationEditor({
                               onClick={() => toggleOpen(row.key)}
                               className="text-left"
                             >
-                              <span className="font-list font-medium text-forest">
+                              <span className="font-medium text-forest">
                                 {row.name}
                                 {row.manual ? (
                                   <Chip size="sm" className="ml-2 bg-forest/10 text-forest/70">
@@ -808,7 +808,7 @@ function SeparationEditor({
       <ExtrasOnEvent extras={extraCatalog} sep={sep} onChange={applySep} />
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <h2 className="font-section mb-3 text-[0.82rem] text-forest">Observação geral do evento</h2>
+        <h2 className="mb-3 text-sm text-forest">Observação geral do evento</h2>
         <textarea
           className={cn(fieldControlClass, "h-24 py-2")}
           placeholder="Observações gerais para este evento…"
@@ -854,7 +854,7 @@ function SeparationEditor({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <span className="inline-flex items-baseline gap-1.5">
-      <span className="font-display text-xl text-forest">{value}</span>
+      <span className="text-lg font-semibold text-forest">{value}</span>
       <span className="field-label">{label}</span>
     </span>
   );
@@ -943,7 +943,7 @@ function EventSummary({ event }: { event: EventRecord }) {
     <div className="grid grid-cols-3 gap-2 rounded-2xl border border-forest/10 bg-white p-4 sm:grid-cols-7">
       {items.map((item) => (
         <div key={item.label} className="text-center">
-          <p className="font-display text-2xl text-forest">{item.value}</p>
+          <p className="text-[15px] font-semibold text-forest">{item.value}</p>
           <p className="field-label mt-0.5">{item.label}</p>
         </div>
       ))}
@@ -992,7 +992,7 @@ function KitsOnEvent({
     <section className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-section text-[0.82rem] text-forest">Kits de materiais</h2>
+          <h2 className="text-[15px] font-semibold text-forest">Kits de materiais</h2>
           <p className="mt-1 text-xs font-light text-forest/50">
             Informe quantos kits vão para o evento. O total de cada item é quantidade por kit ×
             kits, e pode ser ajustado neste evento.
@@ -1007,7 +1007,7 @@ function KitsOnEvent({
       </div>
 
       {kits.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-forest/20 bg-white/60 p-8 text-center">
+        <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-8 text-center">
           <p className="text-sm font-light text-forest/55">
             Nenhum kit cadastrado. Crie kits em Cadastros → Kits de Materiais.
           </p>
@@ -1025,7 +1025,7 @@ function KitsOnEvent({
               >
                 <header className="flex flex-wrap items-center justify-between gap-3 bg-petrol px-4 py-3 text-cream">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-section text-[0.78rem]">{kit.name}</h3>
+                    <h3 className="text-[13px] font-semibold">{kit.name}</h3>
                     {kit.scaleBaseId !== "base-fixo" ? <ScaleBadge label={scaleLabel} /> : null}
                   </div>
                   <label className="flex items-center gap-2 text-xs">
@@ -1137,7 +1137,7 @@ function ExtrasOnEvent({
   return (
     <section className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
       <header className="flex items-center justify-between gap-3 bg-forest/[0.06] px-4 py-3">
-        <h2 className="font-section text-[0.82rem] text-forest">Extras / Equipamentos</h2>
+        <h2 className="text-[15px] font-semibold text-forest">Extras / Equipamentos</h2>
         <Button
           variant="outline"
           className="h-8 px-3"

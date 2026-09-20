@@ -20,7 +20,7 @@ export default function EventoPage() {
   if (!event) {
     return (
       <div className="py-20 text-center">
-        <h1 className="font-display text-4xl text-forest">Ficha não encontrada</h1>
+        <h1 className="page-title">Ficha não encontrada</h1>
         <p className="mt-2 text-sm font-light text-forest/55">
           Este evento pode ter sido excluído.
         </p>

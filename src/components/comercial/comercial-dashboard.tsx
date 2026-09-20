@@ -2,10 +2,9 @@
 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarDays, Loader2, TrendingUp, Upload } from "lucide-react";
+import { CalendarDays, Loader2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CasaBragaMark } from "@/components/brand/mark";
 import {
   BarList,
   ConversionBar,
@@ -201,16 +200,16 @@ function Header({
   onUpload: () => void;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-forest/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <header className="flex flex-col gap-4 border-b border-forest/10 pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="font-section text-[0.68rem] text-terracotta">Comercial</p>
-        <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">Dashboard Comercial</h1>
+        <p className="text-[13px] font-medium text-forest/50">Comercial</p>
+        <h1 className="page-title mt-1">Dashboard Comercial</h1>
         <p className="mt-2 max-w-xl text-sm font-light text-forest/60">
           Indicadores do funil de vendas a partir da exportação do CRM. Envie a planilha
           e a última versão fica disponível para toda a casa.
         </p>
         {snapshot ? (
-          <p className="font-list mt-2 text-xs text-forest/45">
+          <p className="mt-2 text-xs text-forest/45">
             Última atualização: {format(new Date(snapshot.uploadedAt), "dd/MM/yyyy 'às' HH:mm")} ·{" "}
             {snapshot.fileName} · {formatInt(snapshot.rowCount)} leads
           </p>
@@ -260,7 +259,7 @@ function PeriodSelector({
               type="button"
               onClick={() => onMode(tab.mode)}
               className={cn(
-                "rounded-md px-3.5 py-1.5 text-[0.8rem] font-medium transition-colors",
+                "rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors",
                 mode === tab.mode
                   ? "bg-forest text-cream shadow-sm"
                   : "text-forest/60 hover:text-forest",
@@ -289,7 +288,7 @@ function PeriodSelector({
         ) : null}
       </div>
       <div className="flex items-center gap-2 text-sm text-forest/70">
-        <CalendarDays className="size-4 text-terracotta" />
+        <CalendarDays className="size-4 text-forest/40" />
         <span className="font-medium text-forest">{label}</span>
         <span className="text-forest/40">·</span>
         <span className="font-light">{formatInt(closedCount)} eventos decididos</span>
@@ -313,12 +312,12 @@ function Block({
 }) {
   return (
     <section className="space-y-5">
-      <div className="flex items-start gap-3">
-        <span className="font-display mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-forest text-sm text-cream">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 w-4 shrink-0 text-[13px] font-semibold text-forest/40">
           {number}
         </span>
         <div>
-          <h2 className="font-section text-[0.9rem] text-forest">{title}</h2>
+          <h2 className="text-[15px] font-semibold text-forest">{title}</h2>
           <p className="mt-1 max-w-3xl text-sm font-light leading-6 text-forest/55">{description}</p>
         </div>
       </div>
@@ -342,7 +341,7 @@ function Card({
     <div className={cn("rounded-2xl border border-forest/10 bg-white p-5", className)}>
       {title ? (
         <div className="mb-4 flex items-center justify-between gap-2">
-          <h3 className="font-section text-[0.72rem] text-forest/80">{title}</h3>
+          <h3 className="text-[13px] font-semibold text-forest/80">{title}</h3>
           {hint ? <InfoHint text={hint} /> : null}
         </div>
       ) : null}
@@ -527,7 +526,7 @@ function Block4({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
             {typesWithLoss.map((entry) => (
               <div key={entry.type} className="rounded-xl border border-forest/8 bg-forest/[0.015] p-4">
                 <div className="mb-3 flex items-baseline justify-between">
-                  <h4 className="font-list text-sm font-semibold text-forest">{entry.type}</h4>
+                  <h4 className="text-sm font-semibold text-forest">{entry.type}</h4>
                   <span className="text-xs font-light text-terracotta">
                     {formatBRL(entry.totalLost)} perdidos
                   </span>
@@ -621,7 +620,7 @@ function MiniStat({
   return (
     <div>
       <p className="field-label leading-4">{label}</p>
-      <p className={cn("font-display mt-1 text-xl", negative ? "text-terracotta" : "text-forest")}>
+      <p className={cn("mt-1 text-lg font-semibold", negative ? "text-terracotta" : "text-forest")}>
         {value}
       </p>
     </div>
@@ -666,7 +665,7 @@ function Block6({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
             >
               <span
                 className={cn(
-                  "font-list text-sm",
+                  "text-sm",
                   stage.stage === "Venda Ganha"
                     ? "font-semibold text-forest"
                     : stage.stage === "Venda Perdida"
@@ -724,12 +723,8 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState({ uploading, onUpload }: { uploading: boolean; onUpload: () => void }) {
   return (
-    <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-3xl border border-dashed border-forest/20 bg-white/60 p-10 text-center">
-      <div className="mb-6 rounded-full border border-forest/10 bg-forest px-5 py-3">
-        <CasaBragaMark compact />
-      </div>
-      <TrendingUp className="mb-3 size-7 text-terracotta" />
-      <h2 className="font-display text-3xl text-forest">Nenhuma planilha carregada</h2>
+    <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-lg border border-dashed border-forest/20 bg-white p-8 text-center">
+      <h2 className="text-[15px] font-semibold text-forest">Nenhuma planilha carregada</h2>
       <p className="mt-3 max-w-md text-sm font-light leading-7 text-forest/60">
         Envie a exportação do CRM (.xlsx) para gerar o dashboard. A última versão enviada
         fica salva e disponível para toda a casa até a próxima atualização.

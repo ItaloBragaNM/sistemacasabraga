@@ -99,7 +99,7 @@ export function VeiculosUsoPage() {
                     return (
                       <tr key={key} className="border-b border-forest/5 last:border-0">
                         <td className="py-3 pl-5">
-                          <p className="font-list font-medium text-forest">{row.event.title || "Evento sem nome"}</p>
+                          <p className="font-medium text-forest">{row.event.title || "Evento sem nome"}</p>
                           <p className="text-xs font-light text-forest/45">
                             {row.event.code} · {row.event.date ? formatLongDate(row.event.date) : "sem data"}
                             {row.event.outOfTown ? " · fora da cidade" : ""}

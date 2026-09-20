@@ -59,7 +59,7 @@ export function MaoDeObraAdmin() {
       ) : (
         <>
           <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-            <h2 className="font-section text-[0.82rem] text-forest">Tabela de valores</h2>
+            <h2 className="text-[15px] font-semibold text-forest">Tabela de valores</h2>
             <p className="mt-1 text-xs font-light text-forest/50">
               Diária, hora extra e ajuda de custo. A ajuda entra automaticamente quando o evento está fora da cidade.
             </p>
@@ -159,7 +159,7 @@ export function MaoDeObraAdmin() {
                   <tbody>
                     {workers.map((item) => (
                       <tr key={item.id} className="border-b border-forest/5 last:border-0">
-                        <td className="py-3 pl-5 font-list font-medium text-forest">{item.name}</td>
+                        <td className="py-3 pl-5 font-medium text-forest">{item.name}</td>
                         <td className="py-3 font-mono text-forest/70">{item.cpf || "—"}</td>
                         <td className="py-3 text-forest/70">{workerFunctionsLabel(item)}</td>
                         <td className="py-3 text-forest/70">{item.pix || item.bankAccount || "—"}</td>

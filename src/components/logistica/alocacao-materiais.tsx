@@ -124,7 +124,7 @@ export function AlocacaoMateriais() {
           <ChevronLeft />
         </Button>
         <div className="text-center">
-          <p className="font-section text-[0.72rem] text-forest">{weekLabel}</p>
+          <p className="text-[13px] font-semibold text-forest">{weekLabel}</p>
           <button
             type="button"
             className="text-xs font-light text-forest/50 hover:text-forest"
@@ -159,7 +159,7 @@ export function AlocacaoMateriais() {
 
       <section className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
         <header className="border-b border-forest/10 px-4 py-3">
-          <h2 className="font-section text-[0.82rem] text-forest">Eventos da semana</h2>
+          <h2 className="text-[15px] font-semibold text-forest">Eventos da semana</h2>
         </header>
         {week.events.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm font-light text-forest/50">
@@ -177,10 +177,10 @@ export function AlocacaoMateriais() {
                       isToday(day) ? "bg-forest text-cream" : "bg-forest/[0.04] text-forest/70",
                     )}
                   >
-                    <p className="text-[0.62rem] uppercase tracking-wide">
+                    <p className="text-[13px] font-medium">
                       {format(day, "EEE", { locale: ptBR })}
                     </p>
-                    <p className="font-list text-sm">{format(day, "d")}</p>
+                    <p className="text-sm">{format(day, "d")}</p>
                   </div>
                 ))}
               </div>
@@ -314,7 +314,7 @@ function Kpi({
 }) {
   return (
     <div className="rounded-2xl border border-forest/10 bg-white px-4 py-3">
-      <p className={cn("font-display text-3xl", warn ? "text-terracotta" : "text-forest")}>{value}</p>
+      <p className={cn("text-[15px] font-semibold", warn ? "text-terracotta" : "text-forest")}>{value}</p>
       <p className="field-label mt-1">{label}</p>
       {hint ? <p className="mt-0.5 truncate text-xs font-light text-forest/50">{hint}</p> : null}
     </div>
@@ -348,7 +348,7 @@ function MaterialRows({
           >
             <ChevronDown className={cn("size-4 shrink-0 text-forest/35 transition", open && "rotate-180")} />
             <span>
-              <span className="font-list font-medium text-forest">{row.name}</span>
+              <span className="font-medium text-forest">{row.name}</span>
               <span className="block text-xs font-light text-forest/45">
                 {row.category}
                 {row.unit ? ` · ${row.unit}` : ""}

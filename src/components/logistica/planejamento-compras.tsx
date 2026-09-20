@@ -123,7 +123,7 @@ export function PlanejamentoCompras() {
                     {shortages.map((row) => (
                       <tr key={row.materialId} className="border-b border-forest/5 last:border-0 bg-terracotta/[0.03]">
                         <td className="py-3 pl-5">
-                          <p className="font-list text-forest">{row.name}</p>
+                          <p className="text-forest">{row.name}</p>
                           <p className="text-xs font-light text-forest/40">{row.category}</p>
                         </td>
                         <td className="py-3 text-right tabular-nums text-forest/60">{formatInt(row.stock)}</td>

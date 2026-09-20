@@ -120,8 +120,8 @@ export function KitsAdmin() {
 
           <section className="space-y-4">
             <div>
-              <p className="font-section text-[0.68rem] text-terracotta">Separação</p>
-              <h2 className="font-display mt-1 text-3xl text-forest">Extras / Equipamentos</h2>
+              <p className="text-[13px] font-medium text-forest/50">Separação</p>
+              <h2 className="mt-1 text-[15px] font-semibold text-forest">Extras / Equipamentos</h2>
               <p className="mt-1 max-w-2xl text-sm font-light text-forest/60">
                 Itens avulsos apresentados como checklist na separação do evento — forno, mesas,
                 toalhas e outros equipamentos que não entram pelos pratos nem pelos kits.
@@ -168,7 +168,7 @@ export function KitsAdmin() {
                       index > 0 && "border-t border-forest/8",
                     )}
                   >
-                    <span className="font-list text-sm text-forest">{item.name}</span>
+                    <span className="text-sm text-forest">{item.name}</span>
                     <div className="flex gap-1">
                       <button
                         type="button"
@@ -233,7 +233,7 @@ function KitCard({
   return (
     <article className="flex flex-col rounded-2xl border border-forest/10 bg-white p-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h3 className="font-display text-2xl text-forest">{kit.name}</h3>
+        <h3 className="text-[15px] font-semibold text-forest">{kit.name}</h3>
         {scaled ? <ScaleBadge label={scaleLabel} /> : null}
       </div>
       {kit.items.length === 0 ? (
@@ -246,7 +246,7 @@ function KitCard({
               className="flex items-baseline justify-between gap-3 text-sm text-forest/75"
             >
               <span>{materialName.get(item.materialId) ?? "Material removido"}</span>
-              <span className="shrink-0 font-list text-forest">
+              <span className="shrink-0 text-forest">
                 {item.qtyPerKit}
                 {scaled ? (
                   <span className="ml-1 text-xs font-light text-forest/45">× kit</span>

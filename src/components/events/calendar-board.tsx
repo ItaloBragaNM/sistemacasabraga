@@ -6,8 +6,8 @@ import { addMonths, addWeeks, format, isSameMonth, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { StatusBadge } from "@/components/events/status-badge";
+import { fieldControlClass } from "@/components/events/field";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { formatDayHeading, formatMonthTitle, monthGrid, weekDays } from "@/lib/dates";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
@@ -34,10 +34,10 @@ function EventChip({ event }: { event: EventRecord }) {
         `cal-chip-${event.status}`,
       )}
     >
-      <p className="font-list truncate text-[0.7rem] font-medium">
+      <p className="truncate text-[13px] font-medium">
         {event.ceremonyTime || event.invitationTime || event.serviceTime || "—"} · {event.title}
       </p>
-      <p className="truncate text-[0.62rem] opacity-80">
+      <p className="truncate text-[13px] opacity-80">
         {EVENT_TYPE_LABELS[event.type]} · {guestTotal(event.guests)} pax
       </p>
     </Link>
@@ -82,8 +82,8 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-section text-[0.68rem] text-terracotta">Eventos</p>
-          <h1 className="font-display mt-1 text-4xl tracking-tight text-forest sm:text-5xl">
+          <p className="text-[13px] font-medium text-forest/50">Eventos</p>
+          <h1 className="page-title mt-1">
             Calendário de Eventos
           </h1>
           <p className="mt-2 max-w-xl text-sm font-light leading-6 text-forest/65">
@@ -95,7 +95,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
               <span
                 key={item}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.62rem]",
+                  "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px]",
                   `cal-chip-${item}`,
                 )}
               >
@@ -113,18 +113,18 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-forest/10 bg-white/70 p-3 sm:flex-row sm:items-center">
-        <Input
+      <div className="flex flex-col gap-3 rounded-2xl border border-forest/10 bg-white p-3 sm:flex-row sm:items-center">
+        <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Buscar por nome, cliente ou código"
-          className="h-10 flex-1 border-forest/15 bg-cream"
+          className={cn(fieldControlClass, "flex-1 bg-cream")}
         />
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           <button
             type="button"
             className={cn(
-              "rounded-full border px-3 py-1.5 text-sm",
+              "rounded-md border px-3 py-1.5 text-sm",
               statuses.length === 0 ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
             )}
             onClick={() => setStatuses([])}
@@ -138,7 +138,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
                 key={item}
                 type="button"
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-sm",
+                  "rounded-md border px-3 py-1.5 text-sm",
                   active ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
                 )}
                 onClick={() =>
@@ -180,7 +180,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           >
             Hoje
           </Button>
-          <h2 className="font-display ml-2 text-2xl capitalize text-forest">
+          <h2 className="ml-2 text-[15px] font-semibold capitalize text-forest">
             {view === "semana"
               ? `${format(weekDays(cursor)[0], "d MMM", { locale: ptBR })} — ${format(weekDays(cursor)[6], "d MMM yyyy", { locale: ptBR })}`
               : formatMonthTitle(cursor)}
@@ -200,7 +200,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
               aria-pressed={view === mode}
               onClick={() => setView(mode)}
               className={cn(
-                "font-section cursor-pointer rounded-md px-3 py-1.5 text-[0.62rem]",
+                "cursor-pointer rounded-md px-3 py-1.5 text-[13px] font-medium",
                 view === mode ? "bg-forest text-cream" : "text-forest/60 hover:text-forest",
               )}
             >
@@ -225,7 +225,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
               );
             return (
               <section key={date}>
-                <h3 className="font-section mb-3 text-[0.7rem] text-forest/55">
+                <h3 className="mb-3 text-[13px] font-medium text-forest/55">
                   {formatDayHeading(new Date(`${date}T12:00:00`))}
                 </h3>
                 <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
@@ -238,13 +238,13 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
                         index > 0 && "border-t border-forest/8",
                       )}
                     >
-                      <p className="font-list text-sm font-medium text-forest">
+                      <p className="text-sm font-medium text-forest">
                         {event.invitationTime || "—"}
                         {event.serviceTime ? ` · srv ${event.serviceTime}` : ""}
                       </p>
                       <div>
-                        <p className="font-display text-2xl text-forest">{event.title}</p>
-                        <p className="font-list mt-1 text-sm text-forest/55">
+                        <p className="text-[15px] font-semibold text-forest">{event.title}</p>
+                        <p className="mt-1 text-sm text-forest/55">
                           {EVENT_TYPE_LABELS[event.type]} · {event.venue.name} ·{" "}
                           {guestTotal(event.guests)} pax · {event.code}
                         </p>
@@ -270,11 +270,11 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
                 )}
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-section text-[0.7rem] text-forest/60">
+                  <h3 className="text-[13px] font-medium text-forest/60">
                     {formatDayHeading(day)}
                   </h3>
                   {isToday(day) && (
-                    <span className="font-section text-[0.58rem] text-terracotta">Hoje</span>
+                    <span className="text-[13px] font-medium text-forest/50">Hoje</span>
                   )}
                 </div>
                 {dayEvents.length === 0 ? (
@@ -296,7 +296,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
             {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
               <p
                 key={label}
-                className="font-section px-2 py-3 text-center text-[0.62rem] text-forest/50"
+                className="px-2 py-3 text-center text-[13px] font-medium text-forest/50"
               >
                 {label}
               </p>
@@ -312,15 +312,15 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
                   className={cn(
                     "min-h-[132px] border-r border-b border-forest/8 p-2 last:border-r-0",
                     outside && "bg-cream/40",
-                    isToday(day) && "bg-terracotta/5",
+                    isToday(day) && "bg-forest/5",
                   )}
                 >
                   <div className="mb-2 flex items-center justify-between">
                     <span
                       className={cn(
-                        "font-list flex size-7 items-center justify-center rounded-full text-xs",
+                        "flex size-7 items-center justify-center rounded-md text-xs",
                         isToday(day)
-                          ? "bg-terracotta text-cream"
+                          ? "bg-forest text-cream"
                           : outside
                             ? "text-forest/30"
                             : "text-forest",
@@ -329,7 +329,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
                       {format(day, "d")}
                     </span>
                     {dayEvents.length > 0 && (
-                      <span className="font-list text-[0.62rem] text-forest/40">
+                      <span className="text-[13px] text-forest/40">
                         {dayEvents.length}
                       </span>
                     )}
@@ -357,7 +357,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
 function EmptyState() {
   return (
     <div className="px-6 py-16 text-center">
-      <p className="font-display text-3xl text-forest">Nenhum evento neste recorte</p>
+      <p className="text-[15px] font-semibold text-forest">Nenhum evento neste recorte</p>
       <p className="mt-2 text-sm font-light text-forest/55">
         Ajuste os filtros ou crie um novo evento para a casa.
       </p>

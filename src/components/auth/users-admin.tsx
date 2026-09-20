@@ -113,7 +113,7 @@ export function UsersAdmin() {
               {sorted.map((user) => (
                 <tr key={user.id} className="border-b border-forest/8 last:border-0">
                   <td className="py-3 pl-5 font-medium">{user.name}</td>
-                  <td className="py-3 font-list text-forest/70">{user.username}</td>
+                  <td className="py-3 text-forest/70">{user.username}</td>
                   <td className="py-3">{USER_ROLE_LABELS[user.role]}</td>
                   <td className="max-w-sm py-3 text-xs font-light text-forest/60">
                     {roleModulesLabel(user.role)}

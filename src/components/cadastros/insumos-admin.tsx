@@ -153,7 +153,7 @@ export function InsumosAdmin() {
                           onChange={() => selection.toggle(item.id)}
                         />
                       </td>
-                      <td className="py-3 font-list font-medium text-forest">
+                      <td className="py-3 font-medium text-forest">
                         {item.name}
                         {item.brand ? (
                           <span className="block text-xs font-light text-forest/45">{item.brand}</span>

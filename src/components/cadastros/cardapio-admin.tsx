@@ -171,7 +171,7 @@ export function CardapioAdmin() {
             <div className="space-y-6">
               {groups.map((group) => (
                 <div key={group.category}>
-                  <h2 className="font-section mb-3 text-[0.72rem] text-forest/70">
+                  <h2 className="mb-3 text-[13px] font-semibold text-forest/70">
                     {group.category}
                   </h2>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -187,7 +187,7 @@ export function CardapioAdmin() {
                             onChange={() => selection.toggle(dish.id)}
                           />
                           <div className="min-w-0">
-                            <p className="font-list font-medium text-forest">{dish.name}</p>
+                            <p className="font-medium text-forest">{dish.name}</p>
                             <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-light text-forest/55">
                               {dish.materialIds.length > 0
                                 ? `Materiais: ${dish.materialIds
@@ -447,7 +447,7 @@ function DishForm({
                       checked={checked}
                       onChange={() => toggleMaterial(material.id)}
                     />
-                    <span className="font-list text-forest">{material.name}</span>
+                    <span className="text-forest">{material.name}</span>
                   </span>
                   <span className="text-xs font-light text-forest/45">{material.category}</span>
                 </label>
@@ -503,7 +503,7 @@ function DishForm({
                       checked={checked}
                       onChange={() => toggleInsumo(insumo.id)}
                     />
-                    <span className="font-list text-forest">{insumo.name}</span>
+                    <span className="text-forest">{insumo.name}</span>
                   </span>
                   <span className="text-xs font-light text-forest/45">
                     {insumo.category}

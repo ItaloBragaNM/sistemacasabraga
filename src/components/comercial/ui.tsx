@@ -18,7 +18,7 @@ export function InfoHint({ text, className }: { text: string; className?: string
       </button>
       <span
         role="tooltip"
-        className="pointer-events-none absolute right-0 top-6 z-40 hidden w-64 rounded-lg border border-forest/10 bg-white p-3 text-left text-xs font-light leading-5 text-forest/75 shadow-xl group-hover:block group-focus-within:block"
+        className="pointer-events-none absolute right-0 top-6 z-40 hidden w-64 rounded-md border border-forest/10 bg-white p-3 text-left text-[13px] leading-5 text-forest/75 shadow-sm group-hover:block group-focus-within:block"
       >
         {text}
       </span>
@@ -46,13 +46,13 @@ export function Kpi({
         ? "text-terracotta"
         : "text-forest";
   return (
-    <div className="rounded-xl border border-forest/10 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-forest/10 bg-white p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="field-label leading-4">{label}</p>
         {hint ? <InfoHint text={hint} /> : null}
       </div>
-      <p className={cn("font-display mt-2 text-[1.9rem] leading-none", toneClass)}>{value}</p>
-      {sub ? <p className="mt-1.5 text-xs font-light text-forest/50">{sub}</p> : null}
+      <p className={cn("mt-2 text-lg font-semibold leading-none", toneClass)}>{value}</p>
+      {sub ? <p className="mt-1.5 text-[13px] text-forest/50">{sub}</p> : null}
     </div>
   );
 }
@@ -74,7 +74,7 @@ export function BarList({
   empty?: string;
 }) {
   if (items.length === 0) {
-    return <p className="py-4 text-sm font-light text-forest/45">{empty}</p>;
+    return <p className="py-4 text-sm text-forest/45">{empty}</p>;
   }
   const max = Math.max(...items.map((item) => item.weight), 1);
   const barColor = tone === "terracotta" ? "bg-terracotta/80" : "bg-forest/70";
@@ -83,11 +83,11 @@ export function BarList({
       {items.map((item) => (
         <li key={item.label}>
           <div className="flex items-baseline justify-between gap-3">
-            <span className="font-list text-[0.8rem] text-forest/80">{item.label}</span>
+            <span className="text-[13px] text-forest/80">{item.label}</span>
             <span className="shrink-0 text-right text-sm font-medium text-forest">
               {item.primary}
               {item.secondary ? (
-                <span className="ml-1.5 text-xs font-light text-forest/45">{item.secondary}</span>
+                <span className="ml-1.5 text-[13px] text-forest/45">{item.secondary}</span>
               ) : null}
             </span>
           </div>
@@ -132,7 +132,7 @@ export function SummaryTable({ rows }: { rows: SummaryRow[] }) {
               key={row.key}
               className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]"
             >
-              <td className={cn("py-2.5 pl-1 font-list text-forest", row.muted && "text-forest/50")}>
+              <td className={cn("py-2.5 pl-1 text-forest", row.muted && "text-forest/50")}>
                 {row.label}
               </td>
               <Td>{formatBRL(row.summary.totalWon)}</Td>
@@ -173,7 +173,7 @@ function Th({
 
 function Td({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <td className={cn("py-2.5 pr-1 text-right font-light text-forest/85", className)}>{children}</td>
+    <td className={cn("py-2.5 pr-1 text-right text-forest/85", className)}>{children}</td>
   );
 }
 
@@ -185,7 +185,7 @@ export function ConversionBar({
   lostPct: number;
 }) {
   return (
-    <div className="flex h-6 w-full overflow-hidden rounded-full bg-forest/8 text-[0.62rem] font-semibold">
+    <div className="flex h-6 w-full overflow-hidden rounded-md bg-forest/8 text-[13px] font-medium">
       <div
         className="flex min-w-0 items-center justify-center overflow-hidden whitespace-nowrap bg-forest px-1 text-cream"
         style={{ width: `${wonPct * 100}%` }}

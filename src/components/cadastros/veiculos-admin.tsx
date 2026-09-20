@@ -155,7 +155,7 @@ export function VeiculosAdmin() {
                         />
                       </td>
                       <td className="py-3">
-                        <p className="font-list font-medium text-forest">{item.name}</p>
+                        <p className="font-medium text-forest">{item.name}</p>
                         {item.model || item.year ? (
                           <p className="text-xs font-light text-forest/45">
                             {[item.model, item.year].filter(Boolean).join(" · ")}

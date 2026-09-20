@@ -198,7 +198,7 @@ export function EstoqueInsumos() {
                         )}
                       >
                         <td className="py-3 pl-5">
-                          <p className="font-list text-forest">{insumo.name}</p>
+                          <p className="text-forest">{insumo.name}</p>
                           <p className="text-xs font-light text-forest/40">
                             {insumo.category}
                             {insumo.brand ? ` · ${insumo.brand}` : ""}
@@ -334,7 +334,7 @@ function InsumoStockPanel({
               {insumo.unitCost ? ` · ${formatBRL(insumo.unitCost)}/${insumo.unit}` : ""}
             </p>
           </div>
-          <span className="font-display text-3xl text-forest">
+          <span className="text-[15px] font-semibold text-forest">
             {formatDecimal(total, 2)} <span className="text-base text-forest/50">{insumo.unit}</span>
           </span>
         </div>

@@ -1,35 +1,13 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Geist_Mono, Montserrat, Oswald } from "next/font/google";
-import localFont from "next/font/local";
+import { Geist_Mono, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { EventsProvider } from "@/components/events/events-provider";
 import "./globals.css";
 
-const hatton = Cormorant_Garamond({
-  variable: "--font-hatton",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["600", "700"],
-});
-
-const barrels = Oswald({
-  variable: "--font-barrels",
-  subsets: ["latin"],
-  weight: ["500", "700"],
-});
-
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
-
-const sauce = localFont({
-  variable: "--font-sauce",
-  src: [
-    { path: "../fonts/open-sauce-one-light.woff2", weight: "300", style: "normal" },
-    { path: "../fonts/open-sauce-one-regular.woff2", weight: "400", style: "normal" },
-    { path: "../fonts/open-sauce-one-bold.woff2", weight: "700", style: "normal" },
-  ],
+  weight: ["400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -51,15 +29,15 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${hatton.variable} ${barrels.variable} ${montserrat.variable} ${sauce.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-cream text-forest">
+      <body className="min-h-full bg-cream font-sans text-forest">
         <EventsProvider>
           {children}
           <Toaster
             position="bottom-right"
             toastOptions={{
-              className: "font-[family-name:var(--font-sauce)]",
+              className: "font-sans text-sm",
             }}
           />
         </EventsProvider>

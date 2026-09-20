@@ -75,19 +75,19 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-2xl bg-cream p-8 shadow-2xl">
+    <div className="w-full max-w-md rounded-lg border border-forest/10 bg-cream p-8">
       <CasaBragaMark onLight />
       {checking ? (
-        <p className="mt-8 text-sm font-light text-forest/50">Verificando acesso…</p>
+        <p className="mt-8 text-sm text-forest/50">Verificando acesso…</p>
       ) : (
         <>
-      <p className="font-section mt-6 text-[0.68rem] text-terracotta">
+      <p className="mt-6 text-[13px] font-medium text-forest/50">
         {setupRequired ? "Primeiro acesso" : "Entrar"}
       </p>
-      <h1 className="font-display mt-1 text-4xl text-forest">
+      <h1 className="page-title mt-1">
         {setupRequired ? "Criar usuário de Gestão" : "Acesso à casa"}
       </h1>
-      <p className="mt-2 text-sm font-light text-forest/60">
+      <p className="mt-2 text-sm text-forest/60">
         {setupRequired
           ? "Ainda não há usuários. Crie o primeiro acesso de Gestão para abrir o sistema."
           : "Entre com o usuário e a senha cadastrados em Configurações do Sistema."}
@@ -189,7 +189,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="w-full max-w-md rounded-2xl bg-cream p-8 text-sm font-light text-forest/50">
+        <div className="w-full max-w-md rounded-lg border border-forest/10 bg-cream p-8 text-sm text-forest/50">
           Carregando…
         </div>
       }

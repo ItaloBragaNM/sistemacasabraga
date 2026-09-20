@@ -167,7 +167,7 @@ function PaymentRow({
   return (
     <tr className="border-b border-forest/5 last:border-0">
       <td className="py-3 pl-5">
-        <p className="font-list font-medium text-forest">{item.workerName}</p>
+        <p className="font-medium text-forest">{item.workerName}</p>
         <p className="text-xs font-light text-forest/45">
           {item.functionLabel}
           {item.workerCpf ? ` · ${item.workerCpf}` : ""}

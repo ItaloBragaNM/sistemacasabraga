@@ -132,7 +132,7 @@ function ModuleNav({
             >
               <span className="flex items-center gap-2">
                 <Icon className="size-3.5 text-cream/40" />
-                <span className="font-section text-[0.62rem] text-cream/45">{group.label}</span>
+                <span className="text-[13px] font-medium text-cream/50">{group.label}</span>
               </span>
               <ChevronDown
                 className={cn(
@@ -153,10 +153,10 @@ function ModuleNav({
                         href={page.href}
                         onClick={onNavigate}
                         className={cn(
-                          "font-list block rounded-md px-3 py-2 text-[0.82rem] transition-colors",
+                          "block rounded-md px-3 py-2 text-[13px] font-medium transition-colors",
                           active
-                            ? "bg-terracotta text-cream"
-                            : "text-cream/75 hover:bg-white/10 hover:text-cream",
+                            ? "bg-white/12 text-cream"
+                            : "text-cream/70 hover:bg-white/8 hover:text-cream",
                         )}
                       >
                         {page.label}
@@ -195,13 +195,13 @@ function CollapsedModule({
         onClick={onNavigate}
         className={cn(
           "flex size-10 items-center justify-center rounded-md transition-colors",
-          active ? "bg-terracotta text-cream" : "text-cream/70 hover:bg-white/10 hover:text-cream",
+          active ? "bg-white/12 text-cream" : "text-cream/70 hover:bg-white/10 hover:text-cream",
         )}
       >
         <Icon className="size-4" />
       </Link>
-      <div className="invisible absolute left-full top-0 z-50 ml-2 min-w-52 rounded-lg bg-petrol py-2 opacity-0 shadow-xl ring-1 ring-white/10 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-        <p className="font-section px-3 pb-1 text-[0.62rem] text-cream/45">{group.label}</p>
+      <div className="invisible absolute left-full top-0 z-50 ml-2 min-w-52 rounded-lg border border-white/10 bg-petrol py-2 opacity-0 shadow-sm transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        <p className="px-3 pb-1 text-[13px] font-medium text-cream/50">{group.label}</p>
         <ul>
           {group.pages.map((page) => {
             const pageActive =
@@ -213,8 +213,8 @@ function CollapsedModule({
                   href={page.href}
                   onClick={onNavigate}
                   className={cn(
-                    "font-list block px-3 py-2 text-[0.82rem]",
-                    pageActive ? "bg-terracotta text-cream" : "text-cream/80 hover:bg-white/10",
+                    "block px-3 py-2 text-[13px] font-medium",
+                    pageActive ? "bg-white/12 text-cream" : "text-cream/80 hover:bg-white/10",
                   )}
                 >
                   {page.label}
@@ -263,7 +263,7 @@ function UserFooter({ user, collapsed }: { user: PublicUser; collapsed?: boolean
   return (
     <div className="border-t border-white/10 px-4 py-4">
       <p className="truncate text-sm text-cream">{user.name}</p>
-      <p className="mt-0.5 text-xs font-light text-cream/45">{USER_ROLE_LABELS[user.role]}</p>
+      <p className="mt-0.5 text-[13px] text-cream/45">{USER_ROLE_LABELS[user.role]}</p>
       <button
         type="button"
         onClick={logout}
@@ -326,7 +326,7 @@ export function AppShell({
       </aside>
 
       <div className="min-w-0">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-forest/10 bg-cream/90 px-4 py-3 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-forest/10 bg-cream px-4 py-3 lg:hidden">
           <CasaBragaMark onLight />
           <button
             type="button"
@@ -346,7 +346,7 @@ export function AppShell({
               className="absolute inset-0 bg-black/40"
               onClick={() => setOpen(false)}
             />
-            <aside className="relative flex h-full w-[300px] flex-col bg-petrol text-cream shadow-2xl">
+            <aside className="relative flex h-full w-[300px] flex-col bg-petrol text-cream">
               <div className="flex items-start justify-between border-b border-white/10 px-5 py-6">
                 <CasaBragaMark />
                 <button

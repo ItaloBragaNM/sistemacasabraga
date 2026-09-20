@@ -24,7 +24,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
   const uniforms = uniformPiecesForReport(event.uniforms);
 
   return (
-    <div className="min-h-screen bg-[#e8e2da] px-3 py-6 print:bg-white print:p-0">
+    <div className="min-h-screen bg-cream px-3 py-6 print:bg-white print:p-0">
       <div className="mx-auto mb-4 flex max-w-[210mm] items-center justify-between print:hidden">
         <Link
           href={`/eventos/${event.id}`}
@@ -55,12 +55,12 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
         </div>
       </div>
 
-      <article className="kitchen-print-sheet mx-auto w-full max-w-[210mm] bg-[#FFFBFA] shadow-xl print:max-w-none print:shadow-none">
+      <article className="kitchen-print-sheet mx-auto w-full max-w-[210mm] bg-white print:max-w-none">
         <header className="kitchen-print-header bg-petrol px-6 py-5 text-cream">
-          <p className="font-section text-[0.62rem] tracking-[0.22em] text-cream/70">
+          <p className="text-[13px] font-medium text-cream/70">
             Casa Braga · Ficha de Cozinha
           </p>
-          <h1 className="font-display mt-2 text-4xl">{event.title}</h1>
+          <h1 className="mt-2 text-[22px] font-semibold leading-tight">{event.title}</h1>
           <p className="mt-2 text-sm font-light text-cream/75">
             {event.code} · {EVENT_TYPE_LABELS[event.type]}
           </p>
@@ -94,7 +94,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
 
         {event.dietaryNotes && (
           <div className="mt-5 border border-terracotta bg-[#F8D9D7] px-4 py-3">
-            <p className="font-section text-[0.62rem] text-terracotta">
+            <p className="text-[13px] font-medium text-forest/50">
               Restrições alimentares
             </p>
             <p className="mt-1 text-sm leading-6">{event.dietaryNotes}</p>
@@ -106,10 +106,10 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           if (!items.length) return null;
           return (
             <section key={section.key} className="mt-6">
-              <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem] text-forest">
+              <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold text-forest">
                 {section.label}
               </h2>
-              <ul className="font-list divide-y divide-forest/8">
+              <ul className="divide-y divide-forest/8">
                 {items.map((item) => (
                   <li
                     key={item.id}
@@ -127,11 +127,11 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
 
         {(drinks.length > 0 || event.drinksNotes) && (
           <section className="mt-6">
-            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
               Bebidas
             </h2>
             {drinks.length > 0 ? (
-              <ul className="font-list grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-3">
+              <ul className="grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-3">
                 {drinks.map((item) => (
                   <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
                     <span>{item.label}</span>
@@ -148,10 +148,10 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
 
         {staff.length > 0 && (
           <section className="mt-6">
-            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
               Equipe
             </h2>
-            <ul className="font-list grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+            <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
               {staff.map((item) => (
                 <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
                   <span>{item.label}</span>
@@ -164,14 +164,14 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
 
         {uniforms.length > 0 ? (
           <section className="mt-6">
-            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
               Fardamentos
             </h2>
             <div className="grid gap-3 sm:grid-cols-3">
               {uniforms.map((piece) => (
                 <div key={piece.key} className="border border-forest/10 px-3 py-2 text-sm">
                   <p className="field-label">{piece.label}</p>
-                  <p className="font-list mt-1">
+                  <p className="mt-1">
                     {formatUniformSizeLine(piece.sizes, UNIFORM_SIZE_LABELS)}
                   </p>
                 </div>
@@ -182,7 +182,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
 
         {event.logistics.alcohol && (
           <section className="mt-6">
-            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
               Álcool
             </h2>
             <p className="text-sm leading-6">{event.logistics.alcohol}</p>
@@ -191,7 +191,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
 
         {event.menuSetupNotes && (
           <section className="mt-6">
-            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
               Observações — cozinha
             </h2>
             <p className="text-sm leading-6">{event.menuSetupNotes}</p>
@@ -200,7 +200,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
 
         {event.logisticsNotes && (
           <section className="mt-6">
-            <h2 className="font-section mb-2 border-b border-forest/15 pb-1 text-[0.7rem]">
+            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
               Observações — logística
             </h2>
             <p className="text-sm leading-6">{event.logisticsNotes}</p>

@@ -72,8 +72,8 @@ export function NewEventForm() {
       }}
     >
       <div>
-        <p className="font-section text-[0.68rem] text-terracotta">Eventos</p>
-        <h1 className="font-display mt-1 text-4xl text-forest sm:text-5xl">
+        <p className="text-[13px] font-medium text-forest/50">Eventos</p>
+        <h1 className="page-title mt-1">
           Nova ficha
         </h1>
         <p className="mt-2 text-sm font-light text-forest/60">

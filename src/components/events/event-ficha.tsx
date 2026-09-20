@@ -162,7 +162,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             Voltar ao calendário
           </Link>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <p className="font-section text-[0.68rem] text-terracotta">{draft.code}</p>
+            <p className="text-[13px] font-medium text-forest/50">{draft.code}</p>
             <StatusBadge status={draft.status} />
             <span className="text-xs font-light text-forest/45">
               {saveState === "saving"
@@ -174,7 +174,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                     : "Ficha operacional — uso interno"}
             </span>
           </div>
-          <h1 className="font-display mt-2 text-4xl tracking-tight text-forest sm:text-5xl">
+          <h1 className="page-title mt-2">
             {draft.title || "Evento sem nome"}
           </h1>
           <p className="mt-2 text-sm font-light text-forest/60">
@@ -577,7 +577,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                         }}
                       />
                       <span>
-                        <span className="block font-list text-sm font-medium text-forest">{vehicle.name}</span>
+                        <span className="block text-sm font-medium text-forest">{vehicle.name}</span>
                         <span className="block text-xs font-light text-forest/45">
                           {[vehicle.plate, vehicle.model, VEHICLE_USAGE_CATEGORY_LABELS[vehicle.usageCategory]]
                             .filter(Boolean)
@@ -640,8 +640,8 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           className="mb-5 flex w-full items-start justify-between gap-3 border-b border-forest/10 pb-3 text-left"
         >
           <div>
-            <p className="font-section text-[0.62rem] text-terracotta">Cadastros</p>
-            <h2 className="font-section mt-1 text-[0.82rem] text-forest">
+            <p className="text-[13px] font-medium text-forest/50">Cadastros</p>
+            <h2 className="mt-1 text-[15px] font-semibold text-forest">
               Pratos do cardápio (catálogo)
             </h2>
             <p className="mt-1 text-xs font-light text-forest/50">
@@ -918,7 +918,7 @@ function EventLaborAllocations({
           <div key={row.workerId} className="rounded-xl border border-forest/10 p-3">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-list text-sm font-medium text-forest">{worker?.name || "Prestador removido"}</p>
+                <p className="text-sm font-medium text-forest">{worker?.name || "Prestador removido"}</p>
                 <p className="text-xs font-light text-forest/45">
                   {formatBRL(amounts.total)}
                   {amounts.allowance ? " · ajuda de custo" : outOfTown ? "" : " · ajuda só fora da cidade"}
@@ -1191,7 +1191,7 @@ function CatalogDishPicker({
       ) : (
         groups.map((group) => (
           <div key={group.category}>
-            <h3 className="font-section mb-2 text-[0.66rem] text-forest/55">{group.category}</h3>
+            <h3 className="mb-2 text-[13px] font-medium text-forest/55">{group.category}</h3>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {group.items.map((dish) => {
                 const checked = selectedSet.has(dish.id);
@@ -1211,7 +1211,7 @@ function CatalogDishPicker({
                       checked={checked}
                       onChange={() => toggle(dish.id)}
                     />
-                    <span className="font-list text-forest">{dish.name}</span>
+                    <span className="text-forest">{dish.name}</span>
                   </label>
                 );
               })}
@@ -1258,7 +1258,7 @@ function MenuBlock({
 }) {
   return (
     <div>
-      <h3 className="font-section mb-3 text-[0.7rem] text-forest/55">{title}</h3>
+      <h3 className="mb-3 text-[13px] font-medium text-forest/55">{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[680px] text-left">
           <thead>
@@ -1269,7 +1269,7 @@ function MenuBlock({
               <th />
             </tr>
           </thead>
-          <tbody className="font-list">
+          <tbody>
             {items.map((item, index) => (
               <tr key={item.id} className="border-t border-forest/8">
                 <td className="p-2">

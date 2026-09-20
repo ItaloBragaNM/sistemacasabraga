@@ -93,7 +93,7 @@ export function FichasTecnicasAdmin() {
               {sheets.map((sheet) => (
                 <tr key={sheet.id} className="border-b border-forest/5 last:border-0">
                   <td className="py-3 pl-5">
-                    <p className="font-list font-medium text-forest">{sheet.name}</p>
+                    <p className="font-medium text-forest">{sheet.name}</p>
                     <p className="text-xs font-light text-forest/45">{sheet.sector}</p>
                   </td>
                   <td className="py-3 text-forest/70">{sheet.classification || "—"}</td>
@@ -464,15 +464,15 @@ function FichaEditor({
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-forest/10 px-4 py-3">
             <p className="field-label">Custo total</p>
-            <p className="mt-1 font-display text-2xl text-forest">{formatBRL(cost)}</p>
+            <p className="mt-1 text-lg font-semibold text-forest">{formatBRL(cost)}</p>
           </div>
           <div className="rounded-xl border border-forest/10 px-4 py-3">
             <p className="field-label">Custo por porção</p>
-            <p className="mt-1 font-display text-2xl text-forest">{perPortion ? formatBRL(perPortion) : "—"}</p>
+            <p className="mt-1 text-lg font-semibold text-forest">{perPortion ? formatBRL(perPortion) : "—"}</p>
           </div>
           <div className="rounded-xl border border-forest/10 px-4 py-3">
             <p className="field-label">CMV projetado</p>
-            <p className="mt-1 font-display text-2xl text-forest">{formatDecimal(cmv, 1)}%</p>
+            <p className="mt-1 text-lg font-semibold text-forest">{formatDecimal(cmv, 1)}%</p>
           </div>
         </div>
       </section>
