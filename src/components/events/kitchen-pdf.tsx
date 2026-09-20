@@ -4,12 +4,13 @@ import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer
 import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
+  alcoholSummary,
   DRINK_ITEMS,
+  eventMenuSections,
   eventStaffLines,
   formatUniformSizeLine,
   guestTotal,
   guestsSummary,
-  MENU_SECTIONS,
   uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
@@ -151,7 +152,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           />
           <Meta
             label="Cerimônia / convite / serviço"
-            value={`${event.ceremonyTime || "—"} / ${event.invitationTime || "—"} / ${event.serviceTime || "—"}`}
+            value={`${event.ceremonyTime || "—"} / ${event.invitationTime || "—"} / ${event.serviceTime || "—"}${event.serviceDuration ? ` · ${event.serviceDuration}` : ""}`}
           />
           <Meta label="A servir" value={String(guestTotal(event.guests))} />
         </View>
@@ -181,12 +182,13 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           </View>
         ) : null}
 
-        {MENU_SECTIONS.map((section) => {
-          const items = event.menu[section.key].filter((item) => item.name.trim());
+        {eventMenuSections(event).map((section) => {
+          const items = section.items.filter((item) => item.name.trim());
           if (!items.length) return null;
+          const title = section.time ? `${section.title} · ${section.time}` : section.title;
           return (
-            <View key={section.key}>
-              <Text style={styles.sectionTitle}>{section.label}</Text>
+            <View key={section.id}>
+              <Text style={styles.sectionTitle}>{title}</Text>
               <View style={styles.item}>
                 <Text style={[styles.itemQty, { fontSize: 7, letterSpacing: 0.6, textTransform: "uppercase", color: colors.muted }]}>
                   Per capita
@@ -248,10 +250,10 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           </View>
         ) : null}
 
-        {event.logistics.alcohol ? (
+        {alcoholSummary(event.logistics) ? (
           <View>
-            <Text style={styles.sectionTitle}>Álcool</Text>
-            <Text style={styles.note}>{event.logistics.alcohol}</Text>
+            <Text style={styles.sectionTitle}>Bebidas alcoólicas</Text>
+            <Text style={styles.note}>{alcoholSummary(event.logistics)}</Text>
           </View>
         ) : null}
 
@@ -259,6 +261,13 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           <View>
             <Text style={styles.sectionTitle}>Observações — cozinha</Text>
             <Text style={styles.note}>{event.menuSetupNotes}</Text>
+          </View>
+        ) : null}
+
+        {event.managementNotes ? (
+          <View>
+            <Text style={styles.sectionTitle}>Gerenciais e Evento</Text>
+            <Text style={styles.note}>{event.managementNotes}</Text>
           </View>
         ) : null}
 

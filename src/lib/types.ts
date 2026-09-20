@@ -135,6 +135,95 @@ export function compactMenu(menu?: Partial<Menu> | null): Menu {
   return next;
 }
 
+export interface EventMenuSection {
+  id: string;
+  title: string;
+  time: string;
+  items: MenuItem[];
+}
+
+export function emptyMenuItemList(): MenuItem[] {
+  return [];
+}
+
+export function normalizeMenuItem(input: unknown): MenuItem | null {
+  if (!input || typeof input !== "object") return null;
+  const row = input as Partial<MenuItem>;
+  const name = typeof row.name === "string" ? row.name : "";
+  if (!name.trim() && !row.id) return null;
+  return {
+    id: typeof row.id === "string" && row.id ? row.id : `item-${Math.random().toString(36).slice(2, 10)}`,
+    name,
+    quantity: typeof row.quantity === "string" ? row.quantity : "",
+    notes: typeof row.notes === "string" ? row.notes : "",
+  };
+}
+
+export function normalizeMenuPlan(input: unknown): EventMenuSection[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item): EventMenuSection | null => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Partial<EventMenuSection>;
+      const items = Array.isArray(row.items)
+        ? row.items.map(normalizeMenuItem).filter((rowItem): rowItem is MenuItem => Boolean(rowItem))
+        : [];
+      const title = typeof row.title === "string" ? row.title.trim() : "";
+      if (!title && items.length === 0) return null;
+      return {
+        id: typeof row.id === "string" && row.id ? row.id : `sec-${Math.random().toString(36).slice(2, 10)}`,
+        title: title || "Seção",
+        time: typeof row.time === "string" ? row.time : "",
+        items,
+      };
+    })
+    .filter((section): section is EventMenuSection => Boolean(section));
+}
+
+/** Layout editável do cardápio; se vazio, deriva das categorias fixas. */
+export function eventMenuSections(event: Pick<EventRecord, "menu" | "menuPlan">): EventMenuSection[] {
+  const planned = normalizeMenuPlan(event.menuPlan);
+  if (planned.length > 0) return planned;
+  return MENU_SECTIONS.map((section) => ({
+    id: section.key,
+    title: section.label,
+    time: "",
+    items: (event.menu?.[section.key] ?? []).filter((item) => item.name.trim()),
+  })).filter((section) => section.items.length > 0);
+}
+
+export interface EventAttachment {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+  dataUrl: string;
+}
+
+export const EVENT_ATTACHMENT_MAX_FILES = 4;
+export const EVENT_ATTACHMENT_MAX_BYTES = 500 * 1024;
+
+export function normalizeAttachments(input: unknown): EventAttachment[] {
+  if (!Array.isArray(input)) return [];
+  const next: EventAttachment[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Partial<EventAttachment>;
+    const dataUrl = typeof row.dataUrl === "string" ? row.dataUrl : "";
+    const mime = typeof row.mime === "string" ? row.mime : "";
+    if (!dataUrl.startsWith("data:") || (!mime.startsWith("image/") && !mime.startsWith("video/"))) continue;
+    next.push({
+      id: typeof row.id === "string" && row.id ? row.id : `att-${next.length + 1}`,
+      name: typeof row.name === "string" && row.name.trim() ? row.name.trim() : "arquivo",
+      mime,
+      size: Number(row.size) || 0,
+      dataUrl,
+    });
+    if (next.length >= EVENT_ATTACHMENT_MAX_FILES) break;
+  }
+  return next;
+}
+
 export const STAFF_ROLES = [
   { key: "garcons", label: "Garçons" },
   { key: "garconetes", label: "Garçonetes" },
@@ -363,8 +452,24 @@ export function formatUniformSizeLine(
   return sizes.map((item) => `${labels[item.size]} ${item.quantity}`).join(separator);
 }
 
+export const ALCOHOL_TYPES = [
+  { key: "cerveja", label: "Cerveja" },
+  { key: "vinho", label: "Vinho" },
+  { key: "espumante", label: "Espumante" },
+  { key: "destilados", label: "Destilados" },
+  { key: "drinks", label: "Drinks / coquetéis" },
+  { key: "outros", label: "Outros" },
+] as const;
+
+export function yesNoValue(value: unknown): YesNo {
+  return value === "sim" || value === "nao" ? value : "";
+}
+
 export interface Logistics {
+  /** Texto legado; também serve de detalhe quando “outros”. */
   alcohol: string;
+  alcoholServed: YesNo;
+  alcoholTypes: string[];
   materialPreviousDay: YesNo;
   trestleTable: YesNo;
   hasKitchen: YesNo;
@@ -372,6 +477,80 @@ export interface Logistics {
   hasOven: YesNo;
   hasMicrowave: YesNo;
   flyingMenu: YesNo;
+  mustCollectMaterial: YesNo;
+  extraConservation: YesNo;
+  extraConservationQty: string;
+  iceCubes: YesNo;
+  iceCubesQty: string;
+  hasSink: YesNo;
+  hasFridge: YesNo;
+  hasStove: YesNo;
+}
+
+export function emptyLogistics(): Logistics {
+  return {
+    alcohol: "",
+    alcoholServed: "",
+    alcoholTypes: [],
+    materialPreviousDay: "",
+    trestleTable: "",
+    hasKitchen: "",
+    hasFreezer: "",
+    hasOven: "",
+    hasMicrowave: "",
+    flyingMenu: "",
+    mustCollectMaterial: "",
+    extraConservation: "",
+    extraConservationQty: "",
+    iceCubes: "",
+    iceCubesQty: "",
+    hasSink: "",
+    hasFridge: "",
+    hasStove: "",
+  };
+}
+
+export function normalizeLogistics(input: unknown): Logistics {
+  const next = emptyLogistics();
+  if (!input || typeof input !== "object") return next;
+  const src = input as Partial<Logistics> & Record<string, unknown>;
+  const alcohol = typeof src.alcohol === "string" ? src.alcohol : "";
+  const types = Array.isArray(src.alcoholTypes)
+    ? src.alcoholTypes.filter((item): item is string => typeof item === "string" && Boolean(item))
+    : [];
+  let alcoholServed = yesNoValue(src.alcoholServed);
+  if (!alcoholServed && alcohol.trim()) alcoholServed = "sim";
+  return {
+    ...next,
+    alcohol,
+    alcoholServed,
+    alcoholTypes: types,
+    materialPreviousDay: yesNoValue(src.materialPreviousDay),
+    trestleTable: yesNoValue(src.trestleTable),
+    hasKitchen: yesNoValue(src.hasKitchen),
+    hasFreezer: yesNoValue(src.hasFreezer),
+    hasOven: yesNoValue(src.hasOven),
+    hasMicrowave: yesNoValue(src.hasMicrowave),
+    flyingMenu: yesNoValue(src.flyingMenu),
+    mustCollectMaterial: yesNoValue(src.mustCollectMaterial),
+    extraConservation: yesNoValue(src.extraConservation),
+    extraConservationQty: typeof src.extraConservationQty === "string" ? src.extraConservationQty : "",
+    iceCubes: yesNoValue(src.iceCubes),
+    iceCubesQty: typeof src.iceCubesQty === "string" ? src.iceCubesQty : "",
+    hasSink: yesNoValue(src.hasSink),
+    hasFridge: yesNoValue(src.hasFridge),
+    hasStove: yesNoValue(src.hasStove),
+  };
+}
+
+export function alcoholSummary(logistics: Logistics): string {
+  if (logistics.alcoholServed === "nao") return "Não";
+  const labels = ALCOHOL_TYPES.filter((item) => logistics.alcoholTypes.includes(item.key)).map(
+    (item) => item.label,
+  );
+  const parts = [labels.join(", "), logistics.alcohol.trim()].filter(Boolean);
+  if (logistics.alcoholServed === "sim") return parts.join(" · ") || "Sim";
+  return parts.join(" · ");
 }
 
 export interface MaterialSeparationOverride {
@@ -452,6 +631,8 @@ export interface EventLaborAllocation {
   overtimeHours: number;
   /** Quando false, não aplica ajuda de custo mesmo fora da cidade. */
   applyAllowance: boolean;
+  /** Diária neste evento. Se omitida, usa a tabela de valores da função. */
+  daily?: number;
 }
 
 export function emptyLaborAllocations(): EventLaborAllocation[] {
@@ -468,6 +649,8 @@ export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[
     const workerId = typeof row.workerId === "string" ? row.workerId : "";
     if (!workerId || seen.has(workerId)) continue;
     seen.add(workerId);
+    const dailyRaw = (row as { daily?: unknown }).daily;
+    const dailyParsed = Number(dailyRaw);
     next.push({
       id: typeof row.id === "string" && row.id ? row.id : workerId,
       workerId,
@@ -475,6 +658,7 @@ export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[
       overtime: Boolean(row.overtime),
       overtimeHours: Number(row.overtimeHours) || 0,
       applyAllowance: row.applyAllowance !== false,
+      daily: Number.isFinite(dailyParsed) ? dailyParsed : undefined,
     });
   }
   return next;
@@ -505,15 +689,19 @@ export interface EventRecord {
   clientId?: string;
   teamArrival: string;
   invitationTime: string;
-  /** Horário da cerimônia — obrigatório na ficha. */
+  /** Horário da cerimônia — opcional. */
   ceremonyTime: string;
   serviceTime: string;
+  /** Duração prevista do serviço (ex.: 6 horas). */
+  serviceDuration: string;
   staff: StaffCounts;
   /** Funções extras acrescentadas com “+”. */
   extraStaff: ExtraStaffLine[];
   menu: Menu;
   /** Pratos do catálogo (cadastro de cardápio) escolhidos para o evento. */
   selectedDishIds?: string[];
+  /** Seções do cardápio deste evento (título, horário e ordem dos pratos). */
+  menuPlan?: EventMenuSection[];
   /** Ajustes manuais da separação de materiais deste evento. */
   materialSeparation?: MaterialSeparationState;
   drinks: DrinkQuantities;
@@ -534,6 +722,8 @@ export interface EventRecord {
   dietaryNotes: string;
   menuSetupNotes: string;
   logisticsNotes: string;
+  managementNotes: string;
+  attachments: EventAttachment[];
   createdAt: string;
   updatedAt: string;
   /** Quem alterou a ficha e o que mudou. */
@@ -619,9 +809,14 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     vehicleIds: normalizeVehicleIds(event.vehicleIds),
     laborAllocations: normalizeLaborAllocations(event.laborAllocations),
     ceremonyTime: typeof event.ceremonyTime === "string" ? event.ceremonyTime : "",
+    serviceDuration: typeof event.serviceDuration === "string" ? event.serviceDuration : "",
     drinksNotes: typeof event.drinksNotes === "string" ? event.drinksNotes : "",
     logisticsNotes: typeof event.logisticsNotes === "string" ? event.logisticsNotes : "",
+    managementNotes: typeof event.managementNotes === "string" ? event.managementNotes : "",
+    attachments: normalizeAttachments(event.attachments),
     menu: compactMenu(event.menu),
+    menuPlan: normalizeMenuPlan(event.menuPlan),
+    logistics: normalizeLogistics(event.logistics),
     materialDeliveryDate: normalizeIsoDate(event.materialDeliveryDate),
     materialPickupDate: normalizeIsoDate(event.materialPickupDate),
     foodDeliveryDate: normalizeIsoDate(event.foodDeliveryDate),

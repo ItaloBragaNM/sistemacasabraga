@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
@@ -8,7 +8,7 @@ import { fieldControlClass, Field } from "@/components/events/field";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button } from "@/components/ui/button";
 import { uid } from "@/lib/event-factory";
-import { LABOR_FUNCTIONS, laborFunctionLabel, workerFunctionKeys, workerFunctionsLabel, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
+import { LABOR_FUNCTIONS, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
 import { cn } from "@/lib/utils";
 
 export function MaoDeObraAdmin() {
@@ -17,16 +17,16 @@ export function MaoDeObraAdmin() {
   const [editing, setEditing] = useState<ExternalWorker | null>(null);
   const [open, setOpen] = useState(false);
 
+  const [ratesOpen, setRatesOpen] = useState(true);
   const workers = useMemo(() => {
     const list = [...(data?.workers ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     const term = search.trim().toLowerCase();
     if (!term) return list;
     return list.filter(
       (item) =>
-        item.name.toLowerCase().includes(term) ||
-        item.cpf.toLowerCase().includes(term) ||
-        laborFunctionLabel(item.functionKey).toLowerCase().includes(term) ||
-        workerFunctionsLabel(item).toLowerCase().includes(term),
+            item.name.toLowerCase().includes(term) ||
+            item.cpf.toLowerCase().includes(term) ||
+            item.pix.toLowerCase().includes(term),
     );
   }, [data?.workers, search]);
 
@@ -37,7 +37,7 @@ export function MaoDeObraAdmin() {
       <CadastrosHeader
         eyebrow="Administrativo"
         title="Mão de obra externa"
-        description="Cadastre prestadores e as funções que cada um pode exercer. Na ficha do evento, escolha a função daquele dia."
+        description="Cadastre prestadores. A função e o valor da diária são definidos na ficha de cada evento, a partir da tabela abaixo."
         action={
           <Button
             className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
@@ -58,11 +58,24 @@ export function MaoDeObraAdmin() {
         <EmptyBlock title="Cadastro indisponível" description="Recarregue a página." />
       ) : (
         <>
-          <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-            <h2 className="text-[15px] font-semibold text-forest">Tabela de valores</h2>
-            <p className="mt-1 text-xs font-light text-forest/50">
-              Diária, hora extra e ajuda de custo. A ajuda entra automaticamente quando o evento está fora da cidade.
-            </p>
+          <section className="rounded-lg border border-forest/10 bg-white p-5 sm:p-6">
+            <button
+              type="button"
+              aria-expanded={ratesOpen}
+              onClick={() => setRatesOpen((open) => !open)}
+              className="flex w-full items-start justify-between gap-3 text-left"
+            >
+              <div>
+                <h2 className="text-[15px] font-semibold text-forest">Tabela de valores</h2>
+                <p className="mt-1 text-[13px] text-forest/50">
+                  Diária, hora extra e ajuda de custo. A ajuda entra automaticamente quando o evento está fora da cidade.
+                </p>
+              </div>
+              <ChevronDown
+                className={cn("mt-1 size-4 shrink-0 text-forest/40 transition-transform", ratesOpen && "rotate-180")}
+              />
+            </button>
+            {ratesOpen ? (
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -123,10 +136,11 @@ export function MaoDeObraAdmin() {
                 </tbody>
               </table>
             </div>
+            ) : null}
           </section>
 
           <section className="space-y-4">
-            <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nome, CPF ou função…" />
+            <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nome, CPF ou PIX…" />
             {workers.length === 0 ? (
               <EmptyBlock
                 title="Nenhum prestador"
@@ -151,8 +165,7 @@ export function MaoDeObraAdmin() {
                     <tr className="border-b border-forest/10">
                       <th className="field-label py-3 pl-5 font-normal">Nome</th>
                       <th className="field-label py-3 font-normal">CPF</th>
-                      <th className="field-label py-3 font-normal">Funções</th>
-                      <th className="field-label py-3 font-normal">PIX / conta</th>
+                      <th className="field-label py-3 font-normal">PIX</th>
                       <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
                     </tr>
                   </thead>
@@ -161,8 +174,7 @@ export function MaoDeObraAdmin() {
                       <tr key={item.id} className="border-b border-forest/5 last:border-0">
                         <td className="py-3 pl-5 font-medium text-forest">{item.name}</td>
                         <td className="py-3 font-mono text-forest/70">{item.cpf || "—"}</td>
-                        <td className="py-3 text-forest/70">{workerFunctionsLabel(item)}</td>
-                        <td className="py-3 text-forest/70">{item.pix || item.bankAccount || "—"}</td>
+                        <td className="py-3 text-forest/70">{item.pix || "—"}</td>
                         <td className="py-3 pr-5 text-right">
                           <button
                             type="button"
@@ -226,10 +238,6 @@ function WorkerForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [cpf, setCpf] = useState(initial?.cpf ?? "");
   const [pix, setPix] = useState(initial?.pix ?? "");
-  const [bankAccount, setBankAccount] = useState(initial?.bankAccount ?? "");
-  const [functionKeys, setFunctionKeys] = useState<string[]>(
-    workerFunctionKeys(initial ?? { functionKey: LABOR_FUNCTIONS[0]?.key || "garcons", functionKeys: [] }),
-  );
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
   return (
@@ -241,45 +249,8 @@ function WorkerForm({
         <Field label="CPF">
           <input className={fieldControlClass} value={cpf} onChange={(event) => setCpf(event.target.value)} />
         </Field>
-        <Field label="Funções que pode exercer" className="sm:col-span-2">
-          <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-forest/10 p-2">
-            {LABOR_FUNCTIONS.map((role) => {
-              const checked = functionKeys.includes(role.key);
-              return (
-                <label
-                  key={role.key}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm",
-                    checked ? "bg-forest/8" : "hover:bg-forest/[0.03]",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-forest"
-                    checked={checked}
-                    onChange={() =>
-                      setFunctionKeys((current) =>
-                        current.includes(role.key)
-                          ? current.filter((key) => key !== role.key)
-                          : [...current, role.key],
-                      )
-                    }
-                  />
-                  {role.label}
-                </label>
-              );
-            })}
-          </div>
-        </Field>
         <Field label="PIX">
           <input className={fieldControlClass} value={pix} onChange={(event) => setPix(event.target.value)} />
-        </Field>
-        <Field label="Conta bancária">
-          <input
-            className={fieldControlClass}
-            value={bankAccount}
-            onChange={(event) => setBankAccount(event.target.value)}
-          />
         </Field>
       </div>
       <Field label="Observações">
@@ -296,19 +267,15 @@ function WorkerForm({
               toast.error("Informe o nome.");
               return;
             }
-            if (!functionKeys.length) {
-              toast.error("Selecione ao menos uma função.");
-              return;
-            }
             const stamp = new Date().toISOString();
             onSubmit({
               id: initial?.id ?? uid(),
               name: name.trim(),
               cpf: cpf.trim(),
               pix: pix.trim(),
-              bankAccount: bankAccount.trim(),
-              functionKey: functionKeys[0],
-              functionKeys,
+              bankAccount: initial?.bankAccount ?? "",
+              functionKey: initial?.functionKey ?? "",
+              functionKeys: initial?.functionKeys ?? [],
               notes: notes.trim(),
               createdAt: initial?.createdAt ?? stamp,
               updatedAt: stamp,
@@ -321,3 +288,4 @@ function WorkerForm({
     </div>
   );
 }
+

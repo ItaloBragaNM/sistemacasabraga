@@ -7,13 +7,15 @@ import {
   YES_NO_LABELS,
 } from "@/lib/labels";
 import {
+  ALCOHOL_TYPES,
   DRINK_ITEMS,
-  MENU_SECTIONS,
   extraStaffLabel,
+  eventMenuSections,
   normalizeExtraStaff,
   STAFF_ROLES,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
+  type EventAttachment,
   type EventChangeLogEntry,
   type EventFieldChange,
   type EventRecord,
@@ -61,15 +63,27 @@ function yesNo(value: YesNo | string | undefined) {
 
 function menuLine(event: EventRecord) {
   const names: string[] = [];
-  for (const section of MENU_SECTIONS) {
-    for (const item of event.menu[section.key] ?? []) {
+  for (const section of eventMenuSections(event)) {
+    const heading = section.time ? `${section.title} ${section.time}` : section.title;
+    for (const item of section.items) {
       const name = item.name.trim();
       if (!name) continue;
       const qty = item.quantity.trim();
-      names.push(qty ? `${name} (${qty})` : name);
+      names.push(`${heading}: ${qty ? `${name} (${qty})` : name}`);
     }
   }
   return names.join(", ");
+}
+
+function attachmentLine(files: EventAttachment[] | undefined) {
+  return (files ?? []).map((file) => file.name).join(", ");
+}
+
+function alcoholTypesLine(keys: string[] | undefined) {
+  const selected = new Set(keys ?? []);
+  return ALCOHOL_TYPES.filter((item) => selected.has(item.key))
+    .map((item) => item.label)
+    .join(", ");
 }
 
 export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldChange[] {
@@ -113,8 +127,11 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
   push(changes, "Horário do convite", previous.invitationTime, next.invitationTime);
   push(changes, "Horário da cerimônia", previous.ceremonyTime ?? "", next.ceremonyTime ?? "");
   push(changes, "Horário do serviço", previous.serviceTime, next.serviceTime);
+  push(changes, "Duração do serviço", previous.serviceDuration ?? "", next.serviceDuration ?? "");
   push(changes, "Restrições alimentares", previous.dietaryNotes, next.dietaryNotes);
   push(changes, "Obs. cardápio e montagem", previous.menuSetupNotes, next.menuSetupNotes);
+  push(changes, "Gerenciais e Evento", previous.managementNotes ?? "", next.managementNotes ?? "");
+  push(changes, "Anexos", attachmentLine(previous.attachments), attachmentLine(next.attachments));
   push(changes, "Obs. bebidas", previous.drinksNotes ?? "", next.drinksNotes ?? "");
   push(changes, "Obs. logística", previous.logisticsNotes ?? "", next.logisticsNotes ?? "");
   push(changes, "Fora da cidade", previous.outOfTown ? "Sim" : "Não", next.outOfTown ? "Sim" : "Não");
@@ -211,10 +228,20 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
 
   const prevLog = previous.logistics;
   const nextLog = next.logistics;
-  push(changes, "Álcool", prevLog?.alcohol ?? "", nextLog?.alcohol ?? "");
+  push(changes, "Bebidas alcoólicas", yesNo(prevLog?.alcoholServed), yesNo(nextLog?.alcoholServed));
+  push(changes, "Tipos de bebidas alcoólicas", alcoholTypesLine(prevLog?.alcoholTypes), alcoholTypesLine(nextLog?.alcoholTypes));
+  push(changes, "Álcool (detalhe)", prevLog?.alcohol ?? "", nextLog?.alcohol ?? "");
   push(changes, "Material dia anterior", yesNo(prevLog?.materialPreviousDay), yesNo(nextLog?.materialPreviousDay));
   push(changes, "Mesa cavalete", yesNo(prevLog?.trestleTable), yesNo(nextLog?.trestleTable));
+  push(changes, "Recolher material ao final", yesNo(prevLog?.mustCollectMaterial), yesNo(nextLog?.mustCollectMaterial));
+  push(changes, "Conservação extra", yesNo(prevLog?.extraConservation), yesNo(nextLog?.extraConservation));
+  push(changes, "Conservação extra (qtd)", prevLog?.extraConservationQty ?? "", nextLog?.extraConservationQty ?? "");
+  push(changes, "Gelo cubo", yesNo(prevLog?.iceCubes), yesNo(nextLog?.iceCubes));
+  push(changes, "Gelo cubo (qtd)", prevLog?.iceCubesQty ?? "", nextLog?.iceCubesQty ?? "");
   push(changes, "Local com cozinha", yesNo(prevLog?.hasKitchen), yesNo(nextLog?.hasKitchen));
+  push(changes, "Local com pia", yesNo(prevLog?.hasSink), yesNo(nextLog?.hasSink));
+  push(changes, "Local com geladeira", yesNo(prevLog?.hasFridge), yesNo(nextLog?.hasFridge));
+  push(changes, "Local com fogão", yesNo(prevLog?.hasStove), yesNo(nextLog?.hasStove));
   push(changes, "Local com freezer", yesNo(prevLog?.hasFreezer), yesNo(nextLog?.hasFreezer));
   push(changes, "Local com forno", yesNo(prevLog?.hasOven), yesNo(nextLog?.hasOven));
   push(changes, "Local com microondas", yesNo(prevLog?.hasMicrowave), yesNo(nextLog?.hasMicrowave));

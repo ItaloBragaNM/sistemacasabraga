@@ -27,7 +27,10 @@ export function laborLineAmounts(
   const overtimeHours = allocation.overtime ? Math.max(0, allocation.overtimeHours || 0) : 0;
   const overtimeAmount = overtimeHours * (rate.overtimeHourly || 0);
   const allowance = outOfTown && allocation.applyAllowance !== false ? rate.allowance || 0 : 0;
-  const daily = rate.daily || 0;
+  const daily =
+    typeof allocation.daily === "number" && Number.isFinite(allocation.daily)
+      ? allocation.daily
+      : rate.daily || 0;
   return {
     daily,
     overtimeHours,

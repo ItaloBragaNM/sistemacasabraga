@@ -1,4 +1,5 @@
 import type {
+  EventMenuSection,
   EventRecord,
   EventType,
   Logistics,
@@ -11,12 +12,16 @@ import type {
 import {
   compactMenu,
   emptyGuests,
+  emptyLogistics,
   guestTotal,
   MENU_SECTIONS,
+  normalizeAttachments,
   normalizeDrinks,
   normalizeEventType,
   normalizeExtraStaff,
   normalizeGuests,
+  normalizeLogistics,
+  normalizeMenuPlan,
   normalizeStaff,
   suggestedDrinkQuantities,
 } from "./types";
@@ -39,6 +44,59 @@ export function emptyMenu(filled?: Partial<Record<keyof Menu, MenuItem[]>>): Men
 export function menuSectionForCategory(category: string): MenuSectionKey {
   const lower = category.trim().toLowerCase();
   return MENU_SECTIONS.find((section) => section.label.toLowerCase() === lower)?.key ?? "menu";
+}
+
+export function menuFromPlan(plan: EventMenuSection[]): Menu {
+  const next = emptyMenu();
+  for (const section of plan) {
+    const key = menuSectionForCategory(section.title);
+    next[key] = [...next[key], ...section.items.filter((item) => item.name.trim())];
+  }
+  return compactMenu(next);
+}
+
+export function upsertMenuPlanFromDishes(
+  previous: EventMenuSection[],
+  dishes: { name: string; category: string }[],
+): EventMenuSection[] {
+  const prevItems = new Map<string, MenuItem>();
+  for (const section of previous) {
+    for (const item of section.items) {
+      const key = item.name.trim().toLocaleLowerCase("pt-BR");
+      if (key && !prevItems.has(key)) prevItems.set(key, item);
+    }
+  }
+  const selected = dishes
+    .map((dish) => ({ name: dish.name.trim(), category: dish.category.trim() || "Menu" }))
+    .filter((dish) => dish.name);
+  const selectedKeys = new Set(selected.map((dish) => dish.name.toLocaleLowerCase("pt-BR")));
+
+  const plan = previous
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => selectedKeys.has(item.name.trim().toLocaleLowerCase("pt-BR"))),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  const present = new Set(
+    plan.flatMap((section) => section.items.map((item) => item.name.trim().toLocaleLowerCase("pt-BR"))),
+  );
+
+  for (const dish of selected) {
+    const key = dish.name.toLocaleLowerCase("pt-BR");
+    if (present.has(key)) continue;
+    let section = plan.find(
+      (item) => item.title.trim().toLocaleLowerCase("pt-BR") === dish.category.toLocaleLowerCase("pt-BR"),
+    );
+    if (!section) {
+      section = { id: uid(), title: dish.category, time: "", items: [] };
+      plan.push(section);
+    }
+    const existing = prevItems.get(key);
+    section.items.push(existing ? { ...existing, name: dish.name } : menuItem(dish.name));
+    present.add(key);
+  }
+  return plan;
 }
 
 export function insertDishesIntoMenu(
@@ -74,18 +132,7 @@ export function emptyUniforms(): Uniforms {
   };
 }
 
-export function emptyLogistics(): Logistics {
-  return {
-    alcohol: "",
-    materialPreviousDay: "",
-    trestleTable: "",
-    hasKitchen: "",
-    hasFreezer: "",
-    hasOven: "",
-    hasMicrowave: "",
-    flyingMenu: "",
-  };
-}
+export { emptyGuests };
 
 export function casaBragaVenue(): Venue {
   return {
@@ -95,9 +142,9 @@ export function casaBragaVenue(): Venue {
   };
 }
 
-export { emptyGuests };
-
-export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecord {
+export function createBlankEvent(
+  partial: Partial<Omit<EventRecord, "logistics">> & { logistics?: Partial<Logistics> } = {},
+): EventRecord {
   const now = new Date().toISOString();
   const uniforms = emptyUniforms();
   const guests = normalizeGuests({ ...emptyGuests(), ...partial.guests });
@@ -134,9 +181,13 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
     vehicleIds: Array.isArray(partial.vehicleIds) ? partial.vehicleIds.filter((id): id is string => typeof id === "string") : [],
     laborAllocations: Array.isArray(partial.laborAllocations) ? partial.laborAllocations : [],
     ceremonyTime: typeof partial.ceremonyTime === "string" ? partial.ceremonyTime : "",
+    serviceDuration: typeof partial.serviceDuration === "string" ? partial.serviceDuration : "",
     drinksNotes: typeof partial.drinksNotes === "string" ? partial.drinksNotes : "",
     logisticsNotes: typeof partial.logisticsNotes === "string" ? partial.logisticsNotes : "",
+    managementNotes: typeof partial.managementNotes === "string" ? partial.managementNotes : "",
+    attachments: normalizeAttachments(partial.attachments),
     menu: emptyMenu(partial.menu),
+    menuPlan: normalizeMenuPlan(partial.menuPlan),
     drinksAuto,
     drinks: drinksAuto && !partial.drinks
       ? suggestedDrinkQuantities(guestTotal(guests))
@@ -148,7 +199,7 @@ export function createBlankEvent(partial: Partial<EventRecord> = {}): EventRecor
       bata: { ...uniforms.bata, ...partial.uniforms?.bata },
       avental: { ...uniforms.avental, ...partial.uniforms?.avental },
     },
-    logistics: { ...emptyLogistics(), ...partial.logistics },
+    logistics: normalizeLogistics({ ...emptyLogistics(), ...partial.logistics }),
   };
 }
 

@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
+  alcoholSummary,
   DRINK_ITEMS,
+  eventMenuSections,
   eventStaffLines,
   formatUniformSizeLine,
   guestTotal,
   guestsSummary,
-  MENU_SECTIONS,
   uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
@@ -81,7 +82,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           />
           <Info
             label="Cerimônia / convite / serviço"
-            value={`${event.ceremonyTime || "—"} / ${event.invitationTime || "—"} / ${event.serviceTime || "—"}`}
+            value={`${event.ceremonyTime || "—"} / ${event.invitationTime || "—"} / ${event.serviceTime || "—"}${event.serviceDuration ? ` · ${event.serviceDuration}` : ""}`}
           />
           <Info label="A servir" value={`${guestTotal(event.guests)}`} />
           <Info label="Local" value={event.venue.address || event.venue.name} />
@@ -101,13 +102,13 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           </div>
         )}
 
-        {MENU_SECTIONS.map((section) => {
-          const items = event.menu[section.key].filter((item) => item.name.trim());
+        {eventMenuSections(event).map((section) => {
+          const items = section.items.filter((item) => item.name.trim());
           if (!items.length) return null;
           return (
-            <section key={section.key} className="mt-6">
+            <section key={section.id} className="mt-6">
               <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold text-forest">
-                {section.label}
+                {section.time ? `${section.title} · ${section.time}` : section.title}
               </h2>
               <ul className="divide-y divide-forest/8">
                 {items.map((item) => (
@@ -180,14 +181,14 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           </section>
         ) : null}
 
-        {event.logistics.alcohol && (
+        {alcoholSummary(event.logistics) ? (
           <section className="mt-6">
             <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
-              Álcool
+              Bebidas alcoólicas
             </h2>
-            <p className="text-sm leading-6">{event.logistics.alcohol}</p>
+            <p className="text-sm leading-6">{alcoholSummary(event.logistics)}</p>
           </section>
-        )}
+        ) : null}
 
         {event.menuSetupNotes && (
           <section className="mt-6">
@@ -197,6 +198,15 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
             <p className="text-sm leading-6">{event.menuSetupNotes}</p>
           </section>
         )}
+
+        {event.managementNotes ? (
+          <section className="mt-6">
+            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
+              Gerenciais e Evento
+            </h2>
+            <p className="text-sm leading-6">{event.managementNotes}</p>
+          </section>
+        ) : null}
 
         {event.logisticsNotes && (
           <section className="mt-6">

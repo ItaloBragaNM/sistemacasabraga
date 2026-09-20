@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, ClipboardList, FileDown, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, ClipboardList, FileDown, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ClienteForm } from "@/components/cadastros/cliente-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -20,15 +20,18 @@ import type { DishRecord } from "@/lib/cadastros/types";
 import { VEHICLE_USAGE_CATEGORY_LABELS } from "@/lib/cadastros/types";
 import { formatBRL } from "@/lib/crm/format";
 import { formatDateTime, formatLongDate, formatWeekday } from "@/lib/dates";
-import { insertDishesIntoMenu } from "@/lib/event-factory";
+import { menuFromPlan, uid, upsertMenuPlanFromDishes } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import {
+  ALCOHOL_TYPES,
+  EVENT_ATTACHMENT_MAX_BYTES,
+  EVENT_ATTACHMENT_MAX_FILES,
   EVENT_STATUSES,
   EVENT_TYPES,
   PICKABLE_EXTRA_STAFF_ROLES,
   extraStaffLabel,
+  eventMenuSections,
   guestTotal,
-  MENU_SECTIONS,
   normalizeEventRecord,
   normalizeGuests,
   STAFF_ROLES,
@@ -36,16 +39,17 @@ import {
   DEFAULT_DRINK_PREMISES,
   type ExtraStaffRoleKey,
   type EventLaborAllocation,
+  type EventMenuSection,
   type EventRecord,
   type EventSaveMeta,
   type Guests,
-  type MenuSectionKey,
+  type Logistics,
   type VenueKind,
   type YesNo,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { laborLineAmounts, rateFor } from "@/lib/mao-de-obra/calc";
-import { LABOR_FUNCTIONS, workerFunctionKeys, workerFunctionsLabel, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
+import { LABOR_FUNCTIONS, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
 
 type Props = {
   event: EventRecord;
@@ -94,6 +98,52 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
+  const setMenuPlan = (plan: EventMenuSection[]) => {
+    setDraft((current) => ({
+      ...current,
+      menuPlan: plan,
+      menu: menuFromPlan(plan),
+    }));
+  };
+
+  const patchLogistics = (patch: Partial<Logistics>) => {
+    setDraft((current) => ({
+      ...current,
+      logistics: { ...current.logistics, ...patch },
+    }));
+  };
+
+  const addAttachments = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const next = [...(draft.attachments ?? [])];
+    for (const file of Array.from(files)) {
+      if (next.length >= EVENT_ATTACHMENT_MAX_FILES) {
+        toast.error(`Máximo de ${EVENT_ATTACHMENT_MAX_FILES} arquivos.`);
+        break;
+      }
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+        toast.error(`“${file.name}” não é foto ou vídeo.`);
+        continue;
+      }
+      if (file.size > EVENT_ATTACHMENT_MAX_BYTES) {
+        toast.error(`“${file.name}” ultrapassa 500 KB.`);
+        continue;
+      }
+      try {
+        next.push({
+          id: uid(),
+          name: file.name,
+          mime: file.type,
+          size: file.size,
+          dataUrl: await readFileAsDataUrl(file),
+        });
+      } catch {
+        toast.error(`Não foi possível ler “${file.name}”.`);
+      }
+    }
+    update("attachments", next);
+  };
+
   const setGuests = (guests: Guests) => {
     const next = normalizeGuests(guests);
     setDraft((current) => ({
@@ -113,7 +163,12 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       toast.error("Selecione ao menos um prato do catálogo.");
       return;
     }
-    update("menu", insertDishesIntoMenu(draft.menu, dishes));
+    const plan = upsertMenuPlanFromDishes(eventMenuSections(draft), dishes);
+    setDraft((current) => ({
+      ...current,
+      menuPlan: plan,
+      menu: menuFromPlan(plan),
+    }));
     setCatalogOpen(false);
     toast.success(
       `${dishes.length} prato${dishes.length === 1 ? "" : "s"} no cardápio do evento. Preencha o per capita e as observações.`,
@@ -183,6 +238,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             {draft.ceremonyTime ? ` · cerimônia ${draft.ceremonyTime}` : ""}
             {draft.invitationTime ? ` · convite ${draft.invitationTime}` : ""}
             {draft.serviceTime ? ` · serviço ${draft.serviceTime}` : ""}
+            {draft.serviceDuration ? ` · duração ${draft.serviceDuration}` : ""}
             {` · ${guestTotal(draft.guests)} a servir`}
           </p>
         </div>
@@ -198,10 +254,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             className="h-10 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
             disabled={pdfState === "working"}
             onClick={async () => {
-              if (!draft.ceremonyTime) {
-                toast.error("Informe o horário da cerimônia antes de gerar o PDF.");
-                return;
-              }
               try {
                 setPdfState("working");
                 await downloadKitchenPdf(draft);
@@ -352,7 +404,15 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Local / endereço" className="md:col-span-2 xl:col-span-3">
+          <Field label="Duração do serviço">
+            <input
+              className={fieldControlClass}
+              value={draft.serviceDuration ?? ""}
+              onChange={(event) => update("serviceDuration", event.target.value)}
+              placeholder="Ex.: 6 horas"
+            />
+          </Field>
+          <Field label="Local / endereço" className="md:col-span-2 xl:col-span-2">
             <input
               className={fieldControlClass}
               value={draft.venue.address}
@@ -417,15 +477,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             />
           </Field>
-          <Field label="★ Ilhas (estações)">
-            <input
-              type="number"
-              min={0}
-              className={fieldControlClass}
-              value={draft.islands ?? 0}
-              onChange={(event) => update("islands", Number(event.target.value))}
-            />
-          </Field>
           <Field label="Chegada equipe">
             <input
               type="time"
@@ -434,7 +485,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("teamArrival", event.target.value)}
             />
           </Field>
-          <Field label="★ Horário da cerimônia">
+          <Field label="Horário da cerimônia">
             <input
               type="time"
               className={fieldControlClass}
@@ -538,6 +589,274 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </section>
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <button
+          type="button"
+          aria-expanded={catalogOpen}
+          onClick={() => setCatalogOpen((open) => !open)}
+          className="mb-5 flex w-full items-start justify-between gap-3 border-b border-forest/10 pb-3 text-left"
+        >
+          <div>
+            <p className="text-[13px] font-medium text-forest/50">Cadastros</p>
+            <h2 className="mt-1 text-[15px] font-semibold text-forest">
+              Pratos do cardápio (catálogo)
+            </h2>
+            <p className="mt-1 text-xs font-light text-forest/50">
+              Busque e marque os pratos. Clique em Gerar Per Capita para montar o cardápio.
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "mt-1 size-4 shrink-0 text-forest/40 transition-transform",
+              catalogOpen && "rotate-180",
+            )}
+          />
+        </button>
+        {catalogOpen ? (
+          <CatalogDishPicker
+            dishes={cadastros?.dishes ?? []}
+            categoryOrder={cadastros?.dishCategories ?? []}
+            selected={draft.selectedDishIds ?? []}
+            onChange={(ids) => update("selectedDishIds", ids)}
+          />
+        ) : (
+          <p className="text-sm font-light text-forest/50">
+            {(draft.selectedDishIds ?? []).length} prato(s) selecionado(s) no catálogo.
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button className="h-9 bg-forest px-4 text-cream hover:bg-petrol" onClick={generatePerCapita}>
+            Gerar Per Capita
+          </Button>
+          <Link
+            href={`/logistica/separacao-materiais/${draft.id}`}
+            className={cn(buttonVariants({ variant: "outline" }), "h-9 px-4")}
+          >
+            <ClipboardList data-icon="inline-start" />
+            Abrir separação de materiais
+          </Link>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle
+          title="Cardápio do evento"
+          hint="O agrupamento inicial segue a categoria do prato. Renomeie as seções, defina o horário e reordene os pratos neste evento."
+        />
+        {eventMenuSections(draft).length === 0 ? (
+          <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+            Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita.
+          </p>
+        ) : (
+          <MenuPlanEditor sections={eventMenuSections(draft)} onChange={setMenuPlan} />
+        )}
+      </section>
+
+      <EventDrinksFields
+        drinks={draft.drinks}
+        notes={draft.drinksNotes}
+        premises={drinkPremises}
+        onNotesChange={(value) => update("drinksNotes", value)}
+        onChange={(key, value) =>
+          setDraft((current) => ({
+            ...current,
+            drinksAuto: false,
+            drinks: { ...current.drinks, [key]: value },
+          }))
+        }
+        onRecalculate={() =>
+          setDraft((current) => ({
+            ...current,
+            drinksAuto: true,
+            drinks: suggestedDrinkQuantities(guestTotal(current.guests), drinkPremises),
+          }))
+        }
+      />
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle
+          title="Equipe externa"
+          hint="Puxe da base cadastrada. A diária vem da tabela da função e pode ser ajustada neste evento."
+        />
+        {(maoDeObra?.workers ?? []).length === 0 ? (
+          <p className="text-sm font-light text-forest/50">
+            Cadastre os prestadores em Administrativo → Mão de obra externa.
+          </p>
+        ) : (
+          <EventLaborAllocations
+            allocations={draft.laborAllocations ?? []}
+            outOfTown={Boolean(draft.outOfTown)}
+            workers={maoDeObra?.workers ?? []}
+            rates={maoDeObra?.rates ?? []}
+            onChange={(next) => update("laborAllocations", next)}
+          />
+        )}
+      </section>
+
+      <EventUniformsFields
+        uniforms={draft.uniforms}
+        onChange={(piece, size, value) =>
+          update("uniforms", {
+            ...draft.uniforms,
+            [piece]: { ...draft.uniforms[piece], [size]: value },
+          })
+        }
+      />
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        <SectionTitle title="Extras e logística" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Ilhas (estações)">
+            <input
+              type="number"
+              min={0}
+              className={fieldControlClass}
+              value={draft.islands ?? 0}
+              onChange={(event) => update("islands", Number(event.target.value))}
+            />
+          </Field>
+          <YesNoField
+            label="Bebidas alcoólicas"
+            value={draft.logistics.alcoholServed}
+            onChange={(value) =>
+              patchLogistics({
+                alcoholServed: value,
+                alcoholTypes: value === "nao" ? [] : draft.logistics.alcoholTypes,
+              })
+            }
+          />
+          {draft.logistics.alcoholServed === "sim" ? (
+            <Field label="Quais tipos serão servidos" className="md:col-span-2 xl:col-span-3">
+              <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+                {ALCOHOL_TYPES.map((item) => {
+                  const checked = draft.logistics.alcoholTypes.includes(item.key);
+                  return (
+                    <label key={item.key} className="flex cursor-pointer items-center gap-2 text-sm text-forest">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-forest"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? draft.logistics.alcoholTypes.filter((key) => key !== item.key)
+                            : [...draft.logistics.alcoholTypes, item.key];
+                          patchLogistics({ alcoholTypes: next });
+                        }}
+                      />
+                      {item.label}
+                    </label>
+                  );
+                })}
+              </div>
+              {draft.logistics.alcoholTypes.includes("outros") ? (
+                <input
+                  className={cn(fieldControlClass, "mt-3")}
+                  value={draft.logistics.alcohol}
+                  onChange={(event) => patchLogistics({ alcohol: event.target.value })}
+                  placeholder="Detalhe outras bebidas"
+                />
+              ) : null}
+            </Field>
+          ) : null}
+          <YesNoField
+            label="Material dia anterior?"
+            value={draft.logistics.materialPreviousDay}
+            onChange={(value) => patchLogistics({ materialPreviousDay: value })}
+          />
+          <YesNoField
+            label="Mesa cavalete?"
+            value={draft.logistics.trestleTable}
+            onChange={(value) => patchLogistics({ trestleTable: value })}
+          />
+          <YesNoField
+            label="Material será obrigatório recolher ao final do evento"
+            value={draft.logistics.mustCollectMaterial}
+            onChange={(value) => patchLogistics({ mustCollectMaterial: value })}
+          />
+          <YesNoField
+            label="Terá conservação extra"
+            value={draft.logistics.extraConservation}
+            onChange={(value) =>
+              patchLogistics({
+                extraConservation: value,
+                extraConservationQty: value === "sim" ? draft.logistics.extraConservationQty : "",
+              })
+            }
+          />
+          {draft.logistics.extraConservation === "sim" ? (
+            <Field label="Quantidade — conservação extra">
+              <input
+                className={fieldControlClass}
+                value={draft.logistics.extraConservationQty}
+                onChange={(event) => patchLogistics({ extraConservationQty: event.target.value })}
+              />
+            </Field>
+          ) : null}
+          <YesNoField
+            label="Terá gelo cubo"
+            value={draft.logistics.iceCubes}
+            onChange={(value) =>
+              patchLogistics({
+                iceCubes: value,
+                iceCubesQty: value === "sim" ? draft.logistics.iceCubesQty : "",
+              })
+            }
+          />
+          {draft.logistics.iceCubes === "sim" ? (
+            <Field label="Quantidade — gelo cubo">
+              <input
+                className={fieldControlClass}
+                value={draft.logistics.iceCubesQty}
+                onChange={(event) => patchLogistics({ iceCubesQty: event.target.value })}
+              />
+            </Field>
+          ) : null}
+          <YesNoField
+            label="Local c/ cozinha?"
+            value={draft.logistics.hasKitchen}
+            onChange={(value) => patchLogistics({ hasKitchen: value })}
+          />
+          <YesNoField
+            label="Local c/ pia"
+            value={draft.logistics.hasSink}
+            onChange={(value) => patchLogistics({ hasSink: value })}
+          />
+          <YesNoField
+            label="Local c/ geladeira"
+            value={draft.logistics.hasFridge}
+            onChange={(value) => patchLogistics({ hasFridge: value })}
+          />
+          <YesNoField
+            label="Local c/ fogão"
+            value={draft.logistics.hasStove}
+            onChange={(value) => patchLogistics({ hasStove: value })}
+          />
+          <YesNoField
+            label="Local c/ freezer?"
+            value={draft.logistics.hasFreezer}
+            onChange={(value) => patchLogistics({ hasFreezer: value })}
+          />
+          <YesNoField
+            label="Local c/ forno?"
+            value={draft.logistics.hasOven}
+            onChange={(value) => patchLogistics({ hasOven: value })}
+          />
+          <YesNoField
+            label="Local c/ microondas?"
+            value={draft.logistics.hasMicrowave}
+            onChange={(value) => patchLogistics({ hasMicrowave: value })}
+          />
+        </div>
+        <Field label="Observações — logística" className="mt-4">
+          <textarea
+            className={cn(fieldControlClass, "min-h-24 py-2")}
+            value={draft.logisticsNotes ?? ""}
+            onChange={(event) => update("logisticsNotes", event.target.value)}
+            placeholder="Notas da equipe de logística para este evento."
+          />
+        </Field>
+      </section>
+
+      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle
           title="Veículos"
           hint="Selecione a frota deste evento. Marque fora da cidade para disparar a ajuda de custo da equipe externa."
@@ -614,201 +933,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
       <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
         <SectionTitle
-          title="Equipe externa"
-          hint="Puxe da base cadastrada. Ao salvar, o financeiro recebe o lançamento automaticamente."
-        />
-        {(maoDeObra?.workers ?? []).length === 0 ? (
-          <p className="text-sm font-light text-forest/50">
-            Cadastre os prestadores em Administrativo → Mão de obra externa (com as funções que a pessoa pode exercer). Na ficha, escolha a função deste evento.
-          </p>
-        ) : (
-          <EventLaborAllocations
-            allocations={draft.laborAllocations ?? []}
-            outOfTown={Boolean(draft.outOfTown)}
-            workers={maoDeObra?.workers ?? []}
-            rates={maoDeObra?.rates ?? []}
-            onChange={(next) => update("laborAllocations", next)}
-          />
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <button
-          type="button"
-          aria-expanded={catalogOpen}
-          onClick={() => setCatalogOpen((open) => !open)}
-          className="mb-5 flex w-full items-start justify-between gap-3 border-b border-forest/10 pb-3 text-left"
-        >
-          <div>
-            <p className="text-[13px] font-medium text-forest/50">Cadastros</p>
-            <h2 className="mt-1 text-[15px] font-semibold text-forest">
-              Pratos do cardápio (catálogo)
-            </h2>
-            <p className="mt-1 text-xs font-light text-forest/50">
-              Selecione os pratos e clique em Gerar Per Capita. Clique para{" "}
-              {catalogOpen ? "recolher" : "expandir"} o catálogo.
-            </p>
-          </div>
-          <ChevronDown
-            className={cn(
-              "mt-1 size-4 shrink-0 text-forest/40 transition-transform",
-              catalogOpen && "rotate-180",
-            )}
-          />
-        </button>
-        {catalogOpen ? (
-          <CatalogDishPicker
-            dishes={cadastros?.dishes ?? []}
-            categoryOrder={cadastros?.dishCategories ?? []}
-            selected={draft.selectedDishIds ?? []}
-            onChange={(ids) => update("selectedDishIds", ids)}
-          />
-        ) : (
-          <p className="text-sm font-light text-forest/50">
-            {(draft.selectedDishIds ?? []).length} prato(s) selecionado(s) no catálogo.
-          </p>
-        )}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button className="h-9 bg-forest px-4 text-cream hover:bg-petrol" onClick={generatePerCapita}>
-            Gerar Per Capita
-          </Button>
-          <Link
-            href={`/logistica/separacao-materiais/${draft.id}`}
-            className={cn(buttonVariants({ variant: "outline" }), "h-9 px-4")}
-          >
-            <ClipboardList data-icon="inline-start" />
-            Abrir separação de materiais
-          </Link>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Cardápio do evento"
-          hint="Só entram pratos gerados a partir do catálogo. Preencha o per capita e as observações."
-        />
-        {MENU_SECTIONS.every((section) => !draft.menu[section.key]?.some((item) => item.name.trim())) ? (
-          <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
-            Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita.
-          </p>
-        ) : (
-          <div className="space-y-7">
-            {MENU_SECTIONS.map((section) => {
-              const items = draft.menu[section.key].filter((item) => item.name.trim());
-              if (items.length === 0) return null;
-              return (
-                <MenuBlock
-                  key={section.key}
-                  title={section.label}
-                  items={items}
-                  onChange={(nextItems) =>
-                    update("menu", { ...draft.menu, [section.key]: nextItems })
-                  }
-                />
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <EventDrinksFields
-        drinks={draft.drinks}
-        notes={draft.drinksNotes}
-        premises={drinkPremises}
-        onNotesChange={(value) => update("drinksNotes", value)}
-        onChange={(key, value) =>
-          setDraft((current) => ({
-            ...current,
-            drinksAuto: false,
-            drinks: { ...current.drinks, [key]: value },
-          }))
-        }
-        onRecalculate={() =>
-          setDraft((current) => ({
-            ...current,
-            drinksAuto: true,
-            drinks: suggestedDrinkQuantities(guestTotal(current.guests), drinkPremises),
-          }))
-        }
-      />
-
-      <EventUniformsFields
-        uniforms={draft.uniforms}
-        onChange={(piece, size, value) =>
-          update("uniforms", {
-            ...draft.uniforms,
-            [piece]: { ...draft.uniforms[piece], [size]: value },
-          })
-        }
-      />
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Extras e logística" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Field label="Álcool? Quais?" className="md:col-span-2 xl:col-span-3">
-            <input
-              className={fieldControlClass}
-              value={draft.logistics.alcohol}
-              onChange={(event) =>
-                update("logistics", { ...draft.logistics, alcohol: event.target.value })
-              }
-            />
-          </Field>
-          <YesNoField
-            label="Material dia anterior?"
-            value={draft.logistics.materialPreviousDay}
-            onChange={(value) =>
-              update("logistics", { ...draft.logistics, materialPreviousDay: value })
-            }
-          />
-          <YesNoField
-            label="Mesa cavalete?"
-            value={draft.logistics.trestleTable}
-            onChange={(value) =>
-              update("logistics", { ...draft.logistics, trestleTable: value })
-            }
-          />
-          <YesNoField
-            label="Local c/ cozinha?"
-            value={draft.logistics.hasKitchen}
-            onChange={(value) =>
-              update("logistics", { ...draft.logistics, hasKitchen: value })
-            }
-          />
-          <YesNoField
-            label="Local c/ freezer?"
-            value={draft.logistics.hasFreezer}
-            onChange={(value) =>
-              update("logistics", { ...draft.logistics, hasFreezer: value })
-            }
-          />
-          <YesNoField
-            label="Local c/ forno?"
-            value={draft.logistics.hasOven}
-            onChange={(value) =>
-              update("logistics", { ...draft.logistics, hasOven: value })
-            }
-          />
-          <YesNoField
-            label="Local c/ microondas?"
-            value={draft.logistics.hasMicrowave}
-            onChange={(value) =>
-              update("logistics", { ...draft.logistics, hasMicrowave: value })
-            }
-          />
-        </div>
-        <Field label="Observações — logística" className="mt-4">
-          <textarea
-            className={cn(fieldControlClass, "min-h-24 py-2")}
-            value={draft.logisticsNotes ?? ""}
-            onChange={(event) => update("logisticsNotes", event.target.value)}
-            placeholder="Notas da equipe de logística para este evento."
-          />
-        </Field>
-      </section>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
           title="Observações — cozinha"
           hint="Restrições alimentares, cardápio e montagem."
         />
@@ -828,6 +952,57 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             value={draft.menuSetupNotes}
             onChange={(event) => update("menuSetupNotes", event.target.value)}
           />
+        </Field>
+        <Field label="Gerenciais e Evento" className="mt-4">
+          <textarea
+            className={cn(fieldControlClass, "min-h-28 py-3")}
+            value={draft.managementNotes ?? ""}
+            onChange={(event) => update("managementNotes", event.target.value)}
+            placeholder="Notas gerenciais deste evento."
+          />
+        </Field>
+        <Field
+          label="Fotos e vídeos"
+          className="mt-4"
+        >
+          <p className="mb-2 text-xs font-light text-forest/50">
+            Até {EVENT_ATTACHMENT_MAX_FILES} arquivos, 500 KB cada.
+          </p>
+          <input
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="block w-full text-sm text-forest file:mr-3 file:rounded-lg file:border-0 file:bg-forest/8 file:px-3 file:py-2 file:text-sm file:text-forest"
+            onChange={(event) => {
+              void addAttachments(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          {(draft.attachments ?? []).length ? (
+            <ul className="mt-3 space-y-2">
+              {(draft.attachments ?? []).map((file) => (
+                <li
+                  key={file.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-forest/10 px-3 py-2 text-sm"
+                >
+                  <span className="min-w-0 truncate text-forest">{file.name}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remover ${file.name}`}
+                    className="flex size-8 shrink-0 items-center justify-center text-forest/35 hover:text-terracotta"
+                    onClick={() =>
+                      update(
+                        "attachments",
+                        (draft.attachments ?? []).filter((item) => item.id !== file.id),
+                      )
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </Field>
       </section>
 
@@ -908,12 +1083,11 @@ function EventLaborAllocations({
     <div className="space-y-3">
       {allocations.map((row) => {
         const worker = workerById.get(row.workerId);
-        const allowed = worker ? workerFunctionKeys(worker) : [];
-        const functionOptions = allowed.length
-          ? LABOR_FUNCTIONS.filter((role) => allowed.includes(role.key))
-          : LABOR_FUNCTIONS;
-        const functionKey = row.functionKey || allowed[0] || "";
-        const amounts = laborLineAmounts(row, rateFor(rates, functionKey), outOfTown);
+        const functionKey = row.functionKey || LABOR_FUNCTIONS[0]?.key || "";
+        const rate = rateFor(rates, functionKey);
+        const dailyValue =
+          typeof row.daily === "number" && Number.isFinite(row.daily) ? row.daily : rate.daily;
+        const amounts = laborLineAmounts({ ...row, functionKey, daily: dailyValue }, rate, outOfTown);
         return (
           <div key={row.workerId} className="rounded-xl border border-forest/10 p-3">
             <div className="flex items-start justify-between gap-2">
@@ -933,25 +1107,46 @@ function EventLaborAllocations({
                 <Trash2 className="size-4" />
               </button>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-4">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Field label="Função neste evento" className="sm:col-span-2">
                 <select
                   className={fieldControlClass}
                   value={functionKey}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const nextKey = event.target.value;
                     onChange(
                       allocations.map((item) =>
-                        item.workerId === row.workerId ? { ...item, functionKey: event.target.value } : item,
+                        item.workerId === row.workerId
+                          ? { ...item, functionKey: nextKey, daily: rateFor(rates, nextKey).daily }
+                          : item,
                       ),
-                    )
-                  }
+                    );
+                  }}
                 >
-                  {functionOptions.map((role) => (
+                  {LABOR_FUNCTIONS.map((role) => (
                     <option key={role.key} value={role.key}>
                       {role.label}
                     </option>
                   ))}
                 </select>
+              </Field>
+              <Field label="Diária (R$)">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className={fieldControlClass}
+                  value={dailyValue || ""}
+                  onChange={(event) =>
+                    onChange(
+                      allocations.map((item) =>
+                        item.workerId === row.workerId
+                          ? { ...item, daily: Number(event.target.value) || 0 }
+                          : item,
+                      ),
+                    )
+                  }
+                />
               </Field>
               <Field label="Hora extra">
                 <select
@@ -1016,15 +1211,17 @@ function EventLaborAllocations({
           onChange={(event) => {
             const worker = workers.find((item) => item.id === event.target.value);
             if (!worker) return;
+            const functionKey = LABOR_FUNCTIONS[0]?.key ?? "";
             onChange([
               ...allocations,
               {
                 id: worker.id,
                 workerId: worker.id,
-                functionKey: workerFunctionKeys(worker)[0] || "",
+                functionKey,
                 overtime: false,
                 overtimeHours: 0,
                 applyAllowance: true,
+                daily: rateFor(rates, functionKey).daily,
               },
             ]);
           }}
@@ -1032,7 +1229,7 @@ function EventLaborAllocations({
           <option value="">Selecionar prestador…</option>
           {available.map((worker) => (
             <option key={worker.id} value={worker.id}>
-              {worker.name} · {workerFunctionsLabel(worker)}
+              {worker.name}
             </option>
           ))}
         </select>
@@ -1157,11 +1354,19 @@ function CatalogDishPicker({
   }
 
   const query = search.trim().toLocaleLowerCase("pt-BR");
-  const visibleDishes = query
-    ? dishes.filter((dish) => dish.name.toLocaleLowerCase("pt-BR").includes(query))
-    : dishes;
-
   const selectedSet = new Set(selected);
+  const selectedDishes = dishes
+    .filter((dish) => selectedSet.has(dish.id))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const searchHits = query
+    ? dishes
+        .filter(
+          (dish) =>
+            !selectedSet.has(dish.id) && dish.name.toLocaleLowerCase("pt-BR").includes(query),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+    : [];
+
   const toggle = (id: string) => {
     const next = new Set(selectedSet);
     if (next.has(id)) next.delete(id);
@@ -1170,55 +1375,87 @@ function CatalogDishPicker({
   };
 
   const extras = [
-    ...new Set(visibleDishes.map((dish) => dish.category).filter((category) => !categoryOrder.includes(category))),
+    ...new Set(
+      [...selectedDishes, ...searchHits]
+        .map((dish) => dish.category)
+        .filter((category) => !categoryOrder.includes(category)),
+    ),
   ];
-  const groups = [...categoryOrder, ...extras]
-    .map((category) => ({
-      category,
-      items: visibleDishes
-        .filter((dish) => dish.category === category)
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    }))
-    .filter((group) => group.items.length > 0);
+  const groupsFor = (items: DishRecord[]) =>
+    [...categoryOrder, ...extras]
+      .map((category) => ({
+        category,
+        items: items
+          .filter((dish) => dish.category === category)
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+      }))
+      .filter((group) => group.items.length > 0);
 
   return (
     <div className="space-y-4">
       <SearchInput value={search} onChange={setSearch} placeholder="Buscar prato…" />
-      {groups.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
-          Nenhum prato encontrado para “{search.trim()}”.
-        </p>
+      {selectedDishes.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-[13px] font-medium text-forest/55">Selecionados</p>
+          {groupsFor(selectedDishes).map((group) => (
+            <DishGroup key={`sel-${group.category}`} group={group} selectedSet={selectedSet} onToggle={toggle} />
+          ))}
+        </div>
       ) : (
-        groups.map((group) => (
-          <div key={group.category}>
-            <h3 className="mb-2 text-[13px] font-medium text-forest/55">{group.category}</h3>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {group.items.map((dish) => {
-                const checked = selectedSet.has(dish.id);
-                return (
-                  <label
-                    key={dish.id}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
-                      checked
-                        ? "border-forest/30 bg-forest/8"
-                        : "border-forest/10 hover:bg-forest/[0.03]",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-forest"
-                      checked={checked}
-                      onChange={() => toggle(dish.id)}
-                    />
-                    <span className="text-forest">{dish.name}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))
+        <p className="text-sm font-light text-forest/50">Nenhum prato selecionado. Use a busca para incluir.</p>
       )}
+      {query ? (
+        searchHits.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+            Nenhum prato encontrado para “{search.trim()}”.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[13px] font-medium text-forest/55">Resultados</p>
+            {groupsFor(searchHits).map((group) => (
+              <DishGroup key={`hit-${group.category}`} group={group} selectedSet={selectedSet} onToggle={toggle} />
+            ))}
+          </div>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+function DishGroup({
+  group,
+  selectedSet,
+  onToggle,
+}: {
+  group: { category: string; items: DishRecord[] };
+  selectedSet: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div>
+      <h3 className="mb-2 text-[13px] font-medium text-forest/55">{group.category}</h3>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {group.items.map((dish) => {
+          const checked = selectedSet.has(dish.id);
+          return (
+            <label
+              key={dish.id}
+              className={cn(
+                "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
+                checked ? "border-forest/30 bg-forest/8" : "border-forest/10 hover:bg-forest/[0.03]",
+              )}
+            >
+              <input
+                type="checkbox"
+                className="size-4 accent-forest"
+                checked={checked}
+                onChange={() => onToggle(dish.id)}
+              />
+              <span className="text-forest">{dish.name}</span>
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1234,92 +1471,197 @@ function YesNoField({
 }) {
   return (
     <Field label={label}>
-      <select
-        className={fieldControlClass}
-        value={value}
-        onChange={(event) => onChange(event.target.value as YesNo)}
-      >
-        <option value="">—</option>
-        <option value="sim">Sim</option>
-        <option value="nao">Não</option>
-      </select>
+      <div className="flex h-10 items-center gap-5">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-forest">
+          <input
+            type="checkbox"
+            className="size-4 accent-forest"
+            checked={value === "sim"}
+            onChange={() => onChange(value === "sim" ? "" : "sim")}
+          />
+          Sim
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-forest">
+          <input
+            type="checkbox"
+            className="size-4 accent-forest"
+            checked={value === "nao"}
+            onChange={() => onChange(value === "nao" ? "" : "nao")}
+          />
+          Não
+        </label>
+      </div>
     </Field>
   );
 }
 
-function MenuBlock({
-  title,
-  items,
+function MenuPlanEditor({
+  sections,
   onChange,
 }: {
-  title: string;
-  items: EventRecord["menu"][MenuSectionKey];
-  onChange: (items: EventRecord["menu"][MenuSectionKey]) => void;
+  sections: EventMenuSection[];
+  onChange: (next: EventMenuSection[]) => void;
 }) {
+  const moveSection = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= sections.length) return;
+    const next = [...sections];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+
+  const patchSection = (index: number, patch: Partial<EventMenuSection>) => {
+    onChange(sections.map((section, i) => (i === index ? { ...section, ...patch } : section)));
+  };
+
+  const moveItem = (sectionIndex: number, itemIndex: number, direction: -1 | 1) => {
+    const items = [...sections[sectionIndex].items];
+    const target = itemIndex + direction;
+    if (target < 0 || target >= items.length) return;
+    [items[itemIndex], items[target]] = [items[target], items[itemIndex]];
+    patchSection(sectionIndex, { items });
+  };
+
   return (
-    <div>
-      <h3 className="mb-3 text-[13px] font-medium text-forest/55">{title}</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[680px] text-left">
-          <thead>
-            <tr>
-              <th className="field-label w-36 px-2 pb-2 font-normal">Per capita</th>
-              <th className="field-label px-2 pb-2 font-normal">Prato / variação</th>
-              <th className="field-label px-2 pb-2 font-normal">Obs / variação</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => (
-              <tr key={item.id} className="border-t border-forest/8">
-                <td className="p-2">
-                  <input
-                    className={fieldControlClass}
-                    value={item.quantity}
-                    onChange={(event) => {
-                      const next = [...items];
-                      next[index] = { ...item, quantity: event.target.value };
-                      onChange(next);
-                    }}
-                  />
-                </td>
-                <td className="p-2">
-                  <input
-                    className={fieldControlClass}
-                    value={item.name}
-                    onChange={(event) => {
-                      const next = [...items];
-                      next[index] = { ...item, name: event.target.value };
-                      onChange(next);
-                    }}
-                  />
-                </td>
-                <td className="p-2">
-                  <input
-                    className={fieldControlClass}
-                    value={item.notes}
-                    onChange={(event) => {
-                      const next = [...items];
-                      next[index] = { ...item, notes: event.target.value };
-                      onChange(next);
-                    }}
-                  />
-                </td>
-                <td className="p-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => onChange(items.filter((row) => row.id !== item.id))}
-                    className="text-forest/35 transition-colors hover:text-terracotta"
-                    aria-label="Remover"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="space-y-7">
+      {sections.map((section, sectionIndex) => (
+        <div key={section.id}>
+          <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_8rem_auto]">
+            <Field label="Seção">
+              <input
+                className={fieldControlClass}
+                value={section.title}
+                onChange={(event) => patchSection(sectionIndex, { title: event.target.value })}
+              />
+            </Field>
+            <Field label="Horário">
+              <input
+                type="time"
+                className={fieldControlClass}
+                value={section.time}
+                onChange={(event) => patchSection(sectionIndex, { time: event.target.value })}
+              />
+            </Field>
+            <div className="flex items-end gap-1 pb-0.5">
+              <button
+                type="button"
+                aria-label="Subir seção"
+                className="flex size-10 items-center justify-center rounded-lg text-forest/35 hover:text-forest disabled:opacity-30"
+                disabled={sectionIndex === 0}
+                onClick={() => moveSection(sectionIndex, -1)}
+              >
+                <ChevronUp className="size-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Descer seção"
+                className="flex size-10 items-center justify-center rounded-lg text-forest/35 hover:text-forest disabled:opacity-30"
+                disabled={sectionIndex === sections.length - 1}
+                onClick={() => moveSection(sectionIndex, 1)}
+              >
+                <ChevronDown className="size-4" />
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left">
+              <thead>
+                <tr>
+                  <th className="field-label w-10 px-2 pb-2 font-normal" />
+                  <th className="field-label w-36 px-2 pb-2 font-normal">Per capita</th>
+                  <th className="field-label px-2 pb-2 font-normal">Prato / variação</th>
+                  <th className="field-label px-2 pb-2 font-normal">Obs / variação</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {section.items.map((item, itemIndex) => (
+                  <tr key={item.id} className="border-t border-forest/8">
+                    <td className="p-2">
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          aria-label="Subir prato"
+                          className="flex size-7 items-center justify-center text-forest/30 hover:text-forest disabled:opacity-30"
+                          disabled={itemIndex === 0}
+                          onClick={() => moveItem(sectionIndex, itemIndex, -1)}
+                        >
+                          <ChevronUp className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Descer prato"
+                          className="flex size-7 items-center justify-center text-forest/30 hover:text-forest disabled:opacity-30"
+                          disabled={itemIndex === section.items.length - 1}
+                          onClick={() => moveItem(sectionIndex, itemIndex, 1)}
+                        >
+                          <ChevronDown className="size-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="p-2">
+                      <input
+                        className={fieldControlClass}
+                        value={item.quantity}
+                        onChange={(event) => {
+                          const items = [...section.items];
+                          items[itemIndex] = { ...item, quantity: event.target.value };
+                          patchSection(sectionIndex, { items });
+                        }}
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        className={fieldControlClass}
+                        value={item.name}
+                        onChange={(event) => {
+                          const items = [...section.items];
+                          items[itemIndex] = { ...item, name: event.target.value };
+                          patchSection(sectionIndex, { items });
+                        }}
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        className={fieldControlClass}
+                        value={item.notes}
+                        onChange={(event) => {
+                          const items = [...section.items];
+                          items[itemIndex] = { ...item, notes: event.target.value };
+                          patchSection(sectionIndex, { items });
+                        }}
+                      />
+                    </td>
+                    <td className="p-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          patchSection(sectionIndex, {
+                            items: section.items.filter((row) => row.id !== item.id),
+                          })
+                        }
+                        className="text-forest/35 transition-colors hover:text-terracotta"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
     </div>
   );
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
