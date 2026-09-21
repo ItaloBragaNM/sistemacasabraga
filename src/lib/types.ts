@@ -229,8 +229,6 @@ export const STAFF_ROLES = [
   { key: "garconetes", label: "Garçonetes" },
   { key: "copeiros", label: "Copeiros(as)" },
   { key: "chefes", label: "Chefes" },
-  { key: "staff_producao", label: "Staff de produção" },
-  { key: "staff_montagem", label: "Staff de montagem" },
 ] as const;
 
 export type StaffRoleKey = (typeof STAFF_ROLES)[number]["key"];
@@ -242,6 +240,8 @@ export function emptyStaff(): StaffCounts {
 
 /** Funções opcionais acrescentadas na ficha com “+”. */
 export const EXTRA_STAFF_ROLES = [
+  { key: "staff_producao", label: "Staff de produção" },
+  { key: "staff_montagem", label: "Staff de montagem" },
   { key: "gerente_evento", label: "Gerente de evento" },
   { key: "gerente_casa", label: "Gerente da casa" },
   { key: "staff", label: "Staff" },
@@ -277,11 +277,19 @@ export interface ExtraStaffLine {
 
 const EXTRA_STAFF_KEYS = new Set<string>(EXTRA_STAFF_ROLES.map((role) => role.key));
 
-/** Funções que ainda podem ser acrescentadas com “+”. O staff genérico virou produção/montagem. */
-export const PICKABLE_EXTRA_STAFF_ROLES = EXTRA_STAFF_ROLES.filter((role) => role.key !== "staff");
+const FIXED_STAFF_KEYS = new Set<string>(STAFF_ROLES.map((role) => role.key));
+
+/** Funções que ainda podem ser acrescentadas com “+”. Não inclui as já fixas na equipe. */
+export const PICKABLE_EXTRA_STAFF_ROLES = EXTRA_STAFF_ROLES.filter(
+  (role) => role.key !== "staff" && !FIXED_STAFF_KEYS.has(role.key),
+);
 
 export function extraStaffLabel(key: string) {
-  return EXTRA_STAFF_ROLES.find((role) => role.key === key)?.label ?? key;
+  return (
+    EXTRA_STAFF_ROLES.find((role) => role.key === key)?.label ??
+    STAFF_ROLES.find((role) => role.key === key)?.label ??
+    key
+  );
 }
 
 export function normalizeExtraStaff(input: unknown): ExtraStaffLine[] {
@@ -302,17 +310,33 @@ export function normalizeExtraStaff(input: unknown): ExtraStaffLine[] {
   return next;
 }
 
+export function extrasFromLegacyStaff(staffInput: unknown, extras: ExtraStaffLine[]): ExtraStaffLine[] {
+  const next = [...extras];
+  const seen = new Set(next.map((line) => line.key));
+  if (!staffInput || typeof staffInput !== "object") return next;
+  const record = staffInput as Record<string, unknown>;
+  const map: Record<string, ExtraStaffRoleKey> = {
+    staff_producao: "staff_producao",
+    staff_montagem: "staff_montagem",
+    staff: "staff_producao",
+  };
+  for (const [from, to] of Object.entries(map)) {
+    const amount = Number(record[from]) || 0;
+    if (!amount || seen.has(to) || !EXTRA_STAFF_KEYS.has(to)) continue;
+    next.push({ key: to, quantity: amount });
+    seen.add(to);
+  }
+  return next;
+}
+
 export function normalizeStaff(input: unknown): StaffCounts {
   const next = emptyStaff();
   if (!input || typeof input !== "object") return next;
-  const known = new Set<string>(STAFF_ROLES.map((role) => role.key));
-  let extra = 0;
-  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-    const amount = typeof value === "number" && Number.isFinite(value) ? value : Number(value) || 0;
-    if (known.has(key)) next[key as StaffRoleKey] = amount;
-    else extra += amount;
+  const record = input as Record<string, unknown>;
+  for (const role of STAFF_ROLES) {
+    const amount = Number(record[role.key]);
+    next[role.key] = Number.isFinite(amount) ? amount : 0;
   }
-  if (extra) next.staff_producao += extra;
   return next;
 }
 
@@ -759,7 +783,7 @@ export function guestTotal(guests: Guests) {
 
 export function guestsSummary(guests: Guests) {
   const normalized = normalizeGuests(guests);
-  return `${normalized.adults} ad · ${normalized.children0to5} (0–5) · ${normalized.children5to10} (5–10) · ${normalized.professionals} prof`;
+  return `${normalized.adults} adultos · ${normalized.children0to5} crianças 0 a 5 · ${normalized.children5to10} crianças 5 a 10 · ${normalized.professionals} profissionais`;
 }
 
 export function servingTotal(guests: Guests) {
@@ -803,7 +827,7 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     type: normalizeEventType(event.type),
     guests,
     staff: normalizeStaff(event.staff),
-    extraStaff: normalizeExtraStaff(event.extraStaff),
+    extraStaff: extrasFromLegacyStaff(event.staff, normalizeExtraStaff(event.extraStaff)),
     clientId: event.clientId ?? "",
     outOfTown: Boolean(event.outOfTown),
     vehicleIds: normalizeVehicleIds(event.vehicleIds),

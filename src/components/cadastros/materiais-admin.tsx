@@ -81,9 +81,8 @@ export function MateriaisAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Materiais"
-        description="Base da logística e do estoque. Tipo (permanente, descartável ou misto) e variantes (marca, cor, tamanho) identificam o que sai e o que volta do evento."
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <ImportExport entity="materials" />
             <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
               <Plus data-icon="inline-start" />
@@ -124,14 +123,21 @@ export function MateriaisAdmin() {
                   label: MATERIAL_KIND_LABELS[kind],
                 })),
               },
-              {
-                id: "proportion",
-                label: "Proporção",
-                value: proportionFilter,
-                onChange: setProportionFilter,
-                options: [{ value: "missing", label: "Sem proporção definida" }],
-              },
             ]}
+            extra={
+              <button
+                type="button"
+                onClick={() => setProportionFilter((current) => (current === "missing" ? "" : "missing"))}
+                className={cn(
+                  "h-10 shrink-0 rounded-md border px-3 text-sm",
+                  proportionFilter === "missing"
+                    ? "border-forest bg-forest text-cream"
+                    : "border-forest/15 text-forest/70 hover:text-forest",
+                )}
+              >
+                Sem proporção
+              </button>
+            }
           />
           <BulkBar
             count={selection.selectedVisible.length}

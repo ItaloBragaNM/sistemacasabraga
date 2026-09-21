@@ -91,9 +91,8 @@ export function CardapioAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Cardápio"
-        description="Catálogo de pratos do buffet. Cada prato reúne os materiais da logística e os insumos da cozinha usados no serviço."
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <ImportExport entity="dishes" />
             <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
               <Plus data-icon="inline-start" />
@@ -109,7 +108,7 @@ export function CardapioAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <CatalogFilters
                 search={search}
@@ -188,30 +187,46 @@ export function CardapioAdmin() {
                           />
                           <div className="min-w-0">
                             <p className="font-medium text-forest">{dish.name}</p>
-                            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-light text-forest/55">
-                              {dish.materialIds.length > 0
-                                ? `Materiais: ${dish.materialIds
-                                    .map((id) => materialName.get(id))
-                                    .filter(Boolean)
-                                    .join(", ")}`
-                                : (
-                                  <Chip size="sm" className="bg-terracotta/10 text-terracotta">
-                                    Sem materiais
-                                  </Chip>
-                                )}
-                            </p>
-                            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-light text-forest/55">
-                              {(dish.insumoIds ?? []).length > 0
-                                ? `Insumos: ${(dish.insumoIds ?? [])
-                                    .map((id) => insumoName.get(id))
-                                    .filter(Boolean)
-                                    .join(", ")}`
-                                : (
-                                  <Chip size="sm" className="bg-forest/8 text-forest/55">
-                                    Sem insumos
-                                  </Chip>
-                                )}
-                            </p>
+                            <div className="mt-3 space-y-2">
+                              <div>
+                                <p className="field-label">Materiais</p>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {dish.materialIds.length > 0 ? (
+                                    dish.materialIds
+                                      .map((id) => materialName.get(id))
+                                      .filter(Boolean)
+                                      .map((name) => (
+                                        <Chip key={name} size="sm" className="bg-forest/8 text-forest/75">
+                                          {name}
+                                        </Chip>
+                                      ))
+                                  ) : (
+                                    <Chip size="sm" className="bg-terracotta/10 text-terracotta">
+                                      Sem materiais
+                                    </Chip>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="field-label">Insumos</p>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {(dish.insumoIds ?? []).length > 0 ? (
+                                    (dish.insumoIds ?? [])
+                                      .map((id) => insumoName.get(id))
+                                      .filter(Boolean)
+                                      .map((name) => (
+                                        <Chip key={name} size="sm" className="bg-cream text-forest/75">
+                                          {name}
+                                        </Chip>
+                                      ))
+                                  ) : (
+                                    <Chip size="sm" className="bg-forest/8 text-forest/55">
+                                      Sem insumos
+                                    </Chip>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                             {dish.hasRechaud || dish.hasFritadeira ? (
                               <p className="mt-1.5 flex flex-wrap gap-1">
                                 {dish.hasRechaud ? (

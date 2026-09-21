@@ -69,7 +69,7 @@ export function FichaIndex() {
                   {event.clientId && clientNames.get(event.clientId)
                     ? ` · ${clientNames.get(event.clientId)}`
                     : ""}{" "}
-                  · {event.venue.name} · {guestTotal(event.guests)} pax
+                  · {event.venue.name} · {guestTotal(event.guests)} pessoas
                 </p>
               </div>
               <StatusBadge status={event.status} />

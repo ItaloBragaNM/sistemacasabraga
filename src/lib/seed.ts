@@ -37,9 +37,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 4,
       copeiros: 3,
       chefes: 2,
-      staff_producao: 7,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 7 }],
     menu: {
       paraComecar: items(
         ["Canapé de queijo coalho com mel de engenho", "180", ""],
@@ -128,9 +127,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 1,
-      staff_producao: 1,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 1 }],
     menu: {
       paraComecar: items(
         ["Mini quiche de alho-poró", "80", ""],
@@ -194,9 +192,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 2,
       chefes: 1,
-      staff_producao: 4,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 4 }],
     menu: {
       paraComecar: items(
         ["Canapé de pasta de alcachofra", "90", ""],
@@ -255,9 +252,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 1,
-      staff_producao: 1,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 1 }],
     menu: {
       paraComecar: items(["Cesta de pães e geleias", "45", ""], ["Iogurte com granola e manga", "45", ""]),
       amuseBouche: [],
@@ -317,8 +313,6 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 1,
       copeiros: 1,
       chefes: 0,
-      staff_producao: 0,
-      staff_montagem: 0,
     },
     menu: {
       paraComecar: items(
@@ -383,9 +377,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 3,
       copeiros: 1,
       chefes: 1,
-      staff_producao: 2,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 2 }],
     menu: {
       paraComecar: items(
         ["Atum selado com gergelim", "100", ""],
@@ -445,9 +438,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 2,
       chefes: 1,
-      staff_producao: 3,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 3 }],
     menu: {
       paraComecar: items(["Torresmo e aipim", "110", ""]),
       amuseBouche: [],
@@ -517,7 +509,7 @@ export const SEED_EVENTS: EventRecord[] = [
       suco: "",
     },
     dietaryNotes: "",
-    menuSetupNotes: "Aguardando confirmação de pax e cardápio B até 25/08. Não produzir nada antes.",
+    menuSetupNotes: "Aguardando confirmação de pessoas e cardápio B até 25/08. Não produzir nada antes.",
   }),
   createBlankEvent({
     ...stamp("evt-jantar-unimed", "CB-2026-0090", "2026-08-06T09:30:00.000Z"),
@@ -543,9 +535,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 2,
       copeiros: 1,
       chefes: 2,
-      staff_producao: 2,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 2 }],
     menu: {
       paraComecar: items(["Amuse-bouche de abacaxi e queijo de coalho", "70", ""]),
       amuseBouche: items(["Tartare de atum com crispy de tapioca", "70", ""]),
@@ -601,9 +592,8 @@ export const SEED_EVENTS: EventRecord[] = [
       garconetes: 3,
       copeiros: 2,
       chefes: 1,
-      staff_producao: 6,
-      staff_montagem: 0,
     },
+    extraStaff: [{ key: "staff_producao", quantity: 6 }],
     menu: {
       paraComecar: items(["Salgados fritos e assados", "300", ""], ["Canapé doce de morango", "140", ""]),
       amuseBouche: [],

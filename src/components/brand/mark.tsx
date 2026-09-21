@@ -8,7 +8,7 @@ export function CasaBragaMark({
   return (
     <p
       className={`font-semibold tracking-tight ${
-        compact ? "text-[15px] leading-none" : "text-[16px] leading-none"
+        compact ? "text-[18px] leading-none" : "text-[22px] leading-none"
       } ${onLight ? "text-forest" : "text-cream"}`}
     >
       Casa Braga

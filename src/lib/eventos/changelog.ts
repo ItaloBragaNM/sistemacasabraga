@@ -129,11 +129,11 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
   push(changes, "Horário do serviço", previous.serviceTime, next.serviceTime);
   push(changes, "Duração do serviço", previous.serviceDuration ?? "", next.serviceDuration ?? "");
   push(changes, "Restrições alimentares", previous.dietaryNotes, next.dietaryNotes);
-  push(changes, "Obs. cardápio e montagem", previous.menuSetupNotes, next.menuSetupNotes);
+  push(changes, "Observações — cardápio e montagem", previous.menuSetupNotes, next.menuSetupNotes);
   push(changes, "Gerenciais e Evento", previous.managementNotes ?? "", next.managementNotes ?? "");
   push(changes, "Anexos", attachmentLine(previous.attachments), attachmentLine(next.attachments));
-  push(changes, "Obs. bebidas", previous.drinksNotes ?? "", next.drinksNotes ?? "");
-  push(changes, "Obs. logística", previous.logisticsNotes ?? "", next.logisticsNotes ?? "");
+  push(changes, "Observações — bebidas", previous.drinksNotes ?? "", next.drinksNotes ?? "");
+  push(changes, "Observações — logística", previous.logisticsNotes ?? "", next.logisticsNotes ?? "");
   push(changes, "Fora da cidade", previous.outOfTown ? "Sim" : "Não", next.outOfTown ? "Sim" : "Não");
   push(
     changes,
@@ -235,16 +235,16 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
   push(changes, "Mesa cavalete", yesNo(prevLog?.trestleTable), yesNo(nextLog?.trestleTable));
   push(changes, "Recolher material ao final", yesNo(prevLog?.mustCollectMaterial), yesNo(nextLog?.mustCollectMaterial));
   push(changes, "Conservação extra", yesNo(prevLog?.extraConservation), yesNo(nextLog?.extraConservation));
-  push(changes, "Conservação extra (qtd)", prevLog?.extraConservationQty ?? "", nextLog?.extraConservationQty ?? "");
+  push(changes, "Conservação extra (quantidade)", prevLog?.extraConservationQty ?? "", nextLog?.extraConservationQty ?? "");
   push(changes, "Gelo cubo", yesNo(prevLog?.iceCubes), yesNo(nextLog?.iceCubes));
-  push(changes, "Gelo cubo (qtd)", prevLog?.iceCubesQty ?? "", nextLog?.iceCubesQty ?? "");
+  push(changes, "Gelo cubo (quantidade)", prevLog?.iceCubesQty ?? "", nextLog?.iceCubesQty ?? "");
   push(changes, "Local com cozinha", yesNo(prevLog?.hasKitchen), yesNo(nextLog?.hasKitchen));
   push(changes, "Local com pia", yesNo(prevLog?.hasSink), yesNo(nextLog?.hasSink));
   push(changes, "Local com geladeira", yesNo(prevLog?.hasFridge), yesNo(nextLog?.hasFridge));
   push(changes, "Local com fogão", yesNo(prevLog?.hasStove), yesNo(nextLog?.hasStove));
   push(changes, "Local com freezer", yesNo(prevLog?.hasFreezer), yesNo(nextLog?.hasFreezer));
   push(changes, "Local com forno", yesNo(prevLog?.hasOven), yesNo(nextLog?.hasOven));
-  push(changes, "Local com microondas", yesNo(prevLog?.hasMicrowave), yesNo(nextLog?.hasMicrowave));
+  push(changes, "Local com micro-ondas", yesNo(prevLog?.hasMicrowave), yesNo(nextLog?.hasMicrowave));
 
   const prevSep = JSON.stringify(previous.materialSeparation ?? {});
   const nextSep = JSON.stringify(next.materialSeparation ?? {});

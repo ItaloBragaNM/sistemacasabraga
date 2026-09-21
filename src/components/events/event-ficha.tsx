@@ -10,7 +10,7 @@ import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { Modal, SearchInput } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
-import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
+import { fieldControlClass, Field, FichaSection } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -70,7 +70,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const [draft, setDraft] = useState(() => normalizeEventRecord(event));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
-  const [catalogOpen, setCatalogOpen] = useState(true);
   const [clientModal, setClientModal] = useState(false);
   const [reasonModal, setReasonModal] = useState(false);
   const [reason, setReason] = useState("");
@@ -169,7 +168,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       menuPlan: plan,
       menu: menuFromPlan(plan),
     }));
-    setCatalogOpen(false);
     toast.success(
       `${dishes.length} prato${dishes.length === 1 ? "" : "s"} no cardápio do evento. Preencha o per capita e as observações.`,
     );
@@ -208,7 +206,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-16">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <Link
             href="/eventos"
             className="inline-flex items-center gap-2 text-sm font-light text-forest/60 hover:text-forest"
@@ -233,25 +231,29 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             {draft.title || "Evento sem nome"}
           </h1>
           <p className="mt-2 text-sm font-light text-forest/60">
-            {draft.date ? `${formatWeekday(draft.date)}, ${formatLongDate(draft.date)}` : "Data a definir"}
-            {clientName ? ` · ${clientName}` : ""}
-            {draft.ceremonyTime ? ` · cerimônia ${draft.ceremonyTime}` : ""}
-            {draft.invitationTime ? ` · convite ${draft.invitationTime}` : ""}
-            {draft.serviceTime ? ` · serviço ${draft.serviceTime}` : ""}
-            {draft.serviceDuration ? ` · duração ${draft.serviceDuration}` : ""}
-            {` · ${guestTotal(draft.guests)} a servir`}
+            {[
+              draft.date ? `${formatWeekday(draft.date)}, ${formatLongDate(draft.date)}` : "Data a definir",
+              clientName,
+              draft.ceremonyTime ? `Horário da cerimônia ${draft.ceremonyTime}` : "",
+              draft.invitationTime ? `Horário do convite ${draft.invitationTime}` : "",
+              draft.serviceTime ? `Horário do serviço ${draft.serviceTime}` : "",
+              draft.serviceDuration ? `Duração do serviço ${draft.serviceDuration}` : "",
+              `${guestTotal(draft.guests)} a servir`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
           <Button
-            className="h-10 bg-forest px-4 text-cream hover:bg-petrol"
+            className="h-9 bg-forest px-3 text-cream hover:bg-petrol"
             disabled={!dirty || saveState === "saving"}
             onClick={openSaveModal}
           >
-            Salvar alterações
+            Salvar
           </Button>
           <Button
-            className="h-10 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
+            className="h-9 bg-terracotta px-3 text-cream hover:bg-terracotta/90"
             disabled={pdfState === "working"}
             onClick={async () => {
               try {
@@ -266,11 +268,12 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             }}
           >
-            {pdfState === "working" ? "Gerando…" : "Gerar PDF"}
+            {pdfState === "working" ? "Gerando…" : "PDF"}
           </Button>
           <Button
             variant="outline"
-            className="h-10 text-terracotta"
+            className="size-9 p-0 text-terracotta"
+            aria-label="Excluir ficha"
             onClick={() => {
               if (window.confirm("Excluir esta ficha? A ação não pode ser desfeita neste aparelho.")) {
                 onDelete(draft.id);
@@ -279,17 +282,12 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             }}
           >
-            <Trash2 data-icon="inline-start" />
-            Excluir
+            <Trash2 className="size-4" />
           </Button>
         </div>
       </div>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Dados do evento"
-          hint="O material fica alocado da entrega até o recolhimento (inclusive). Campos com estrela são obrigatórios."
-        />
+      <FichaSection title="Dados do evento">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="★ Nome do evento" className="md:col-span-2">
             <input
@@ -360,7 +358,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("date", event.target.value)}
             />
           </Field>
-          <Field label="Dt. entrega material">
+          <Field label="Data de entrega de material">
             <input
               type="date"
               className={fieldControlClass}
@@ -368,7 +366,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("materialDeliveryDate", event.target.value)}
             />
           </Field>
-          <Field label="Dt. recolhimento material">
+          <Field label="Data de recolhimento de material">
             <input
               type="date"
               className={fieldControlClass}
@@ -376,7 +374,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("materialPickupDate", event.target.value)}
             />
           </Field>
-          <Field label="Dt. entrega comida">
+          <Field label="Data de entrega de comida">
             <input
               type="date"
               className={fieldControlClass}
@@ -422,13 +420,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             />
           </Field>
         </div>
-      </section>
+      </FichaSection>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Convidados e horários"
-          hint="Profissionais são externos que se alimentam no evento (fotógrafo, DJ, cerimonialista)."
-        />
+      <FichaSection title="Convidados e horários">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Field label="★ Adultos">
             <input
@@ -477,7 +471,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             />
           </Field>
-          <Field label="Chegada equipe">
+          <Field label="Chegada da equipe">
             <input
               type="time"
               className={fieldControlClass}
@@ -493,7 +487,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("ceremonyTime", event.target.value)}
             />
           </Field>
-          <Field label="Horário convite">
+          <Field label="Horário do convite">
             <input
               type="time"
               className={fieldControlClass}
@@ -501,7 +495,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("invitationTime", event.target.value)}
             />
           </Field>
-          <Field label="Horário serviço">
+          <Field label="Horário do serviço">
             <input
               type="time"
               className={fieldControlClass}
@@ -510,14 +504,10 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             />
           </Field>
         </div>
-      </section>
+      </FichaSection>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Equipe"
-          hint="Quantidade por função. Use + para acrescentar outras funções opcionais."
-        />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <FichaSection title="Equipe">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {STAFF_ROLES.map((role) => (
             <Field key={role.key} label={role.label}>
               <input
@@ -536,7 +526,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           ))}
         </div>
         {draft.extraStaff?.length ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {draft.extraStaff.map((line) => (
               <Field key={line.key} label={extraStaffLabel(line.key)}>
                 <div className="flex gap-1">
@@ -579,50 +569,25 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         ) ? (
           <div className="mt-4">
             <ExtraStaffPicker
-              used={new Set((draft.extraStaff ?? []).map((line) => line.key))}
+              used={new Set([
+                ...(draft.extraStaff ?? []).map((line) => line.key),
+                ...STAFF_ROLES.map((role) => role.key),
+              ])}
               onAdd={(key) =>
                 update("extraStaff", [...(draft.extraStaff ?? []), { key, quantity: 1 }])
               }
             />
           </div>
         ) : null}
-      </section>
+      </FichaSection>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <button
-          type="button"
-          aria-expanded={catalogOpen}
-          onClick={() => setCatalogOpen((open) => !open)}
-          className="mb-5 flex w-full items-start justify-between gap-3 border-b border-forest/10 pb-3 text-left"
-        >
-          <div>
-            <p className="text-[13px] font-medium text-forest/50">Cadastros</p>
-            <h2 className="mt-1 text-[15px] font-semibold text-forest">
-              Pratos do cardápio (catálogo)
-            </h2>
-            <p className="mt-1 text-xs font-light text-forest/50">
-              Busque e marque os pratos. Clique em Gerar Per Capita para montar o cardápio.
-            </p>
-          </div>
-          <ChevronDown
-            className={cn(
-              "mt-1 size-4 shrink-0 text-forest/40 transition-transform",
-              catalogOpen && "rotate-180",
-            )}
-          />
-        </button>
-        {catalogOpen ? (
-          <CatalogDishPicker
-            dishes={cadastros?.dishes ?? []}
-            categoryOrder={cadastros?.dishCategories ?? []}
-            selected={draft.selectedDishIds ?? []}
-            onChange={(ids) => update("selectedDishIds", ids)}
-          />
-        ) : (
-          <p className="text-sm font-light text-forest/50">
-            {(draft.selectedDishIds ?? []).length} prato(s) selecionado(s) no catálogo.
-          </p>
-        )}
+      <FichaSection title="Pratos do cardápio (catálogo)">
+        <CatalogDishPicker
+          dishes={cadastros?.dishes ?? []}
+          categoryOrder={cadastros?.dishCategories ?? []}
+          selected={draft.selectedDishIds ?? []}
+          onChange={(ids) => update("selectedDishIds", ids)}
+        />
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button className="h-9 bg-forest px-4 text-cream hover:bg-petrol" onClick={generatePerCapita}>
             Gerar Per Capita
@@ -635,13 +600,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             Abrir separação de materiais
           </Link>
         </div>
-      </section>
+      </FichaSection>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Cardápio do evento"
-          hint="O agrupamento inicial segue a categoria do prato. Renomeie as seções, defina o horário e reordene os pratos neste evento."
-        />
+      <FichaSection title="Cardápio do evento">
         {eventMenuSections(draft).length === 0 ? (
           <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
             Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita.
@@ -649,12 +610,11 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         ) : (
           <MenuPlanEditor sections={eventMenuSections(draft)} onChange={setMenuPlan} />
         )}
-      </section>
+      </FichaSection>
 
       <EventDrinksFields
         drinks={draft.drinks}
         notes={draft.drinksNotes}
-        premises={drinkPremises}
         onNotesChange={(value) => update("drinksNotes", value)}
         onChange={(key, value) =>
           setDraft((current) => ({
@@ -672,11 +632,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         }
       />
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Equipe externa"
-          hint="Puxe da base cadastrada. A diária vem da tabela da função e pode ser ajustada neste evento."
-        />
+      <FichaSection title="Equipe externa">
         {(maoDeObra?.workers ?? []).length === 0 ? (
           <p className="text-sm font-light text-forest/50">
             Cadastre os prestadores em Administrativo → Mão de obra externa.
@@ -690,7 +646,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             onChange={(next) => update("laborAllocations", next)}
           />
         )}
-      </section>
+      </FichaSection>
 
       <EventUniformsFields
         uniforms={draft.uniforms}
@@ -702,9 +658,8 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         }
       />
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle title="Extras e logística" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <FichaSection title="Extras e logística">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Ilhas (estações)">
             <input
               type="number"
@@ -724,129 +679,142 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               })
             }
           />
-          {draft.logistics.alcoholServed === "sim" ? (
-            <Field label="Quais tipos serão servidos" className="md:col-span-2 xl:col-span-3">
-              <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
-                {ALCOHOL_TYPES.map((item) => {
-                  const checked = draft.logistics.alcoholTypes.includes(item.key);
-                  return (
-                    <label key={item.key} className="flex cursor-pointer items-center gap-2 text-sm text-forest">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-forest"
-                        checked={checked}
-                        onChange={() => {
-                          const next = checked
-                            ? draft.logistics.alcoholTypes.filter((key) => key !== item.key)
-                            : [...draft.logistics.alcoholTypes, item.key];
-                          patchLogistics({ alcoholTypes: next });
-                        }}
-                      />
-                      {item.label}
-                    </label>
-                  );
-                })}
-              </div>
-              {draft.logistics.alcoholTypes.includes("outros") ? (
-                <input
-                  className={cn(fieldControlClass, "mt-3")}
-                  value={draft.logistics.alcohol}
-                  onChange={(event) => patchLogistics({ alcohol: event.target.value })}
-                  placeholder="Detalhe outras bebidas"
-                />
-              ) : null}
-            </Field>
-          ) : null}
-          <YesNoField
-            label="Material dia anterior?"
-            value={draft.logistics.materialPreviousDay}
-            onChange={(value) => patchLogistics({ materialPreviousDay: value })}
-          />
-          <YesNoField
-            label="Mesa cavalete?"
-            value={draft.logistics.trestleTable}
-            onChange={(value) => patchLogistics({ trestleTable: value })}
-          />
-          <YesNoField
-            label="Material será obrigatório recolher ao final do evento"
-            value={draft.logistics.mustCollectMaterial}
-            onChange={(value) => patchLogistics({ mustCollectMaterial: value })}
-          />
-          <YesNoField
-            label="Terá conservação extra"
-            value={draft.logistics.extraConservation}
-            onChange={(value) =>
-              patchLogistics({
-                extraConservation: value,
-                extraConservationQty: value === "sim" ? draft.logistics.extraConservationQty : "",
-              })
-            }
-          />
-          {draft.logistics.extraConservation === "sim" ? (
-            <Field label="Quantidade — conservação extra">
-              <input
-                className={fieldControlClass}
-                value={draft.logistics.extraConservationQty}
-                onChange={(event) => patchLogistics({ extraConservationQty: event.target.value })}
-              />
-            </Field>
-          ) : null}
-          <YesNoField
-            label="Terá gelo cubo"
-            value={draft.logistics.iceCubes}
-            onChange={(value) =>
-              patchLogistics({
-                iceCubes: value,
-                iceCubesQty: value === "sim" ? draft.logistics.iceCubesQty : "",
-              })
-            }
-          />
-          {draft.logistics.iceCubes === "sim" ? (
-            <Field label="Quantidade — gelo cubo">
-              <input
-                className={fieldControlClass}
-                value={draft.logistics.iceCubesQty}
-                onChange={(event) => patchLogistics({ iceCubesQty: event.target.value })}
-              />
-            </Field>
-          ) : null}
-          <YesNoField
-            label="Local c/ cozinha?"
-            value={draft.logistics.hasKitchen}
-            onChange={(value) => patchLogistics({ hasKitchen: value })}
-          />
-          <YesNoField
-            label="Local c/ pia"
-            value={draft.logistics.hasSink}
-            onChange={(value) => patchLogistics({ hasSink: value })}
-          />
-          <YesNoField
-            label="Local c/ geladeira"
-            value={draft.logistics.hasFridge}
-            onChange={(value) => patchLogistics({ hasFridge: value })}
-          />
-          <YesNoField
-            label="Local c/ fogão"
-            value={draft.logistics.hasStove}
-            onChange={(value) => patchLogistics({ hasStove: value })}
-          />
-          <YesNoField
-            label="Local c/ freezer?"
-            value={draft.logistics.hasFreezer}
-            onChange={(value) => patchLogistics({ hasFreezer: value })}
-          />
-          <YesNoField
-            label="Local c/ forno?"
-            value={draft.logistics.hasOven}
-            onChange={(value) => patchLogistics({ hasOven: value })}
-          />
-          <YesNoField
-            label="Local c/ microondas?"
-            value={draft.logistics.hasMicrowave}
-            onChange={(value) => patchLogistics({ hasMicrowave: value })}
-          />
         </div>
-        <Field label="Observações — logística" className="mt-4">
+        {draft.logistics.alcoholServed === "sim" ? (
+          <div className="mt-4 rounded-xl border border-forest/10 bg-cream/50 p-4">
+            <p className="field-label mb-3">Quais tipos serão servidos</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-3">
+              {ALCOHOL_TYPES.map((item) => {
+                const checked = draft.logistics.alcoholTypes.includes(item.key);
+                return (
+                  <label key={item.key} className="flex cursor-pointer items-center gap-2 text-sm text-forest">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-forest"
+                      checked={checked}
+                      onChange={() => {
+                        const next = checked
+                          ? draft.logistics.alcoholTypes.filter((key) => key !== item.key)
+                          : [...draft.logistics.alcoholTypes, item.key];
+                        patchLogistics({ alcoholTypes: next });
+                      }}
+                    />
+                    {item.label}
+                  </label>
+                );
+              })}
+            </div>
+            {draft.logistics.alcoholTypes.includes("outros") ? (
+              <input
+                className={cn(fieldControlClass, "mt-3")}
+                value={draft.logistics.alcohol}
+                onChange={(event) => patchLogistics({ alcohol: event.target.value })}
+                placeholder="Detalhe outras bebidas"
+              />
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-6">
+          <p className="mb-3 text-[13px] font-medium text-forest/45">Material</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <YesNoField
+              label="Material no dia anterior"
+              value={draft.logistics.materialPreviousDay}
+              onChange={(value) => patchLogistics({ materialPreviousDay: value })}
+            />
+            <YesNoField
+              label="Mesa cavalete"
+              value={draft.logistics.trestleTable}
+              onChange={(value) => patchLogistics({ trestleTable: value })}
+            />
+            <YesNoField
+              label="Recolher material ao final"
+              value={draft.logistics.mustCollectMaterial}
+              onChange={(value) => patchLogistics({ mustCollectMaterial: value })}
+            />
+            <YesNoField
+              label="Conservação extra"
+              value={draft.logistics.extraConservation}
+              onChange={(value) =>
+                patchLogistics({
+                  extraConservation: value,
+                  extraConservationQty: value === "sim" ? draft.logistics.extraConservationQty : "",
+                })
+              }
+            />
+            {draft.logistics.extraConservation === "sim" ? (
+              <Field label="Quantidade — conservação extra">
+                <input
+                  className={fieldControlClass}
+                  value={draft.logistics.extraConservationQty}
+                  onChange={(event) => patchLogistics({ extraConservationQty: event.target.value })}
+                />
+              </Field>
+            ) : null}
+            <YesNoField
+              label="Gelo cubo"
+              value={draft.logistics.iceCubes}
+              onChange={(value) =>
+                patchLogistics({
+                  iceCubes: value,
+                  iceCubesQty: value === "sim" ? draft.logistics.iceCubesQty : "",
+                })
+              }
+            />
+            {draft.logistics.iceCubes === "sim" ? (
+              <Field label="Quantidade — gelo cubo">
+                <input
+                  className={fieldControlClass}
+                  value={draft.logistics.iceCubesQty}
+                  onChange={(event) => patchLogistics({ iceCubesQty: event.target.value })}
+                />
+              </Field>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="mb-3 text-[13px] font-medium text-forest/45">Infraestrutura do local</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <YesNoField
+              label="Local com cozinha"
+              value={draft.logistics.hasKitchen}
+              onChange={(value) => patchLogistics({ hasKitchen: value })}
+            />
+            <YesNoField
+              label="Local com pia"
+              value={draft.logistics.hasSink}
+              onChange={(value) => patchLogistics({ hasSink: value })}
+            />
+            <YesNoField
+              label="Local com geladeira"
+              value={draft.logistics.hasFridge}
+              onChange={(value) => patchLogistics({ hasFridge: value })}
+            />
+            <YesNoField
+              label="Local com fogão"
+              value={draft.logistics.hasStove}
+              onChange={(value) => patchLogistics({ hasStove: value })}
+            />
+            <YesNoField
+              label="Local com freezer"
+              value={draft.logistics.hasFreezer}
+              onChange={(value) => patchLogistics({ hasFreezer: value })}
+            />
+            <YesNoField
+              label="Local com forno"
+              value={draft.logistics.hasOven}
+              onChange={(value) => patchLogistics({ hasOven: value })}
+            />
+            <YesNoField
+              label="Local com micro-ondas"
+              value={draft.logistics.hasMicrowave}
+              onChange={(value) => patchLogistics({ hasMicrowave: value })}
+            />
+          </div>
+        </div>
+        <Field label="Observações — logística" className="mt-6">
           <textarea
             className={cn(fieldControlClass, "min-h-24 py-2")}
             value={draft.logisticsNotes ?? ""}
@@ -854,13 +822,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             placeholder="Notas da equipe de logística para este evento."
           />
         </Field>
-      </section>
+      </FichaSection>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Veículos"
-          hint="Selecione a frota deste evento. Marque fora da cidade para disparar a ajuda de custo da equipe externa."
-        />
+      <FichaSection title="Veículos">
         <YesNoField
           label="Evento fora da cidade?"
           value={draft.outOfTown ? "sim" : "nao"}
@@ -929,13 +893,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               })}
           </div>
         )}
-      </section>
+      </FichaSection>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <SectionTitle
-          title="Observações — cozinha"
-          hint="Restrições alimentares, cardápio e montagem."
-        />
+      <FichaSection title="Observações — cozinha">
         <Field label="Restrições alimentares" className="mb-4">
           <textarea
             className={cn(
@@ -1004,7 +964,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             </ul>
           ) : null}
         </Field>
-      </section>
+      </FichaSection>
 
       <EventChangeHistory
         entries={draft.changeLog ?? []}
@@ -1292,11 +1252,7 @@ function EventChangeHistory({
   const log = [...entries].sort((a, b) => (a.at < b.at ? 1 : -1));
 
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-      <SectionTitle
-        title="Histórico de alterações"
-        hint="Quem editou esta ficha, quando, e o que mudou."
-      />
+    <FichaSection title="Histórico de alterações">
       {log.length === 0 ? (
         <p className="text-sm font-light text-forest/55">
           Ainda não há alterações registradas nesta ficha. As próximas edições aparecem aqui, com
@@ -1329,7 +1285,7 @@ function EventChangeHistory({
           ))}
         </ol>
       )}
-    </section>
+    </FichaSection>
   );
 }
 
@@ -1570,7 +1526,7 @@ function MenuPlanEditor({
                   <th className="field-label w-10 px-2 pb-2 font-normal" />
                   <th className="field-label w-36 px-2 pb-2 font-normal">Per capita</th>
                   <th className="field-label px-2 pb-2 font-normal">Prato / variação</th>
-                  <th className="field-label px-2 pb-2 font-normal">Obs / variação</th>
+                  <th className="field-label px-2 pb-2 font-normal">Observações / variação</th>
                   <th />
                 </tr>
               </thead>

@@ -72,15 +72,15 @@ export function MovimentacoesAdmin() {
         />
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por registro, pessoa ou entidade…"
-              className="h-10 flex-1 rounded-lg border border-forest/15 bg-white px-3 text-sm"
+              className="h-9 min-w-[12rem] flex-1 rounded-lg border border-forest/15 bg-white px-3 text-[13px]"
             />
             <select
-              className="h-10 rounded-lg border border-forest/15 bg-white px-3 text-sm"
+              className="h-9 rounded-lg border border-forest/15 bg-white px-3 text-[13px]"
               value={moduleFilter}
               onChange={(event) => setModuleFilter(event.target.value)}
             >
@@ -92,7 +92,7 @@ export function MovimentacoesAdmin() {
               ))}
             </select>
             <select
-              className="h-10 rounded-lg border border-forest/15 bg-white px-3 text-sm"
+              className="h-9 rounded-lg border border-forest/15 bg-white px-3 text-[13px]"
               value={actionFilter}
               onChange={(event) => setActionFilter(event.target.value)}
             >
@@ -108,31 +108,33 @@ export function MovimentacoesAdmin() {
             <EmptyBlock title="Nenhum resultado" description="Ajuste os filtros da auditoria." />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-left text-[13px] leading-snug">
                 <thead>
                   <tr className="border-b border-forest/10">
-                    <th className="field-label py-3 pl-5 font-normal">Quando</th>
-                    <th className="field-label py-3 font-normal">Quem</th>
-                    <th className="field-label py-3 font-normal">Ação</th>
-                    <th className="field-label py-3 pr-5 font-normal">Registro</th>
+                    <th className="field-label py-2 pl-4 font-normal">Quando</th>
+                    <th className="field-label py-2 font-normal">Quem</th>
+                    <th className="field-label py-2 font-normal">Ação</th>
+                    <th className="field-label py-2 pr-4 font-normal">Registro</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((item) => (
                     <tr key={item.id} className="border-b border-forest/5 last:border-0">
-                      <td className="py-3 pl-5 whitespace-nowrap text-forest/60">{formatDateTime(item.at)}</td>
-                      <td className="py-3 text-forest/70">{item.userName}</td>
-                      <td className="py-3">
+                      <td className="whitespace-nowrap py-1.5 pl-4 text-[12px] text-forest/55">
+                        {formatDateTime(item.at)}
+                      </td>
+                      <td className="py-1.5 text-[12px] text-forest/70">{item.userName}</td>
+                      <td className="py-1.5">
                         <span
                           className={cn(
-                            "rounded-md px-2.5 py-1 text-xs",
+                            "rounded px-1.5 py-0.5 text-[11px]",
                             ACTION_CLASS[item.action] ?? "bg-forest/8 text-forest/70",
                           )}
                         >
                           {AUDIT_ACTION_LABELS[item.action] ?? item.action}
                         </span>
                       </td>
-                      <td className="py-3 pr-5 text-forest">{item.summary}</td>
+                      <td className="py-1.5 pr-4 leading-snug text-forest">{item.summary}</td>
                     </tr>
                   ))}
                 </tbody>

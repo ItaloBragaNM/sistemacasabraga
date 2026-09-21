@@ -1,4 +1,5 @@
 import {
+  eachMonthOfInterval,
   endOfDay,
   endOfMonth,
   endOfWeek,
@@ -217,6 +218,24 @@ function listSellers(leads: LeadRecord[]): string[] {
   ];
   if (hasNull) ordered.push("Sem vendedor");
   return ordered;
+}
+
+export function periodSpansMultipleMonths(period: Period) {
+  return eachMonthOfInterval({ start: period.start, end: period.end }).length > 1;
+}
+
+export function monthlySummaries(leads: LeadRecord[], period: Period) {
+  return eachMonthOfInterval({ start: period.start, end: period.end }).map((monthStart) => {
+    const start = startOfMonth(monthStart) < period.start ? period.start : startOfMonth(monthStart);
+    const end = endOfMonth(monthStart) > period.end ? period.end : endOfMonth(monthStart);
+    const slice: Period = { mode: "month", start, end };
+    const closed = leads.filter((lead) => lead.outcome !== "open" && inRange(lead.closedAt, slice));
+    return {
+      key: `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}`,
+      monthStart,
+      summary: summarize(closed),
+    };
+  });
 }
 
 export function computeDashboard(leads: LeadRecord[], period: Period): DashboardData {

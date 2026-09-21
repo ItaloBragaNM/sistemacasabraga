@@ -16,7 +16,7 @@ import {
   Settings,
   Truck,
   Users,
-  Wallet,
+  Settings,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -36,7 +36,6 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   logistica: Package,
   veiculos: Truck,
   administrativo: Users,
-  financeiro: Wallet,
   cadastros: BookOpen,
   configuracoes: Settings,
 };

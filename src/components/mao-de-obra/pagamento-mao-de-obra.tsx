@@ -62,7 +62,7 @@ export function PagamentoMaoDeObraPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
-        eyebrow="Financeiro"
+        eyebrow="Administrativo"
         title="Pagamento de mão de obra"
         description="Os lançamentos nascem ao alocar a equipe na ficha do evento. Baixe a planilha no modelo de importação do Conta Azul."
         action={

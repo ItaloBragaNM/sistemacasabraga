@@ -67,7 +67,6 @@ export function KitsAdmin() {
     <div className="mx-auto max-w-5xl space-y-10 pb-16">
       <CadastrosHeader
         title="Kits de Materiais"
-        description="Modelos de transporte enviados junto com o evento. Cada kit define os materiais, a quantidade por kit e a base de cálculo (as mesmas de Configurações → Bases de cálculo)."
         action={
           <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
             <Plus data-icon="inline-start" />
@@ -122,10 +121,6 @@ export function KitsAdmin() {
             <div>
               <p className="text-[13px] font-medium text-forest/50">Separação</p>
               <h2 className="mt-1 text-[15px] font-semibold text-forest">Extras / Equipamentos</h2>
-              <p className="mt-1 max-w-2xl text-sm font-light text-forest/60">
-                Itens avulsos apresentados como checklist na separação do evento — forno, mesas,
-                toalhas e outros equipamentos que não entram pelos pratos nem pelos kits.
-              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <input

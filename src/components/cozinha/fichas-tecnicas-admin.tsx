@@ -53,7 +53,6 @@ export function FichasTecnicasAdmin() {
       <CadastrosHeader
         eyebrow="Cozinha"
         title="Fichas técnicas"
-        description="Padronize receitas, calcule custo e CMV projetado e imprima a ficha para a cozinha."
         action={
           <Button
             className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
@@ -100,6 +99,10 @@ export function FichasTecnicasAdmin() {
                   <td className="py-3 text-forest/70">{formatBRL(recipeCost(sheet))}</td>
                   <td className="py-3 text-forest/70">{formatDecimal(projectedCmv(sheet), 1)}%</td>
                   <td className="py-3 pr-5 text-right">
+                    <button type="button" className="text-sm text-forest/60 hover:text-forest" onClick={() => setEditingId(sheet.id)}>
+                      Abrir
+                    </button>
+                    <span className="mx-2 text-forest/20">·</span>
                     <button type="button" className="text-sm text-forest/60 hover:text-forest" onClick={() => setEditingId(sheet.id)}>
                       Editar
                     </button>
@@ -202,7 +205,6 @@ function FichaEditor({
           <CadastrosHeader
             eyebrow="Cozinha"
             title={draft.name || "Ficha técnica"}
-            description="Custo e CMV são calculados automaticamente a partir dos ingredientes."
           />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -361,10 +363,10 @@ function FichaEditor({
             <thead>
               <tr className="border-b border-forest/10">
                 <th className="field-label py-2 font-normal">Ingrediente / marca</th>
-                <th className="field-label py-2 font-normal">Qtd. líq.</th>
+                <th className="field-label py-2 font-normal">Quantidade líquida</th>
                 <th className="field-label py-2 font-normal">Un.</th>
                 <th className="field-label py-2 font-normal">% aprov.</th>
-                <th className="field-label py-2 font-normal">Qtd. ajust.</th>
+                <th className="field-label py-2 font-normal">Quantidade ajustada</th>
                 <th className="field-label py-2 font-normal">Custo un.</th>
                 <th className="field-label py-2 font-normal">Custo total</th>
                 <th className="w-10" />

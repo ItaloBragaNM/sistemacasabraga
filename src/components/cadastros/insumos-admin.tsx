@@ -67,9 +67,8 @@ export function InsumosAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Insumos"
-        description="Base da cozinha: marca, custo unitário e aproveitamento alimentam as fichas técnicas."
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <ImportExport entity="insumos" />
             <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
               <Plus data-icon="inline-start" />
@@ -135,8 +134,8 @@ export function InsumosAdmin() {
                     </th>
                     <th className="field-label py-3 font-normal">Insumo</th>
                     <th className="field-label py-3 font-normal">Categoria</th>
-                    <th className="field-label py-3 text-center font-normal">Unid.</th>
-                    <th className="field-label py-3 font-normal">Custo</th>
+                    <th className="field-label py-3 text-center font-normal">Unidade</th>
+                    <th className="field-label py-3 text-center font-normal">Custo</th>
                     <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
                   </tr>
                 </thead>
@@ -163,7 +162,7 @@ export function InsumosAdmin() {
                         <Chip className="bg-forest/6 text-forest/70">{item.category}</Chip>
                       </td>
                       <td className="py-3 text-center text-forest/70">{item.unit || "—"}</td>
-                      <td className="py-3 text-forest/70">
+                      <td className="py-3 text-center text-forest/70">
                         {item.unitCost ? item.unitCost.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
                       </td>
                       <td className="py-3 pr-5">

@@ -109,7 +109,7 @@ function LossFormDocument({ dateLabel }: { dateLabel: string }) {
         <View style={styles.tableHeader}>
           <Text style={[styles.th, { flex: 2.6 }]}>Insumo</Text>
           <Text style={[styles.th, { width: 36 }]}>Un.</Text>
-          <Text style={[styles.th, { width: 48, textAlign: "right" }]}>Qtd</Text>
+          <Text style={[styles.th, { width: 48, textAlign: "right" }]}>Quantidade</Text>
           <Text style={[styles.th, { flex: 1.6 }]}>Motivo</Text>
           <Text style={[styles.th, { flex: 1.8 }]}>Observação</Text>
         </View>

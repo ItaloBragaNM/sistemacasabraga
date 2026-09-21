@@ -37,7 +37,6 @@ export function MaoDeObraAdmin() {
       <CadastrosHeader
         eyebrow="Administrativo"
         title="Mão de obra externa"
-        description="Cadastre prestadores. A função e o valor da diária são definidos na ficha de cada evento, a partir da tabela abaixo."
         action={
           <Button
             className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
@@ -144,7 +143,6 @@ export function MaoDeObraAdmin() {
             {workers.length === 0 ? (
               <EmptyBlock
                 title="Nenhum prestador"
-                description="Cadastre uma vez. Depois a pessoa é só selecionada na ficha do evento."
                 action={
                   <Button
                     className="bg-forest text-cream hover:bg-petrol"

@@ -1,7 +1,7 @@
 "use client";
 
-import { Search, X } from "lucide-react";
-import { useEffect } from "react";
+import { ChevronDown, Search, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { fieldControlClass } from "@/components/events/field";
 import { cn } from "@/lib/utils";
 
@@ -17,15 +17,15 @@ export function CadastrosHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-forest/10 pb-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
+    <header className="flex flex-col gap-3 border-b border-forest/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
         <p className="text-[13px] font-medium text-forest/50">{eyebrow}</p>
         <h1 className="page-title mt-1">{title}</h1>
         {description ? (
           <p className="mt-2 max-w-xl text-sm text-forest/60">{description}</p>
         ) : null}
       </div>
-      {action}
+      {action ? <div className="flex shrink-0 flex-nowrap items-center gap-2">{action}</div> : null}
     </header>
   );
 }
@@ -60,65 +60,75 @@ export type FilterFacet = {
   onChange: (value: string) => void;
 };
 
+export type MultiFilterFacet = {
+  id: string;
+  label: string;
+  values: string[];
+  options: { value: string; label: string }[];
+  onChange: (values: string[]) => void;
+  countedNoun?: string;
+};
+
 export function CatalogFilters({
   search,
   onSearch,
   searchPlaceholder = "Buscar…",
   facets = [],
+  multiFacets = [],
+  extra,
   compact = false,
 }: {
   search: string;
   onSearch: (value: string) => void;
   searchPlaceholder?: string;
   facets?: FilterFacet[];
+  multiFacets?: MultiFilterFacet[];
+  extra?: React.ReactNode;
   compact?: boolean;
 }) {
-  const active = Boolean(search.trim()) || facets.some((facet) => facet.value);
+  const active =
+    Boolean(search.trim()) ||
+    facets.some((facet) => facet.value) ||
+    multiFacets.some((facet) => facet.values.length > 0);
 
   const clear = () => {
     onSearch("");
     for (const facet of facets) facet.onChange("");
+    for (const facet of multiFacets) facet.onChange([]);
   };
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="min-w-[180px] flex-1">
         <SearchInput value={search} onChange={onSearch} placeholder={searchPlaceholder} />
       </div>
-      {facets.map((facet) =>
-        compact ? (
-          <select
-            key={facet.id}
-            aria-label={facet.label}
-            className={cn(fieldControlClass, "min-w-[9.5rem] sm:w-auto")}
-            value={facet.value}
-            onChange={(event) => facet.onChange(event.target.value)}
-          >
-            <option value="">{facet.label}</option>
-            {facet.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <label key={facet.id} className="block min-w-[160px] space-y-1.5">
-            <span className="field-label">{facet.label}</span>
-            <select
-              className={fieldControlClass}
-              value={facet.value}
-              onChange={(event) => facet.onChange(event.target.value)}
-            >
-              <option value="">Todos</option>
-              {facet.options.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ),
-      )}
+      {facets.map((facet) => (
+        <select
+          key={facet.id}
+          aria-label={facet.label}
+          className={cn(fieldControlClass, "h-10 w-auto min-w-[9.5rem] shrink-0")}
+          value={facet.value}
+          onChange={(event) => facet.onChange(event.target.value)}
+        >
+          <option value="">{compact ? facet.label : `Todos · ${facet.label}`}</option>
+          {facet.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ))}
+      {multiFacets.map((facet) => (
+        <FilterMultiSelect
+          key={facet.id}
+          value={facet.values}
+          onChange={facet.onChange}
+          options={facet.options.map((option) => ({ key: option.value, label: option.label }))}
+          emptyLabel={facet.label}
+          countedNoun={facet.countedNoun ?? "categorias"}
+        />
+      ))}
+      {extra}
       {active ? (
         <button
           type="button"
@@ -127,6 +137,111 @@ export function CatalogFilters({
         >
           Limpar filtros
         </button>
+      ) : null}
+    </div>
+  );
+}
+
+export function FilterMultiSelect({
+  value,
+  onChange,
+  options,
+  emptyLabel,
+  countedNoun,
+  className,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  options: { key: string; label: string }[];
+  emptyLabel: string;
+  countedNoun: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const allowed = new Set(options.map((item) => item.key));
+  const selected = value.filter((item) => allowed.has(item));
+  const labels = new Map(options.map((item) => [item.key, item.label]));
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    const id = window.setTimeout(() => {
+      window.addEventListener("mousedown", onPointer);
+      window.addEventListener("keydown", onKey);
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const label =
+    selected.length === 0
+      ? emptyLabel
+      : selected.length === 1
+        ? (labels.get(selected[0]) ?? selected[0])
+        : `${selected.length} ${countedNoun}`;
+
+  return (
+    <div ref={rootRef} className={cn("relative shrink-0", className)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((current) => !current)}
+        className={cn(fieldControlClass, "flex w-[13.5rem] items-center justify-between gap-2 bg-white")}
+      >
+        <span className="truncate text-left">{label}</span>
+        <ChevronDown className={cn("size-4 shrink-0 text-forest/40 transition-transform", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <div
+          role="listbox"
+          aria-multiselectable="true"
+          className="absolute z-20 mt-1 max-h-72 w-[13.5rem] overflow-y-auto rounded-lg border border-forest/10 bg-white p-1 shadow-xl"
+        >
+          <button
+            type="button"
+            className={cn(
+              "flex w-full items-center rounded-md px-3 py-2 text-left text-sm",
+              selected.length === 0 ? "bg-forest/8 font-medium text-forest" : "text-forest/70 hover:bg-forest/[0.03]",
+            )}
+            onClick={() => {
+              onChange([]);
+              setOpen(false);
+            }}
+          >
+            {emptyLabel}
+          </button>
+          {options.map((item) => {
+            const checked = selected.includes(item.key);
+            return (
+              <label
+                key={item.key}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-forest hover:bg-forest/[0.03]"
+              >
+                <input
+                  type="checkbox"
+                  className="size-4 accent-forest"
+                  checked={checked}
+                  onChange={() =>
+                    onChange(
+                      checked ? selected.filter((key) => key !== item.key) : [...selected, item.key],
+                    )
+                  }
+                />
+                {item.label}
+              </label>
+            );
+          })}
+        </div>
       ) : null}
     </div>
   );
@@ -199,13 +314,13 @@ export function EmptyBlock({
   action,
 }: {
   title: string;
-  description: string;
+  description?: string;
   action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-forest/20 bg-white p-8 text-center">
       <h3 className="text-[15px] font-semibold text-forest">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm text-forest/55">{description}</p>
+      {description ? <p className="mt-2 max-w-sm text-sm text-forest/55">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );

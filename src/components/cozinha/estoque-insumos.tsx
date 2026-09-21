@@ -29,7 +29,7 @@ export function EstoqueInsumos() {
   const { data: cadastros, ready: cadReady } = useCadastros();
   const { data, ready: stockReady, addMovement, upsertMeta } = useCozinhaInsumos();
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selected, setSelected] = useState<InsumoRecord | null>(null);
@@ -49,7 +49,7 @@ export function EstoqueInsumos() {
     if (!cadastros) return [];
     const term = search.trim().toLowerCase();
     const list = [...cadastros.insumos]
-      .filter((insumo) => (category ? insumo.category === category : true))
+      .filter((insumo) => (categories.length ? categories.includes(insumo.category) : true))
       .map((insumo) => {
         const balance = insumoBalance(balances, insumo.id);
         return {
@@ -80,10 +80,9 @@ export function EstoqueInsumos() {
       return cmp * dir;
     });
     return list;
-  }, [cadastros, category, search, balances, meta, sortKey, sortDir]);
+  }, [cadastros, categories, search, balances, meta, sortKey, sortDir]);
 
   const belowMin = rows.filter((r) => r.min > 0 && r.balance < r.min).length;
-  const totalValue = rows.reduce((sum, row) => sum + row.value, 0);
   const ready = cadReady && stockReady;
 
   const handleExport = async () => {
@@ -113,7 +112,6 @@ export function EstoqueInsumos() {
       <CadastrosHeader
         eyebrow="Cozinha"
         title="Estoque de Insumos"
-        description="Saldo dos insumos da cozinha. Clique no insumo para movimentar."
         action={
           <Button variant="outline" className="h-10 px-3" onClick={handleExport} disabled={!cadastros}>
             <Download data-icon="inline-start" />
@@ -139,27 +137,23 @@ export function EstoqueInsumos() {
               search={search}
               onSearch={setSearch}
               searchPlaceholder="Buscar insumo…"
-              facets={[
+              multiFacets={[
                 {
                   id: "category",
                   label: "Categoria",
-                  value: category,
-                  onChange: setCategory,
+                  values: categories,
+                  onChange: setCategories,
+                  countedNoun: "categorias",
                   options: cadastros.insumoCategories.map((item) => ({ value: item, label: item })),
                 },
               ]}
             />
-            <div className="flex flex-wrap items-center gap-2">
-              {belowMin > 0 ? (
-                <span className="inline-flex items-center gap-2 rounded-md bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta">
-                  <AlertTriangle className="size-4" />
-                  {belowMin} abaixo do mínimo
-                </span>
-              ) : null}
-              <span className="inline-flex items-center gap-2 rounded-md bg-forest/6 px-3 py-1.5 text-sm text-forest/70">
-                Valor em estoque: {formatBRL(totalValue)}
+            {belowMin > 0 ? (
+              <span className="inline-flex items-center gap-2 self-start rounded-md bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta">
+                <AlertTriangle className="size-4" />
+                {belowMin} abaixo do mínimo
               </span>
-            </div>
+            ) : null}
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">

@@ -5,8 +5,9 @@ import { useMemo, useState } from "react";
 import { addMonths, addWeeks, format, isSameMonth, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { StatusBadge } from "@/components/events/status-badge";
+import { FilterMultiSelect } from "@/components/cadastros/ui";
 import { fieldControlClass } from "@/components/events/field";
+import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { formatDayHeading, formatMonthTitle, monthGrid, weekDays } from "@/lib/dates";
@@ -38,7 +39,7 @@ function EventChip({ event }: { event: EventRecord }) {
         {event.ceremonyTime || event.invitationTime || event.serviceTime || "—"} · {event.title}
       </p>
       <p className="truncate text-[13px] opacity-80">
-        {EVENT_TYPE_LABELS[event.type]} · {guestTotal(event.guests)} pax
+        {EVENT_TYPE_LABELS[event.type]} · {guestTotal(event.guests)} pessoas
       </p>
     </Link>
   );
@@ -54,7 +55,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
   const [view, setView] = useState<ViewMode>("mes");
   const [query, setQuery] = useState("");
   const [statuses, setStatuses] = useState<string[]>([]);
-  const [type, setType] = useState<string>("todos");
+  const [types, setTypes] = useState<string[]>([]);
 
   const filtered = useMemo(() => {
     return events.filter((event) => {
@@ -62,10 +63,10 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
       const hay = `${event.title} ${event.code} ${event.venue.name} ${event.venue.address} ${clientName}`.toLowerCase();
       const matchesQuery = hay.includes(query.trim().toLowerCase());
       const matchesStatus = statuses.length === 0 || statuses.includes(event.status);
-      const matchesType = type === "todos" || event.type === type;
+      const matchesType = types.length === 0 || types.includes(event.type);
       return matchesQuery && matchesStatus && matchesType;
     });
-  }, [events, query, statuses, type, clientNames]);
+  }, [events, query, statuses, types, clientNames]);
 
   const days = view === "mes" ? monthGrid(cursor) : weekDays(cursor);
   const listDays = useMemo(() => {
@@ -86,23 +87,6 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           <h1 className="page-title mt-1">
             Calendário de Eventos
           </h1>
-          <p className="mt-2 max-w-xl text-sm font-light leading-6 text-forest/65">
-            Visão da casa. Clique no evento para abrir a ficha operacional. As cores seguem o
-            status da ficha.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {EVENT_STATUSES.map((item) => (
-              <span
-                key={item}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px]",
-                  `cal-chip-${item}`,
-                )}
-              >
-                {EVENT_STATUS_LABELS[item]}
-              </span>
-            ))}
-          </div>
         </div>
         <Link
           href="/eventos/novo"
@@ -120,50 +104,20 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           placeholder="Buscar por nome, cliente ou código"
           className={cn(fieldControlClass, "flex-1 bg-cream")}
         />
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            className={cn(
-              "rounded-md border px-3 py-1.5 text-sm",
-              statuses.length === 0 ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
-            )}
-            onClick={() => setStatuses([])}
-          >
-            Todos os status
-          </button>
-          {EVENT_STATUSES.map((item) => {
-            const active = statuses.includes(item);
-            return (
-              <button
-                key={item}
-                type="button"
-                className={cn(
-                  "rounded-md border px-3 py-1.5 text-sm",
-                  active ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
-                )}
-                onClick={() =>
-                  setStatuses((current) =>
-                    current.includes(item) ? current.filter((status) => status !== item) : [...current, item],
-                  )
-                }
-              >
-                {EVENT_STATUS_LABELS[item]}
-              </button>
-            );
-          })}
-        </div>
-        <select
-          value={type}
-          onChange={(event) => setType(event.target.value)}
-          className="h-10 rounded-lg border border-forest/15 bg-cream px-3 text-sm"
-        >
-          <option value="todos">Todos os tipos</option>
-          {EVENT_TYPES.map((item) => (
-            <option key={item} value={item}>
-              {EVENT_TYPE_LABELS[item]}
-            </option>
-          ))}
-        </select>
+        <FilterMultiSelect
+          value={statuses}
+          onChange={setStatuses}
+          emptyLabel="Todos os status"
+          countedNoun="status"
+          options={EVENT_STATUSES.map((item) => ({ key: item, label: EVENT_STATUS_LABELS[item] }))}
+        />
+        <FilterMultiSelect
+          value={types}
+          onChange={setTypes}
+          emptyLabel="Todos os tipos"
+          countedNoun="tipos"
+          options={EVENT_TYPES.map((item) => ({ key: item, label: EVENT_TYPE_LABELS[item] }))}
+        />
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -240,13 +194,13 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
                     >
                       <p className="text-sm font-medium text-forest">
                         {event.invitationTime || "—"}
-                        {event.serviceTime ? ` · srv ${event.serviceTime}` : ""}
+                        {event.serviceTime ? ` · serviço ${event.serviceTime}` : ""}
                       </p>
                       <div>
                         <p className="text-[15px] font-semibold text-forest">{event.title}</p>
                         <p className="mt-1 text-sm text-forest/55">
                           {EVENT_TYPE_LABELS[event.type]} · {event.venue.name} ·{" "}
-                          {guestTotal(event.guests)} pax · {event.code}
+                          {guestTotal(event.guests)} pessoas · {event.code}
                         </p>
                       </div>
                       <StatusBadge status={event.status} />

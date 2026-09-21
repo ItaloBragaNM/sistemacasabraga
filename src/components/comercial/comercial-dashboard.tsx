@@ -16,7 +16,10 @@ import {
 } from "@/components/comercial/ui";
 import {
   computeDashboard,
+  monthlySummaries,
+  periodSpansMultipleMonths,
   resolvePeriod,
+  type Period,
   type PeriodMode,
 } from "@/lib/crm/metrics";
 import { formatBRL } from "@/lib/money";
@@ -175,6 +178,10 @@ export function ComercialDashboard() {
             onCustomStart={setCustomStart}
             onCustomEnd={setCustomEnd}
           />
+
+          {mode === "custom" && periodSpansMultipleMonths(period) ? (
+            <MonthlyBreakdown leads={snapshot.leads} period={period} />
+          ) : null}
 
           <Block1 data={data} />
           <Block2 data={data} />
@@ -351,6 +358,58 @@ function Card({
 }
 
 /* ---------------------------------------------------------------- blocks */
+
+function MonthlyBreakdown({
+  leads,
+  period,
+}: {
+  leads: CrmSnapshot["leads"];
+  period: Period;
+}) {
+  const rows = monthlySummaries(leads, period);
+  const maxWon = Math.max(...rows.map((row) => row.summary.totalWon), 1);
+  return (
+    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+      <h2 className="text-[15px] font-semibold text-forest">Indicadores mês a mês</h2>
+      <p className="mt-1 text-sm font-light text-forest/55">
+        O período personalizado cobre mais de um mês. Cada coluna mostra o resultado daquele mês.
+      </p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {rows.map((row) => (
+          <div key={row.key} className="space-y-2">
+            <p className="text-[13px] font-medium capitalize text-forest">
+              {format(row.monthStart, "MMMM yyyy", { locale: ptBR })}
+            </p>
+            <div className="h-16 overflow-hidden rounded-md bg-forest/8">
+              <div
+                className="h-full rounded-md bg-forest/75"
+                style={{ width: `${Math.max((row.summary.totalWon / maxWon) * 100, row.summary.totalWon > 0 ? 6 : 0)}%` }}
+              />
+            </div>
+            <dl className="space-y-0.5 text-[13px] text-forest/70">
+              <div className="flex justify-between gap-2">
+                <dt>Total vendido</dt>
+                <dd className="font-medium text-forest">{formatBRLCompact(row.summary.totalWon)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt>Ganhos</dt>
+                <dd>{formatInt(row.summary.wonCount)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt>Perdidos</dt>
+                <dd>{formatInt(row.summary.lostCount)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt>Ticket médio</dt>
+                <dd>{formatBRLCompact(row.summary.ticket)}</dd>
+              </div>
+            </dl>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function Block1({ data }: { data: NonNullable<ReturnType<typeof computeDashboard>> }) {
   const s = data.overall;
@@ -577,7 +636,7 @@ function Block5({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
                 />
                 <MiniStat label="Perdidos" value={formatInt(report.summary.lostCount)} />
                 <MiniStat
-                  label="% Ganho (qtd)"
+                  label="% Ganho (quantidade)"
                   value={formatPercent(report.conversion.wonCountPct)}
                 />
               </div>

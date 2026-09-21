@@ -86,7 +86,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           />
           <Info label="A servir" value={`${guestTotal(event.guests)}`} />
           <Info label="Local" value={event.venue.address || event.venue.name} />
-          <Info label="Chegada equipe" value={event.teamArrival || "—"} />
+          <Info label="Chegada da equipe" value={event.teamArrival || "—"} />
           <Info
             label="Público"
             value={guestsSummary(event.guests)}

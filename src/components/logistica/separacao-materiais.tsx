@@ -444,8 +444,6 @@ function SeparationEditor({
     () => Object.values(sep.overrides).filter((o) => o.removed).length,
     [sep],
   );
-  const totalPieces = rows.reduce((sum, row) => sum + row.finalQty, 0);
-  const editedCount = rows.filter((row) => row.edited).length;
 
   const toggleOpen = (key: string) => {
     setOpenKeys((current) => {
@@ -524,64 +522,57 @@ function SeparationEditor({
       <EventSummary event={event} />
 
       {warnings.length > 0 ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-terracotta/25 bg-terracotta/5 p-4">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-terracotta" />
-          <div className="text-sm text-terracotta">
-            <p className="font-medium">Complete a ficha para uma separação precisa:</p>
-            <p className="mt-1 font-light">{warnings.map((w) => w.label).join(" · ")}</p>
-          </div>
-        </div>
+        <CollapsibleAlert
+          title={`Complete a ficha para uma separação precisa${warnings.length ? ` · ${warnings.length}` : ""}`}
+        >
+          <p className="font-light">{warnings.map((w) => w.label).join(" · ")}</p>
+        </CollapsibleAlert>
       ) : null}
 
       {ruptures.length > 0 ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/[0.07] p-4">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-terracotta" />
-          <div className="min-w-0 flex-1 text-sm text-forest">
-            <p className="font-medium text-terracotta">
-              Ruptura de estoque nesta alocação
-              {allocWindow
-                ? ` · ${formatShortDate(allocWindow.start)} → ${formatShortDate(allocWindow.end)}`
-                : ""}
+        <CollapsibleAlert
+          title={`Ruptura de estoque nesta alocação · ${ruptures.length} material${ruptures.length === 1 ? "" : "is"}`}
+        >
+          {allocWindow ? (
+            <p className="font-light text-forest/70">
+              {formatShortDate(allocWindow.start)} → {formatShortDate(allocWindow.end)}
             </p>
-            <p className="mt-1 font-light text-forest/70">
-              {ruptures.length === 1
-                ? "1 material não cabe no estoque"
-                : `${ruptures.length} materiais não cabem no estoque`}{" "}
-              com os eventos simultâneos (entrega até recolhimento).
+          ) : null}
+          <p className="mt-1 font-light text-forest/70">
+            {ruptures.length === 1
+              ? "1 material não cabe no estoque"
+              : `${ruptures.length} materiais não cabem no estoque`}{" "}
+            com os eventos simultâneos (entrega até recolhimento).
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-forest/80">
+            {ruptures.slice(0, 6).map((item) => (
+              <li key={item.materialId}>
+                <span className="font-medium">{item.name}</span>
+                {item.unit ? ` (${item.unit})` : ""}: estoque {formatInt(item.stock)} · este
+                evento {formatInt(item.thisEventQty)} · pico {formatInt(item.peak)} · falta{" "}
+                {formatInt(item.shortage)}
+                {item.others.length > 0
+                  ? ` · junto com ${item.others.map((other) => other.title).join(", ")}`
+                  : ""}
+              </li>
+            ))}
+          </ul>
+          {ruptures.length > 6 ? (
+            <p className="mt-1 text-xs font-light text-forest/50">
+              e mais {ruptures.length - 6} material(is)
             </p>
-            <ul className="mt-2 space-y-1 text-sm text-forest/80">
-              {ruptures.slice(0, 6).map((item) => (
-                <li key={item.materialId}>
-                  <span className="font-medium">{item.name}</span>
-                  {item.unit ? ` (${item.unit})` : ""}: estoque {formatInt(item.stock)} · este
-                  evento {formatInt(item.thisEventQty)} · pico {formatInt(item.peak)} · falta{" "}
-                  {formatInt(item.shortage)}
-                  {item.others.length > 0
-                    ? ` · junto com ${item.others.map((other) => other.title).join(", ")}`
-                    : ""}
-                </li>
-              ))}
-            </ul>
-            {ruptures.length > 6 ? (
-              <p className="mt-1 text-xs font-light text-forest/50">
-                e mais {ruptures.length - 6} material(is)
-              </p>
-            ) : null}
-            <Link
-              href="/logistica/alocacao-materiais"
-              className="mt-2 inline-block text-sm text-terracotta underline-offset-2 hover:underline"
-            >
-              Ver controle de alocação
-            </Link>
-          </div>
-        </div>
+          ) : null}
+          <Link
+            href="/logistica/alocacao-materiais"
+            className="mt-2 inline-block text-sm text-terracotta underline-offset-2 hover:underline"
+          >
+            Ver controle de alocação
+          </Link>
+        </CollapsibleAlert>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4 text-sm text-forest/70">
-          <Stat label="Itens" value={String(rows.length)} />
-          <Stat label="Peças" value={String(totalPieces)} />
-          <Stat label="Editados" value={String(editedCount)} />
           {removedCount > 0 ? (
             <button
               type="button"
@@ -660,10 +651,8 @@ function SeparationEditor({
                 <tr className="border-b border-forest/8">
                   <th className="field-label px-4 py-2 font-normal">Material</th>
                   <th className="field-label px-2 py-2 font-normal">Categoria</th>
-                  <th className="field-label w-28 px-2 py-2 text-right font-normal">
-                    Qtd calculada
-                  </th>
-                  <th className="field-label w-32 px-2 py-2 font-normal">Qtd final</th>
+                  <th className="field-label w-32 px-2 py-2 text-right font-normal">Quantidade calculada</th>
+                  <th className="field-label w-32 px-2 py-2 font-normal">Quantidade final</th>
                   <th className="field-label px-2 py-2 font-normal">Observações</th>
                   <th className="w-10" />
                 </tr>
@@ -711,9 +700,9 @@ function SeparationEditor({
                                   </Chip>
                                 ) : null}
                                 {rupture ? (
-                                  <Chip size="sm" className="ml-2 bg-terracotta/15 font-medium text-terracotta">
-                                    falta {formatInt(rupture.shortage)}
-                                  </Chip>
+                                  <span className="ml-2 align-middle text-[11px] font-medium text-terracotta">
+                                    −{formatInt(rupture.shortage)}
+                                  </span>
                                 ) : null}
                               </span>
                             </button>
@@ -812,15 +801,18 @@ function SeparationEditor({
         <textarea
           className={cn(fieldControlClass, "h-24 py-2")}
           placeholder="Observações gerais para este evento…"
-          value={sep.notes ?? ""}
-          onChange={(e) => applySep({ ...sep, notes: e.target.value })}
+          value={sep.notes || event.logisticsNotes || ""}
+          onChange={(e) => {
+            const value = e.target.value;
+            applySep({ ...sep, notes: value });
+            persistEvent({ logisticsNotes: value });
+          }}
         />
       </section>
 
       <EventDrinksFields
         drinks={drinks}
         notes={event.drinksNotes ?? ""}
-        premises={drinkPremises}
         onNotesChange={(value) => persistEvent({ drinksNotes: value })}
         onChange={(key: DrinkKey, value: string) =>
           persistEvent({
@@ -851,12 +843,30 @@ function SeparationEditor({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function CollapsibleAlert({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
   return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <span className="text-lg font-semibold text-forest">{value}</span>
-      <span className="field-label">{label}</span>
-    </span>
+    <div className="rounded-2xl border border-terracotta/25 bg-terracotta/5">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-terracotta">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span className="truncate">{title}</span>
+        </span>
+        <ChevronDown className={cn("size-4 shrink-0 text-terracotta/70 transition-transform", open && "rotate-180")} />
+      </button>
+      {open ? <div className="px-4 pb-4 text-sm text-forest">{children}</div> : null}
+    </div>
   );
 }
 
@@ -990,17 +1000,11 @@ function KitsOnEvent({
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-[15px] font-semibold text-forest">Kits de materiais</h2>
-          <p className="mt-1 text-xs font-light text-forest/50">
-            Informe quantos kits vão para o evento. O total de cada item é quantidade por kit ×
-            kits, e pode ser ajustado neste evento.
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold text-forest">Kits de materiais</h2>
         <Link
           href="/cadastros/kits"
-          className="text-xs font-light text-forest/55 underline-offset-2 hover:text-forest hover:underline"
+          className={cn(buttonVariants(), "h-9 bg-forest px-4 text-cream hover:bg-petrol")}
         >
           Gerenciar kits
         </Link>
@@ -1029,7 +1033,7 @@ function KitsOnEvent({
                     {kit.scaleBaseId !== "base-fixo" ? <ScaleBadge label={scaleLabel} /> : null}
                   </div>
                   <label className="flex items-center gap-2 text-xs">
-                    <span className="opacity-80">Qtd de kits</span>
+                    <span className="opacity-80">Quantidade de kits</span>
                     <input
                       type="number"
                       min={0}
@@ -1040,7 +1044,7 @@ function KitsOnEvent({
                   </label>
                 </header>
                 <p className="border-b border-forest/8 px-4 py-2 text-xs font-light text-forest/50">
-                  Qtd por kit × {qty} kit{qty === 1 ? "" : "s"} = total a separar
+                  Quantidade por kit × {qty} kit{qty === 1 ? "" : "s"} = total a separar
                 </p>
                 {kit.items.length === 0 ? (
                   <p className="px-4 py-3 text-sm font-light text-forest/45">
@@ -1178,7 +1182,7 @@ function ExtrasOnEvent({
                   onChange={(e) => setSelection(item.id, e.target.checked, quantity || 1)}
                 />
                 <span className="min-w-0 flex-1 text-sm text-forest">{item.name}</span>
-                <span className="field-label">Qtd.</span>
+                <span className="field-label">Quantidade</span>
                 <input
                   type="number"
                   min={0}
@@ -1208,7 +1212,7 @@ function ExtrasOnEvent({
                   })
                 }
               />
-              <span className="field-label">Qtd.</span>
+              <span className="field-label">Quantidade</span>
               <input
                 type="number"
                 min={0}

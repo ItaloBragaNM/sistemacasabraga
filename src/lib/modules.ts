@@ -59,7 +59,6 @@ export const APP_MODULES: AppModule[] = [
     ready: true,
     pages: [
       { href: "/veiculos/uso", label: "Controle de Uso dos Veículos" },
-      { href: "/veiculos/multas", label: "Controle de Multas" },
     ],
   },
   {
@@ -71,15 +70,8 @@ export const APP_MODULES: AppModule[] = [
         href: "/administrativo/mao-de-obra-externa",
         label: "Controle de Mão de Obra Externa",
       },
-    ],
-  },
-  {
-    id: "financeiro",
-    label: "Financeiro",
-    ready: true,
-    pages: [
       {
-        href: "/financeiro/pagamento-mao-de-obra",
+        href: "/administrativo/pagamento-mao-de-obra",
         label: "Pagamento de Mão de Obra Externa",
       },
     ],

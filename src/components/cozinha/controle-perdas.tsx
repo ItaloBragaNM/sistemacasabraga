@@ -41,9 +41,8 @@ export function ControlePerdas() {
       <CadastrosHeader
         eyebrow="Cozinha"
         title="Controle de Perdas"
-        description="Registre perdas de insumos. Cada perda baixa o estoque e soma no custo do desperdício. Imprima a ficha de 1 página para anotar na cozinha e lançar depois."
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <Button
               variant="outline"
               className="h-10 px-4"
@@ -88,31 +87,19 @@ export function ControlePerdas() {
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setReasonFilter("")}
-                className={cn(
-                  "rounded-md border px-3 py-1 text-sm",
-                  reasonFilter === "" ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
-                )}
-              >
-                Todas
-              </button>
+            <select
+              aria-label="Motivo"
+              className={cn(fieldControlClass, "h-10 w-full max-w-xs")}
+              value={reasonFilter}
+              onChange={(event) => setReasonFilter(event.target.value)}
+            >
+              <option value="">Todos os motivos</option>
               {LOSS_REASONS.map((reason) => (
-                <button
-                  key={reason.key}
-                  type="button"
-                  onClick={() => setReasonFilter(reason.key)}
-                  className={cn(
-                    "rounded-md border px-3 py-1 text-sm",
-                    reasonFilter === reason.key ? "border-forest bg-forest text-cream" : "border-forest/15 text-forest/70",
-                  )}
-                >
+                <option key={reason.key} value={reason.key}>
                   {reason.label}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
             <span className="rounded-md bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta">
               Desperdício: {formatBRL(totalCost)}
             </span>
@@ -131,7 +118,7 @@ export function ControlePerdas() {
                     <th className="field-label py-3 pl-5 font-normal">Data</th>
                     <th className="field-label py-3 font-normal">Insumo</th>
                     <th className="field-label py-3 font-normal">Motivo</th>
-                    <th className="field-label py-3 text-right font-normal">Qtd</th>
+                    <th className="field-label py-3 text-right font-normal">Quantidade</th>
                     <th className="field-label py-3 text-right font-normal">Custo</th>
                     <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
                   </tr>

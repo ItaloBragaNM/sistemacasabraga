@@ -135,7 +135,7 @@ export function EstoqueMateriais() {
     const headers = [
       "Material",
       "Categoria",
-      "Qtd total",
+      "Quantidade total",
       "Por variação",
       "Local",
       "Última contagem",
@@ -166,7 +166,6 @@ export function EstoqueMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Estoque de Materiais"
-        description="Saldo atual. Clique no material para movimentar."
         action={
           <Button variant="outline" className="h-10 px-3" onClick={handleExport} disabled={!cadastros}>
             <Download data-icon="inline-start" />
@@ -238,14 +237,15 @@ export function EstoqueMateriais() {
                     className="pl-5"
                   />
                   <SortTh
-                    label="Qtd"
-                    align="right"
+                    label="Quantidade"
+                    align="center"
                     active={sortKey === "qty"}
                     dir={sortDir}
                     onClick={() => toggleSort("qty")}
                   />
                   <SortTh
                     label="Local"
+                    align="center"
                     active={sortKey === "location"}
                     dir={sortDir}
                     onClick={() => toggleSort("location")}
@@ -283,13 +283,13 @@ export function EstoqueMateriais() {
                           <p className="text-forest">{material.name}</p>
                           <p className="text-xs font-light text-forest/40">{material.category}</p>
                         </td>
-                        <td className="py-3 text-right">
+                        <td className="py-3 text-center">
                           <span className={cn("tabular-nums", low ? "text-terracotta" : "text-forest")}>
                             {formatInt(balance)}
                           </span>
                           <span className="ml-1 text-xs font-light text-forest/40">{material.unit}</span>
                         </td>
-                        <td className="py-3 pr-5 text-forest/60">{location || "—"}</td>
+                        <td className="py-3 pr-5 text-center text-forest/60">{location || "—"}</td>
                       </tr>
                     );
                   })
@@ -356,11 +356,11 @@ function SortTh({
   active: boolean;
   dir: "asc" | "desc";
   onClick: () => void;
-  align?: "right";
+  align?: "right" | "center";
   className?: string;
 }) {
   return (
-    <th className={cn("field-label py-3 font-normal", align === "right" && "text-right", className)}>
+    <th className={cn("field-label py-3 font-normal", align === "right" && "text-right", align === "center" && "text-center", className)}>
       <button
         type="button"
         onClick={onClick}

@@ -65,9 +65,8 @@ export function ClientesAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Clientes"
-        description="Base comercial de clientes da casa. Importe/exporte por planilha quando precisar."
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <ImportExport entity="clientes" />
             <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
               <Plus data-icon="inline-start" />
@@ -151,10 +150,10 @@ export function ClientesAdmin() {
                           onChange={() => selection.toggle(item.id)}
                         />
                       </td>
-                      <td className="py-3">
-                        <p className="font-medium text-forest">{item.name}</p>
+                      <td className="max-w-[16rem] py-3">
+                        <p className="break-words font-medium leading-snug text-forest">{item.name}</p>
                         {item.address ? (
-                          <p className="text-xs font-light text-forest/45">{item.address}</p>
+                          <p className="mt-0.5 break-words text-xs font-light leading-snug text-forest/45">{item.address}</p>
                         ) : null}
                       </td>
                       <td className="py-3 text-forest/70">{CLIENT_KIND_LABELS[item.kind]}</td>

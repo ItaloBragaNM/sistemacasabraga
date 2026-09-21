@@ -1,15 +1,13 @@
 "use client";
 
-import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
+import { fieldControlClass, Field, FichaSection } from "@/components/events/field";
+import { Button } from "@/components/ui/button";
 import { UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   DRINK_ITEMS,
-  drinkPremisesHint,
-  DEFAULT_DRINK_PREMISES,
   UNIFORM_PIECES,
   UNIFORM_SIZES,
   type DrinkKey,
-  type DrinkPremises,
   type DrinkQuantities,
   type UniformPieceKey,
   type UniformSize,
@@ -22,21 +20,15 @@ export function EventDrinksFields({
   onNotesChange,
   onChange,
   onRecalculate,
-  premises,
 }: {
   drinks: DrinkQuantities;
   notes: string;
   onNotesChange: (value: string) => void;
   onChange: (key: DrinkKey, value: string) => void;
   onRecalculate: () => void;
-  premises?: DrinkPremises;
 }) {
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-      <SectionTitle
-        title="Bebidas"
-        hint="Logística: água, refrigerante e suco. O cálculo usa o total a servir e pode ser ajustado."
-      />
+    <FichaSection title="Bebidas">
       <div className="grid gap-3 sm:grid-cols-3">
         {DRINK_ITEMS.map((drink) => (
           <Field key={drink.key} label={drink.label}>
@@ -56,17 +48,14 @@ export function EventDrinksFields({
           placeholder="Marcas, geladeira, serviço de bar, restrições…"
         />
       </Field>
-      <p className="mt-3 text-xs font-light text-forest/50">
-        {drinkPremisesHint(premises ?? DEFAULT_DRINK_PREMISES)}
-      </p>
-      <button
+      <Button
         type="button"
-        className="mt-2 text-xs font-light text-forest/55 underline-offset-2 hover:text-forest hover:underline"
+        className="mt-4 h-9 bg-forest px-4 text-cream hover:bg-petrol"
         onClick={onRecalculate}
       >
-        Recalcular pelo nº de convidados
-      </button>
-    </section>
+        Recalcular pelo número de convidados
+      </Button>
+    </FichaSection>
   );
 }
 
@@ -78,8 +67,7 @@ export function EventUniformsFields({
   onChange: (piece: UniformPieceKey, size: UniformSize, value: number) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-      <SectionTitle title="Fardamentos" hint="Dólmã, bata e avental por tamanho." />
+    <FichaSection title="Fardamentos">
       <div className="grid gap-6 md:grid-cols-3">
         {UNIFORM_PIECES.map((piece) => (
           <div key={piece.key} className="rounded-xl border border-forest/10 p-4">
@@ -102,6 +90,6 @@ export function EventUniformsFields({
           </div>
         ))}
       </div>
-    </section>
+    </FichaSection>
   );
 }

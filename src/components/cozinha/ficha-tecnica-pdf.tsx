@@ -122,10 +122,10 @@ function SheetDocument({ sheet }: { sheet: TechnicalSheet }) {
         <View style={styles.tableHeader}>
           <Text style={[styles.th, { width: "22%" }]}>Ingrediente</Text>
           <Text style={[styles.th, { width: "12%" }]}>Marca</Text>
-          <Text style={[styles.th, { width: "10%" }]}>Qtd. líq.</Text>
+          <Text style={[styles.th, { width: "10%" }]}>Quantidade líquida</Text>
           <Text style={[styles.th, { width: "7%" }]}>Un.</Text>
           <Text style={[styles.th, { width: "9%" }]}>% aprov.</Text>
-          <Text style={[styles.th, { width: "12%" }]}>Qtd. ajust.</Text>
+          <Text style={[styles.th, { width: "12%" }]}>Quantidade ajustada</Text>
           <Text style={[styles.th, { width: "13%" }]}>Custo un.</Text>
           <Text style={[styles.th, { width: "15%" }]}>Custo total</Text>
         </View>

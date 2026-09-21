@@ -67,9 +67,8 @@ export function VeiculosAdmin() {
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
         title="Veículos"
-        description="Frota da casa: modelo, placa, chassi e categoria de uso. O vínculo com o evento e o checklist ficam em Veículos → Controle de Uso."
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <ImportExport entity="veiculos" />
             <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
               <Plus data-icon="inline-start" />

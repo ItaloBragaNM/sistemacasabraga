@@ -177,7 +177,7 @@ function CatalogDocument({
             <View style={styles.tableHeader}>
               <Text style={[styles.th, { width: 20 }]}> </Text>
               <Text style={[styles.th, { flex: 3 }]}>Insumo</Text>
-              <Text style={[styles.th, { width: 70, textAlign: "right" }]}>Qtd</Text>
+              <Text style={[styles.th, { width: 70, textAlign: "right" }]}>Quantidade</Text>
             </View>
             {group.items.map((line) => (
               <View key={line.insumoId} style={styles.row}>

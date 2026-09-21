@@ -158,7 +158,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
         </View>
         <View style={styles.metaRow}>
           <Meta label="Local" value={event.venue.address || event.venue.name} />
-          <Meta label="Chegada equipe" value={event.teamArrival || "—"} />
+          <Meta label="Chegada da equipe" value={event.teamArrival || "—"} />
           <Meta
             label="Público"
             value={guestsSummary(event.guests)}
@@ -171,7 +171,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           />
           <Meta
             label="Local"
-            value={`Cozinha ${flag(event.logistics.hasKitchen)} · Forno ${flag(event.logistics.hasOven)} · Freezer ${flag(event.logistics.hasFreezer)} · Micro ${flag(event.logistics.hasMicrowave)}`}
+            value={`Cozinha ${flag(event.logistics.hasKitchen)} · Forno ${flag(event.logistics.hasOven)} · Freezer ${flag(event.logistics.hasFreezer)} · Micro-ondas ${flag(event.logistics.hasMicrowave)}`}
           />
         </View>
 
