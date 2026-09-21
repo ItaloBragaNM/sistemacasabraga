@@ -295,7 +295,7 @@ function KitEditor({
   const [name, setName] = useState("");
   const [scaleBaseId, setScaleBaseId] = useState("base-fixo");
   const [items, setItems] = useState<MaterialKitItem[]>([]);
-  const [pickId, setPickId] = useState("");
+  const [pickQuery, setPickQuery] = useState("");
 
   const sortedMaterials = useMemo(
     () =>
@@ -311,12 +311,29 @@ function KitEditor({
     setName(kit?.name ?? "");
     setScaleBaseId(kit?.scaleBaseId ?? "base-fixo");
     setItems(kit?.items.map((item) => ({ ...item })) ?? []);
-    setPickId("");
+    setPickQuery("");
   }, [open, kit]);
 
   const used = new Set(items.map((item) => item.materialId));
   const available = sortedMaterials.filter((item) => !used.has(item.id));
+  const pickTerm = pickQuery.trim().toLowerCase();
+  const filteredAvailable = pickTerm
+    ? available.filter(
+        (item) =>
+          item.name.toLowerCase().includes(pickTerm) ||
+          item.category.toLowerCase().includes(pickTerm),
+      )
+    : available;
   const materialName = new Map(materials.map((item) => [item.id, item.name]));
+
+  const addMaterial = (id: string) => {
+    if (!id) return;
+    setItems((current) => {
+      if (current.some((item) => item.materialId === id)) return current;
+      return [...current, { materialId: id, qtyPerKit: 1 }];
+    });
+    setPickQuery("");
+  };
 
   const submit = () => {
     const trimmed = name.trim();
@@ -408,32 +425,38 @@ function KitEditor({
               ))}
             </ul>
           )}
-          <div className="flex gap-2">
-            <select
-              className={cn(fieldControlClass, "flex-1")}
-              value={pickId}
-              onChange={(event) => setPickId(event.target.value)}
-            >
-              <option value="">Adicionar material…</option>
-              {available.map((material) => (
-                <option key={material.id} value={material.id}>
-                  {material.category} · {material.name}
-                </option>
-              ))}
-            </select>
-            <Button
-              variant="outline"
-              className="h-10 px-3"
-              disabled={!pickId}
-              onClick={() => {
-                if (!pickId) return;
-                setItems((current) => [...current, { materialId: pickId, qtyPerKit: 1 }]);
-                setPickId("");
-              }}
-            >
-              <Plus data-icon="inline-start" />
-              Incluir
-            </Button>
+          <div
+            className="space-y-2"
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (filteredAvailable[0]) addMaterial(filteredAvailable[0].id);
+            }}
+          >
+            <SearchInput value={pickQuery} onChange={setPickQuery} placeholder="Buscar material…" />
+            {available.length === 0 ? (
+              <p className="text-sm font-light text-forest/45">
+                {materials.length === 0
+                  ? "Cadastre materiais em Cadastros → Materiais."
+                  : "Todos os materiais já estão neste kit."}
+              </p>
+            ) : filteredAvailable.length === 0 ? (
+              <p className="text-sm font-light text-forest/45">Nenhum material encontrado.</p>
+            ) : (
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-forest/10 bg-white p-1">
+                {filteredAvailable.map((material) => (
+                  <button
+                    key={material.id}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-forest hover:bg-forest/[0.03]"
+                    onClick={() => addMaterial(material.id)}
+                  >
+                    <span className="min-w-0 truncate">{material.name}</span>
+                    <span className="shrink-0 text-xs font-light text-forest/45">{material.category}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
