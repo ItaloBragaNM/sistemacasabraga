@@ -75,7 +75,6 @@ export function UsersAdmin() {
       <CadastrosHeader
         eyebrow="Configurações do Sistema"
         title="Cadastro de Usuários"
-        description="Crie os acessos da casa. O tipo de usuário define quais módulos aparecem no menu e o que cada pessoa pode abrir."
         action={
           <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
             <Plus data-icon="inline-start" />

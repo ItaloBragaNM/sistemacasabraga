@@ -73,6 +73,8 @@ export interface MaoDeObraData {
   workers: ExternalWorker[];
   rates: LaborRate[];
   payments: LaborPayment[];
+  /** Lançamentos excluídos na tela de pagamento enquanto o prestador ainda está na ficha. */
+  dismissedPaymentIds: string[];
 }
 
 export const DEFAULT_LABOR_RATES: LaborRate[] = LABOR_FUNCTIONS.map((role) => ({
@@ -83,5 +85,5 @@ export const DEFAULT_LABOR_RATES: LaborRate[] = LABOR_FUNCTIONS.map((role) => ({
 }));
 
 export function emptyMaoDeObra(): MaoDeObraData {
-  return { workers: [], rates: DEFAULT_LABOR_RATES, payments: [] };
+  return { workers: [], rates: DEFAULT_LABOR_RATES, payments: [], dismissedPaymentIds: [] };
 }

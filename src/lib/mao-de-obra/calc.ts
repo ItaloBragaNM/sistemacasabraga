@@ -94,6 +94,13 @@ export function syncPaymentsFromEvents(
   const previousById = new Map(data.payments.map((payment) => [payment.id, payment]));
   const eventIds = new Set(events.map((event) => event.id));
   const next = new Map<string, LaborPayment>();
+  const allocatedIds = new Set<string>();
+  for (const event of events) {
+    for (const allocation of event.laborAllocations ?? []) {
+      allocatedIds.add(paymentIdFor(event.id, allocation.workerId));
+    }
+  }
+  const dismissed = new Set((data.dismissedPaymentIds ?? []).filter((id) => allocatedIds.has(id)));
 
   for (const payment of data.payments) {
     if (eventIds.has(payment.eventId)) continue;
@@ -116,6 +123,7 @@ export function syncPaymentsFromEvents(
       const worker = workers.get(allocation.workerId);
       if (!worker) continue;
       const id = paymentIdFor(event.id, worker.id);
+      if (dismissed.has(id)) continue;
       next.set(
         id,
         paymentFromAllocation({
@@ -129,5 +137,5 @@ export function syncPaymentsFromEvents(
     }
   }
 
-  return { ...data, payments: [...next.values()] };
+  return { ...data, payments: [...next.values()], dismissedPaymentIds: [...dismissed] };
 }

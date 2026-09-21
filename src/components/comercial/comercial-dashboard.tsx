@@ -211,10 +211,6 @@ function Header({
       <div>
         <p className="text-[13px] font-medium text-forest/50">Comercial</p>
         <h1 className="page-title mt-1">Dashboard Comercial</h1>
-        <p className="mt-2 max-w-xl text-sm font-light text-forest/60">
-          Indicadores do funil de vendas a partir da exportação do CRM. Envie a planilha
-          e a última versão fica disponível para toda a casa.
-        </p>
         {snapshot ? (
           <p className="mt-2 text-xs text-forest/45">
             Última atualização: {format(new Date(snapshot.uploadedAt), "dd/MM/yyyy 'às' HH:mm")} ·{" "}

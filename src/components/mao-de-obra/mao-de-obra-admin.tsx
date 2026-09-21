@@ -62,16 +62,11 @@ export function MaoDeObraAdmin() {
               type="button"
               aria-expanded={ratesOpen}
               onClick={() => setRatesOpen((open) => !open)}
-              className="flex w-full items-start justify-between gap-3 text-left"
+              className="flex w-full items-center justify-between gap-3 text-left"
             >
-              <div>
-                <h2 className="text-[15px] font-semibold text-forest">Tabela de valores</h2>
-                <p className="mt-1 text-[13px] text-forest/50">
-                  Diária, hora extra e ajuda de custo. A ajuda entra automaticamente quando o evento está fora da cidade.
-                </p>
-              </div>
+              <h2 className="text-[15px] font-semibold text-forest">Tabela de valores</h2>
               <ChevronDown
-                className={cn("mt-1 size-4 shrink-0 text-forest/40 transition-transform", ratesOpen && "rotate-180")}
+                className={cn("size-4 shrink-0 text-forest/40 transition-transform", ratesOpen && "rotate-180")}
               />
             </button>
             {ratesOpen ? (

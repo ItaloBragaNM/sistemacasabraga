@@ -54,7 +54,6 @@ export function ConfiguracoesAdmin() {
       <CadastrosHeader
         eyebrow="Configurações do Sistema"
         title="Configurações do Módulo de Cadastros"
-        description="Ajuste as premissas de bebidas, as categorias do cardápio, de materiais e de insumos, os locais do estoque e as bases de cálculo usadas nas proporções. As bases nativas não podem ser removidas."
       />
       {!ready ? (
         <LoadingBlock />
@@ -82,10 +81,6 @@ function DrinkPremisesSection() {
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
       <h2 className="text-[15px] font-semibold text-forest">Premissas de bebidas</h2>
-      <p className="mt-1 text-xs font-light text-forest/50">
-        Usadas no cálculo automático da ficha do evento e da separação de materiais. Ajuste
-        manual na ficha continua possível.
-      </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Água — convidados por garrafão">
           <input
@@ -144,7 +139,6 @@ function DishCategoriesSection() {
   return (
     <CategoriesEditor
       title="Categorias do cardápio"
-      description="Usadas para agrupar os pratos no catálogo e na ficha do evento."
       categories={data.dishCategories}
       onSetCategories={setDishCategories}
       usageCount={(name) => data.dishes.filter((dish) => dish.category === name).length}
@@ -165,7 +159,6 @@ function MaterialCategoriesSection() {
   return (
     <CategoriesEditor
       title="Categorias de materiais"
-      description="Usadas para agrupar os materiais no cadastro, na separação e no estoque."
       categories={data.materialCategories}
       onSetCategories={setCategories}
       usageCount={(name) => data.materials.filter((m) => m.category === name).length}
@@ -186,7 +179,6 @@ function InsumoCategoriesSection() {
   return (
     <CategoriesEditor
       title="Categorias de insumos"
-      description="Usadas para agrupar os insumos da cozinha."
       categories={data.insumoCategories}
       onSetCategories={setInsumoCategories}
       usageCount={(name) => data.insumos.filter((i) => i.category === name).length}
@@ -231,10 +223,6 @@ function StockLocationsSection() {
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5">
       <h2 className="text-[15px] font-semibold text-forest">Locais do estoque</h2>
-      <p className="mt-1 text-sm font-light text-forest/55">
-        Onde cada material fica na casa (depósito, cozinha, prateleira…). O estoque e o inventário
-        usam esta lista.
-      </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <input
           className={cn(fieldControlClass, "max-w-xs")}
@@ -308,14 +296,12 @@ function StockLocationsSection() {
 
 function CategoriesEditor({
   title,
-  description,
   categories,
   onSetCategories,
   usageCount,
   onRename,
 }: {
   title: string;
-  description: string;
   categories: string[];
   onSetCategories: (categories: string[]) => void;
   usageCount: (name: string) => number;
@@ -375,7 +361,6 @@ function CategoriesEditor({
   return (
     <section className="rounded-2xl border border-forest/10 bg-white p-5">
       <h2 className="text-[15px] font-semibold text-forest">{title}</h2>
-      <p className="mt-1 text-sm font-light text-forest/55">{description}</p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {categories.map((category) => (
@@ -462,9 +447,6 @@ function BasesSection() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-[15px] font-semibold text-forest">Bases de cálculo</h2>
-          <p className="mt-1 text-sm font-light text-forest/55">
-            Cada base é um valor lido da ficha do evento (ou derivado dele) usado nas proporções.
-          </p>
         </div>
         <Button variant="outline" className="h-10 px-4" onClick={() => setAdding((v) => !v)}>
           <Plus data-icon="inline-start" />

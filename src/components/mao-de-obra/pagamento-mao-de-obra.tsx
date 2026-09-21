@@ -1,6 +1,6 @@
 "use client";
 
-import { FileDown } from "lucide-react";
+import { FileDown, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CadastrosHeader, Chip, EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
@@ -19,7 +19,7 @@ const STATUS_LABEL: Record<LaborPaymentStatus, string> = {
 };
 
 export function PagamentoMaoDeObraPage() {
-  const { data, ready, setPayments } = useMaoDeObra();
+  const { data, ready, setPayments, removePayment } = useMaoDeObra();
   const [search, setSearch] = useState("");
   const [eventFilter, setEventFilter] = useState("");
   const [working, setWorking] = useState(false);
@@ -64,7 +64,6 @@ export function PagamentoMaoDeObraPage() {
       <CadastrosHeader
         eyebrow="Administrativo"
         title="Pagamento de mão de obra"
-        description="Os lançamentos nascem ao alocar a equipe na ficha do evento. Baixe a planilha no modelo de importação do Conta Azul."
         action={
           <Button
             className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
@@ -140,6 +139,11 @@ export function PagamentoMaoDeObraPage() {
                     key={item.id}
                     item={item}
                     onStatus={(status) => mark([item.id], status)}
+                    onRemove={() => {
+                      if (!window.confirm(`Excluir o lançamento de ${item.workerName}?`)) return;
+                      removePayment(item.id);
+                      toast.success("Lançamento excluído.");
+                    }}
                   />
                 ))}
               </tbody>
@@ -154,9 +158,11 @@ export function PagamentoMaoDeObraPage() {
 function PaymentRow({
   item,
   onStatus,
+  onRemove,
 }: {
   item: LaborPayment;
   onStatus: (status: LaborPaymentStatus) => void;
+  onRemove: () => void;
 }) {
   const parts = [
     `diária ${formatBRL(item.daily)}`,
@@ -204,6 +210,14 @@ function PaymentRow({
             <option value="exportado">Exportado</option>
             <option value="pago">Pago</option>
           </select>
+          <button
+            type="button"
+            aria-label={`Excluir ${item.workerName}`}
+            className="flex size-8 items-center justify-center rounded-lg text-forest/40 hover:bg-terracotta/10 hover:text-terracotta"
+            onClick={onRemove}
+          >
+            <Trash2 className="size-4" />
+          </button>
         </div>
       </td>
     </tr>

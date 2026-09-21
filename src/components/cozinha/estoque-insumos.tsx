@@ -23,7 +23,7 @@ import { uid } from "@/lib/event-factory";
 import { formatShortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
-type SortKey = "name" | "qty" | "value";
+type SortKey = "name" | "qty";
 
 export function EstoqueInsumos() {
   const { data: cadastros, ready: cadReady } = useCadastros();
@@ -56,7 +56,6 @@ export function EstoqueInsumos() {
           insumo,
           balance,
           min: getInsumoMeta(meta, insumo.id).min,
-          value: balance * (insumo.unitCost || 0),
         };
       })
       .filter((row) => {
@@ -72,7 +71,6 @@ export function EstoqueInsumos() {
     list.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "qty") cmp = a.balance - b.balance;
-      else if (sortKey === "value") cmp = a.value - b.value;
       else
         cmp =
           a.insumo.category.localeCompare(b.insumo.category, "pt-BR") ||
@@ -87,7 +85,7 @@ export function EstoqueInsumos() {
 
   const handleExport = async () => {
     if (!cadastros) return;
-    const headers = ["Insumo", "Categoria", "Marca", "Saldo", "Unidade", "Custo unitário", "Valor em estoque", "Mínimo"];
+    const headers = ["Insumo", "Categoria", "Marca", "Saldo", "Unidade", "Custo unitário", "Mínimo"];
     const body = rows.map((r) => [
       r.insumo.name,
       r.insumo.category,
@@ -95,7 +93,6 @@ export function EstoqueInsumos() {
       r.balance,
       r.insumo.unit,
       r.insumo.unitCost,
-      r.value,
       r.min,
     ]);
     try {
@@ -161,19 +158,18 @@ export function EstoqueInsumos() {
               <thead>
                 <tr className="border-b border-forest/10">
                   <SortTh label="Insumo" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} className="pl-5" />
-                  <SortTh label="Saldo" align="right" active={sortKey === "qty"} dir={sortDir} onClick={() => toggleSort("qty")} />
-                  <SortTh label="Valor" align="right" active={sortKey === "value"} dir={sortDir} onClick={() => toggleSort("value")} className="pr-5" />
+                  <SortTh label="Saldo" align="right" active={sortKey === "qty"} dir={sortDir} onClick={() => toggleSort("qty")} className="pr-5" />
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-5 py-10 text-center text-sm font-light text-forest/50">
+                    <td colSpan={2} className="px-5 py-10 text-center text-sm font-light text-forest/50">
                       Nenhum insumo com esses filtros.
                     </td>
                   </tr>
                 ) : (
-                  rows.map(({ insumo, balance, min, value }) => {
+                  rows.map(({ insumo, balance, min }) => {
                     const low = min > 0 && balance < min;
                     return (
                       <tr
@@ -198,13 +194,12 @@ export function EstoqueInsumos() {
                             {insumo.brand ? ` · ${insumo.brand}` : ""}
                           </p>
                         </td>
-                        <td className="py-3 text-right">
+                        <td className="py-3 pr-5 text-right">
                           <span className={cn("tabular-nums", low ? "text-terracotta" : "text-forest")}>
                             {formatDecimal(balance, 2)}
                           </span>
                           <span className="ml-1 text-xs font-light text-forest/40">{insumo.unit}</span>
                         </td>
-                        <td className="py-3 pr-5 text-right text-forest/70">{formatBRL(value)}</td>
                       </tr>
                     );
                   })

@@ -8,12 +8,10 @@ import { cn } from "@/lib/utils";
 export function CadastrosHeader({
   eyebrow = "Cadastros",
   title,
-  description,
   action,
 }: {
   eyebrow?: string;
   title: string;
-  description?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -21,9 +19,6 @@ export function CadastrosHeader({
       <div className="min-w-0">
         <p className="text-[13px] font-medium text-forest/50">{eyebrow}</p>
         <h1 className="page-title mt-1">{title}</h1>
-        {description ? (
-          <p className="mt-2 max-w-xl text-sm text-forest/60">{description}</p>
-        ) : null}
       </div>
       {action ? <div className="flex shrink-0 flex-nowrap items-center gap-2">{action}</div> : null}
     </header>

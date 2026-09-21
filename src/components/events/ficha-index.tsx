@@ -27,10 +27,6 @@ export function FichaIndex() {
           <h1 className="page-title mt-1">
             Ficha do Evento
           </h1>
-          <p className="mt-2 max-w-xl text-sm font-light leading-6 text-forest/65">
-            A ficha da casa: dados do evento, convidados, horários, equipe,
-            cardápio, bebidas, fardamentos e logística.
-          </p>
         </div>
         <Link
           href="/eventos/novo"

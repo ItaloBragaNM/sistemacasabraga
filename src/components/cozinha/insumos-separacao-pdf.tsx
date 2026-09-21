@@ -1,10 +1,9 @@
 "use client";
 
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
-import { formatBRL, formatDecimal } from "@/lib/crm/format";
 import { formatLongDate } from "@/lib/dates";
 import { downloadBlob, slugify } from "@/lib/download";
-import type { CatalogDishGroup, DishInsumoGroup } from "@/lib/cozinha/calc";
+import type { CatalogDishGroup } from "@/lib/cozinha/calc";
 import type { EventRecord } from "@/lib/types";
 
 const colors = {
@@ -52,8 +51,6 @@ const styles = StyleSheet.create({
   },
   box: { width: 12, height: 12, borderWidth: 0.8, borderColor: colors.line, marginRight: 8 },
   name: { flex: 3, fontSize: 9 },
-  qty: { flex: 1.4, fontSize: 9, textAlign: "right" },
-  cost: { flex: 1.4, fontSize: 8, color: colors.muted, textAlign: "right" },
   qtyBox: {
     width: 52,
     height: 14,
@@ -61,8 +58,6 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     marginLeft: 6,
   },
-  totalRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 10 },
-  totalBox: { borderWidth: 0.8, borderColor: colors.forest, paddingVertical: 6, paddingHorizontal: 12 },
   footer: {
     position: "absolute",
     bottom: 14,
@@ -75,13 +70,13 @@ const styles = StyleSheet.create({
   },
 });
 
-function Header({ event, source }: { event: EventRecord; source: string }) {
+function Header({ event }: { event: EventRecord }) {
   return (
     <View style={styles.header}>
       <Text style={styles.brand}>Casa Braga · Cozinha</Text>
       <Text style={styles.title}>Separação de insumos</Text>
       <Text style={styles.subtitle}>
-        {event.code} · {event.title || "Evento"} · {event.date ? formatLongDate(event.date) : "Data a definir"} · {source}
+        {event.code} · {event.title || "Evento"} · {event.date ? formatLongDate(event.date) : "Data a definir"}
       </Text>
     </View>
   );
@@ -108,53 +103,6 @@ function Footer({ event }: { event: EventRecord }) {
   );
 }
 
-function SheetDocument({ event, groups, notes }: { event: EventRecord; groups: DishInsumoGroup[]; notes: string }) {
-  const total = groups.reduce(
-    (sum, group) => sum + group.items.reduce((inner, need) => inner + need.totalCost, 0),
-    0,
-  );
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <Header event={event} source="por ficha técnica" />
-        {groups.map((group) => (
-          <View key={group.dishId} wrap={false}>
-            <Text style={styles.dishTitle}>
-              {group.dishName}
-              {group.portions ? ` · ${formatDecimal(group.portions, 0)} porções` : ""}
-            </Text>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.th, { width: 20 }]}> </Text>
-              <Text style={[styles.th, { flex: 3 }]}>Insumo</Text>
-              <Text style={[styles.th, { flex: 1.4, textAlign: "right" }]}>Quantidade</Text>
-              <Text style={[styles.th, { flex: 1.4, textAlign: "right" }]}>Custo</Text>
-            </View>
-            {group.items.map((need) => (
-              <View key={need.key} style={styles.row}>
-                <View style={styles.box} />
-                <Text style={styles.name}>{need.name}</Text>
-                <Text style={styles.qty}>
-                  {formatDecimal(need.quantity, 2)} {need.unit}
-                </Text>
-                <Text style={styles.cost}>{formatBRL(need.totalCost)}</Text>
-              </View>
-            ))}
-          </View>
-        ))}
-        <View style={styles.totalRow}>
-          <View style={styles.totalBox}>
-            <Text style={{ fontSize: 9 }}>
-              Custo estimado dos insumos: <Text style={{ fontFamily: "Helvetica-Bold" }}>{formatBRL(total)}</Text>
-            </Text>
-          </View>
-        </View>
-        <Notes notes={notes} />
-        <Footer event={event} />
-      </Page>
-    </Document>
-  );
-}
-
 function CatalogDocument({
   event,
   groups,
@@ -167,7 +115,7 @@ function CatalogDocument({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Header event={event} source="por cadastro do prato" />
+        <Header event={event} />
         <Text style={{ fontSize: 8, color: colors.muted, marginBottom: 8 }}>
           Lista sem quantidade calculada. Marque o que foi separado e anote a quantidade à mão.
         </Text>
@@ -196,15 +144,6 @@ function CatalogDocument({
       </Page>
     </Document>
   );
-}
-
-export async function downloadInsumoSeparationPdf(
-  event: EventRecord,
-  groups: DishInsumoGroup[],
-  notes: string,
-) {
-  const blob = await pdf(<SheetDocument event={event} groups={groups} notes={notes} />).toBlob();
-  downloadBlob(blob, `separacao-insumos-${event.code.toLowerCase()}-${slugify(event.title) || "evento"}.pdf`);
 }
 
 export async function downloadCatalogSeparationPdf(

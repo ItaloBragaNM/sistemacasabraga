@@ -15,10 +15,6 @@ export function ComingSoon({
       <p className="mt-3 max-w-md text-sm leading-6 text-forest/60">
         Este módulo será desenvolvido em breve.
       </p>
-      <p className="mt-2 max-w-md text-[13px] text-forest/50">
-        Nesta primeira fase, a casa está validando o calendário e a ficha do
-        evento — a base para comercial, cozinha, logística e financeiro.
-      </p>
     </section>
   );
 }

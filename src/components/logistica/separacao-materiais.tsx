@@ -124,7 +124,6 @@ export function SeparacaoMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Separação de Materiais"
-        description="Escolha o evento para montar a lista."
       />
 
       {!ready ? (

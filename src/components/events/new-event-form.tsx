@@ -76,10 +76,6 @@ export function NewEventForm() {
         <h1 className="page-title mt-1">
           Nova ficha
         </h1>
-        <p className="mt-2 text-sm font-light text-forest/60">
-          Os campos com estrela são os obrigatórios da ficha da casa. O cardápio
-          e o restante se completam na própria página do evento.
-        </p>
       </div>
 
       <div className="space-y-4 rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">

@@ -85,7 +85,6 @@ export function AlocacaoMateriais() {
         <CadastrosHeader
           eyebrow="Logística"
           title="Alocação de Materiais"
-          description="Estoque versus eventos da semana."
         />
         <LoadingBlock />
       </div>
@@ -98,7 +97,6 @@ export function AlocacaoMateriais() {
         <CadastrosHeader
           eyebrow="Logística"
           title="Alocação de Materiais"
-          description="Estoque versus eventos da semana."
         />
         <EmptyBlock title="Indisponível" description="Recarregue a página." />
       </div>
@@ -110,7 +108,6 @@ export function AlocacaoMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Alocação de Materiais"
-        description="Estoque versus eventos da semana."
         action={
           <Button variant="outline" className="h-10 px-4" onClick={exportPdf}>
             <FileDown data-icon="inline-start" />

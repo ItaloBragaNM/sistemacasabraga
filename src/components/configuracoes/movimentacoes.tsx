@@ -61,7 +61,6 @@ export function MovimentacoesAdmin() {
       <CadastrosHeader
         eyebrow="Configurações do Sistema"
         title="Registro de movimentações"
-        description="Auditoria do que foi criado, editado ou excluído no sistema."
       />
       {!ready ? (
         <LoadingBlock />

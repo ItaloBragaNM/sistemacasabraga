@@ -20,6 +20,7 @@ interface MaoDeObraContextValue {
   removeWorker: (id: string) => void;
   setRates: (rates: LaborRate[]) => void;
   setPayments: (payments: LaborPayment[]) => void;
+  removePayment: (id: string) => void;
 }
 
 const MaoDeObraContext = createContext<MaoDeObraContextValue | null>(null);
@@ -95,6 +96,12 @@ export function MaoDeObraProvider({ children }: { children: React.ReactNode }) {
         mutate((current) => ({ ...current, workers: current.workers.filter((item) => item.id !== id) })),
       setRates: (rates) => mutate((current) => ({ ...current, rates })),
       setPayments: (payments) => mutate((current) => ({ ...current, payments })),
+      removePayment: (id) =>
+        mutate((current) => ({
+          ...current,
+          payments: current.payments.filter((item) => item.id !== id),
+          dismissedPaymentIds: [...new Set([...(current.dismissedPaymentIds ?? []), id])],
+        })),
     }),
     [data, ready, load, mutate],
   );

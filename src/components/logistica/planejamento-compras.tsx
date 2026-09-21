@@ -68,7 +68,6 @@ export function PlanejamentoCompras() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Planejamento de Compras"
-        description="Cruza a demanda dos eventos do período com o estoque atual e sugere o que falta comprar."
         action={
           <Button variant="outline" className="h-10 px-3" onClick={handleExport} disabled={shortages.length === 0}>
             <Download data-icon="inline-start" />

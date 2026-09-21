@@ -99,6 +99,9 @@ function normalize(input: Partial<MaoDeObraData> | null): MaoDeObraData {
     payments: Array.isArray(input.payments)
       ? input.payments.map((item) => normalizePayment(item)).filter((item): item is LaborPayment => Boolean(item))
       : base.payments,
+    dismissedPaymentIds: Array.isArray(input.dismissedPaymentIds)
+      ? [...new Set(input.dismissedPaymentIds.filter((id): id is string => typeof id === "string" && Boolean(id)))]
+      : base.dismissedPaymentIds,
   };
 }
 

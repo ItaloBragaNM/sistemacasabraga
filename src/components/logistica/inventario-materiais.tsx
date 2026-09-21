@@ -157,7 +157,7 @@ export function InventarioMateriais() {
   if (!ready) {
     return (
       <div className="mx-auto max-w-5xl space-y-6 pb-16">
-        <CadastrosHeader eyebrow="Logística" title="Inventário de Materiais" description="Contagem física do estoque." />
+        <CadastrosHeader eyebrow="Logística" title="Inventário de Materiais" />
         <LoadingBlock />
       </div>
     );
@@ -166,7 +166,7 @@ export function InventarioMateriais() {
   if (!cadastros || !logistica) {
     return (
       <div className="mx-auto max-w-5xl space-y-6 pb-16">
-        <CadastrosHeader eyebrow="Logística" title="Inventário de Materiais" description="Contagem física do estoque." />
+        <CadastrosHeader eyebrow="Logística" title="Inventário de Materiais" />
         <EmptyBlock title="Indisponível" description="Recarregue a página." />
       </div>
     );
@@ -213,7 +213,6 @@ export function InventarioMateriais() {
       <CadastrosHeader
         eyebrow="Logística"
         title="Inventário de Materiais"
-        description="Conte no sistema, por PDF ou planilha."
         action={
           <div className="flex flex-wrap gap-2">
             <input
