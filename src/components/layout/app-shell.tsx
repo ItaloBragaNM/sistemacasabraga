@@ -16,7 +16,6 @@ import {
   Settings,
   Truck,
   Users,
-  Settings,
   X,
   type LucideIcon,
 } from "lucide-react";
