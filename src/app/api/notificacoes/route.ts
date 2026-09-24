@@ -19,7 +19,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { user, error } = await requireSession();
-  if (error || !user) return error;
+  if (error) return error;
+  if (!user) {
+    return NextResponse.json({ error: "Faça login para continuar." }, { status: 401 });
+  }
   let payload: { ids?: unknown; readAll?: unknown } = {};
   try {
     payload = (await request.json()) as { ids?: unknown; readAll?: unknown };
