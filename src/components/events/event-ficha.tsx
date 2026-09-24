@@ -9,7 +9,7 @@ import { ClienteForm } from "@/components/cadastros/cliente-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { Modal, SearchInput } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
-import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
+import { KitchenPdfPicker } from "@/components/events/kitchen-pdf-picker";
 import { fieldControlClass, fieldControlCompactClass, Field, FichaSection } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
 import { useEvents } from "@/components/events/events-provider";
@@ -75,6 +75,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const [draft, setDraft] = useState(() => normalizeEventRecord(event));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
+  const [pdfModal, setPdfModal] = useState(false);
   const [clientModal, setClientModal] = useState(false);
   const [reasonModal, setReasonModal] = useState(false);
   const [reason, setReason] = useState("");
@@ -269,18 +270,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <Button
             className="h-9 bg-terracotta px-3 text-cream hover:bg-terracotta/90"
             disabled={pdfState === "working"}
-            onClick={async () => {
-              try {
-                setPdfState("working");
-                await downloadKitchenPdf(draft);
-                toast.success("PDF da cozinha baixado.");
-              } catch (error) {
-                console.error(error);
-                toast.error("Não foi possível gerar o PDF.");
-              } finally {
-                setPdfState("idle");
-              }
-            }}
+            onClick={() => setPdfModal(true)}
           >
             {pdfState === "working" ? "Gerando…" : "PDF"}
           </Button>
@@ -1000,6 +990,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           }}
         />
       </Modal>
+
+      <KitchenPdfPicker
+        open={pdfModal}
+        event={draft}
+        working={pdfState === "working"}
+        onClose={() => setPdfModal(false)}
+        onWorking={(value) => setPdfState(value ? "working" : "idle")}
+      />
 
       <Modal open={reasonModal} onClose={() => setReasonModal(false)} title="Motivo da alteração">
         <div className="space-y-4">

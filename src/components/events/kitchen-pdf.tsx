@@ -2,7 +2,14 @@
 
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import { formatShortDate, formatWeekday } from "@/lib/dates";
-import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
+import { downloadBlob, slugify } from "@/lib/download";
+import {
+  EVENT_STATUS_LABELS,
+  EVENT_TYPE_LABELS,
+  UNIFORM_SIZE_LABELS,
+  VENUE_KIND_LABELS,
+  YES_NO_LABELS,
+} from "@/lib/labels";
 import {
   alcoholSummary,
   DRINK_ITEMS,
@@ -10,9 +17,26 @@ import {
   eventStaffLines,
   formatUniformSizeLine,
   guestTotal,
+  guestsSummary,
   uniformPiecesForReport,
   type EventRecord,
+  type YesNo,
 } from "@/lib/types";
+
+export const KITCHEN_PDF_SECTIONS = [
+  { key: "evento", label: "Informações do evento" },
+  { key: "cardapio", label: "Cardápio" },
+  { key: "bebidas", label: "Bebidas" },
+  { key: "equipe", label: "Equipe" },
+  { key: "logistica", label: "Extras e logística" },
+  { key: "logisticaNotes", label: "Observações da logística" },
+  { key: "cozinha", label: "Observações da cozinha" },
+  { key: "veiculos", label: "Veículos" },
+] as const;
+
+export type KitchenPdfSectionKey = (typeof KITCHEN_PDF_SECTIONS)[number]["key"];
+
+export const ALL_KITCHEN_PDF_SECTIONS = KITCHEN_PDF_SECTIONS.map((item) => item.key);
 
 const colors = {
   forest: "#1E443E",
@@ -54,7 +78,17 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 11, fontFamily: "Times-Bold" },
   headerRight: { fontSize: 8, textAlign: "right", color: colors.cream, opacity: 0.92 },
-  meta: { fontSize: 8, color: colors.muted, marginBottom: 8 },
+  metaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+  meta: { width: "31%", borderWidth: 0.6, borderColor: colors.line, padding: 5 },
+  metaWide: { width: "64.5%", borderWidth: 0.6, borderColor: colors.line, padding: 5 },
+  metaLabel: {
+    fontSize: 6.5,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: colors.muted,
+    marginBottom: 2,
+  },
+  metaValue: { fontSize: 8.5, fontFamily: "Helvetica-Bold" },
   alert: {
     backgroundColor: "#F8D9D7",
     borderWidth: 1,
@@ -105,20 +139,43 @@ function eventPlaceLabel(event: EventRecord) {
   return event.venue.address?.trim() || event.venue.name || "Local a definir";
 }
 
-function compactMeta(event: EventRecord) {
-  const parts = [
-    event.date ? `${formatWeekday(event.date).slice(0, 3)} ${formatShortDate(event.date)}` : "",
-    `${guestTotal(event.guests)} a servir`,
-    event.serviceTime ? `serviço ${event.serviceTime}` : "",
-    event.invitationTime ? `convite ${event.invitationTime}` : "",
-  ].filter(Boolean);
-  return parts.join("  ·  ");
+function hasSection(sections: Set<KitchenPdfSectionKey>, key: KitchenPdfSectionKey) {
+  return sections.has(key);
 }
 
-export function KitchenDocument({ event }: { event: EventRecord }) {
+function yn(value: YesNo | string | undefined) {
+  if (value === "sim" || value === "nao") return YES_NO_LABELS[value];
+  return "—";
+}
+
+function Meta({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <View style={wide ? styles.metaWide : styles.meta}>
+      <Text style={styles.metaLabel}>{label}</Text>
+      <Text style={styles.metaValue}>{value || "—"}</Text>
+    </View>
+  );
+}
+
+export function KitchenDocument({
+  event,
+  sections = ALL_KITCHEN_PDF_SECTIONS,
+}: {
+  event: EventRecord;
+  sections?: KitchenPdfSectionKey[];
+}) {
+  const selected = new Set(sections);
   const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
   const staff = eventStaffLines(event);
   const uniforms = uniformPiecesForReport(event.uniforms);
+  const showEvento = hasSection(selected, "evento");
+  const showCardapio = hasSection(selected, "cardapio");
+  const showBebidas = hasSection(selected, "bebidas");
+  const showEquipe = hasSection(selected, "equipe");
+  const showLogistica = hasSection(selected, "logistica");
+  const showLogisticaNotes = hasSection(selected, "logisticaNotes");
+  const showCozinha = hasSection(selected, "cozinha");
+  const showVeiculos = hasSection(selected, "veiculos");
 
   return (
     <Document>
@@ -135,45 +192,79 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           </Text>
         </View>
 
-        <Text style={styles.meta}>{compactMeta(event)}</Text>
+        {showEvento ? (
+          <View style={styles.metaGrid}>
+            <Meta
+              label="Data"
+              value={event.date ? `${formatWeekday(event.date)}, ${formatShortDate(event.date)}` : ""}
+            />
+            <Meta label="Status" value={EVENT_STATUS_LABELS[event.status]} />
+            <Meta label="Tipo de local" value={VENUE_KIND_LABELS[event.venue.kind]} />
+            <Meta label="Local" value={eventPlaceLabel(event)} wide />
+            <Meta label="A servir" value={String(guestTotal(event.guests))} />
+            <Meta label="Público" value={guestsSummary(event.guests)} wide />
+            <Meta label="Chegada da equipe" value={event.teamArrival} />
+            <Meta label="Cerimônia" value={event.ceremonyTime} />
+            <Meta label="Convite" value={event.invitationTime} />
+            <Meta label="Serviço" value={event.serviceTime} />
+            <Meta label="Duração" value={event.serviceDuration} />
+          </View>
+        ) : null}
 
-        {event.dietaryNotes ? (
+        {showCozinha && event.dietaryNotes ? (
           <View style={styles.alert}>
             <Text style={styles.alertTitle}>Restrições alimentares</Text>
             <Text style={styles.note}>{event.dietaryNotes}</Text>
           </View>
         ) : null}
 
-        {eventMenuSections(event).map((section) => {
-          const items = section.items.filter((item) => item.name.trim());
-          if (!items.length) return null;
-          const title = section.time ? `${section.title} · ${section.time}` : section.title;
-          return (
-            <View key={section.id}>
-              <Text style={styles.sectionTitle}>{title}</Text>
-              <View style={styles.item}>
-                <Text style={[styles.itemQty, { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted }]}>
-                  Per capita
-                </Text>
-                <Text style={[styles.itemName, { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted }]}>
-                  Prato
-                </Text>
-                <Text style={[styles.itemNotes, { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase" }]}>
-                  Obs
-                </Text>
-              </View>
-              {items.map((item) => (
-                <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemQty}>{item.quantity}</Text>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemNotes}>{item.notes}</Text>
+        {showCardapio
+          ? eventMenuSections(event).map((section) => {
+              const items = section.items.filter((item) => item.name.trim());
+              if (!items.length) return null;
+              const title = section.time ? `${section.title} · ${section.time}` : section.title;
+              return (
+                <View key={section.id}>
+                  <Text style={styles.sectionTitle}>{title}</Text>
+                  <View style={styles.item}>
+                    <Text
+                      style={[
+                        styles.itemQty,
+                        { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted },
+                      ]}
+                    >
+                      Per capita
+                    </Text>
+                    <Text
+                      style={[
+                        styles.itemName,
+                        { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted },
+                      ]}
+                    >
+                      Prato
+                    </Text>
+                    <Text
+                      style={[
+                        styles.itemNotes,
+                        { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase" },
+                      ]}
+                    >
+                      Obs
+                    </Text>
+                  </View>
+                  {items.map((item) => (
+                    <View key={item.id} style={styles.item}>
+                      <Text style={styles.itemQty}>{item.quantity}</Text>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      <Text style={styles.itemNotes}>{item.notes}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-          );
-        })}
+              );
+            })
+          : null}
 
-        {drinks.length > 0 || event.drinksNotes ? (
+        {showBebidas && (drinks.length > 0 || event.drinksNotes) ? (
           <View>
             <Text style={styles.sectionTitle}>Bebidas</Text>
             {drinks.map((item) => (
@@ -186,7 +277,7 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           </View>
         ) : null}
 
-        {staff.length > 0 && (
+        {showEquipe && (staff.length > 0 || (event.laborAllocations ?? []).length > 0) ? (
           <View>
             <Text style={styles.sectionTitle}>Equipe</Text>
             {staff.map((item) => (
@@ -195,10 +286,16 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
                 <Text style={styles.itemNotes}>{String(item.quantity)}</Text>
               </View>
             ))}
+            {(event.laborAllocations ?? []).length > 0 ? (
+              <View style={styles.item}>
+                <Text style={styles.itemName}>Equipe externa</Text>
+                <Text style={styles.itemNotes}>{String(event.laborAllocations.length)} prestadores</Text>
+              </View>
+            ) : null}
           </View>
-        )}
+        ) : null}
 
-        {uniforms.length > 0 ? (
+        {showEquipe && uniforms.length > 0 ? (
           <View>
             <Text style={styles.sectionTitle}>Fardamentos</Text>
             {uniforms.map((piece) => (
@@ -212,28 +309,72 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
           </View>
         ) : null}
 
-        {alcoholSummary(event.logistics) ? (
+        {showLogistica ? (
           <View>
-            <Text style={styles.sectionTitle}>Bebidas alcoólicas</Text>
-            <Text style={styles.note}>{alcoholSummary(event.logistics)}</Text>
+            <Text style={styles.sectionTitle}>Extras e logística</Text>
+            <View style={styles.item}>
+              <Text style={styles.itemName}>Ilhas</Text>
+              <Text style={styles.itemNotes}>{String(event.islands ?? 0)}</Text>
+            </View>
+            {alcoholSummary(event.logistics) ? (
+              <Text style={styles.note}>{alcoholSummary(event.logistics)}</Text>
+            ) : (
+              <View style={styles.item}>
+                <Text style={styles.itemName}>Bebidas alcoólicas</Text>
+                <Text style={styles.itemNotes}>{yn(event.logistics.alcoholServed)}</Text>
+              </View>
+            )}
+            <View style={styles.item}>
+              <Text style={styles.itemName}>Material no dia anterior</Text>
+              <Text style={styles.itemNotes}>{yn(event.logistics.materialPreviousDay)}</Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemName}>Mesa cavalete</Text>
+              <Text style={styles.itemNotes}>{yn(event.logistics.trestleTable)}</Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemName}>Recolher material ao final</Text>
+              <Text style={styles.itemNotes}>{yn(event.logistics.mustCollectMaterial)}</Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemName}>Cozinha / forno / freezer / micro-ondas</Text>
+              <Text style={styles.itemNotes}>
+                {yn(event.logistics.hasKitchen)} / {yn(event.logistics.hasOven)} / {yn(event.logistics.hasFreezer)} /{" "}
+                {yn(event.logistics.hasMicrowave)}
+              </Text>
+            </View>
           </View>
         ) : null}
 
-        {event.menuSetupNotes ? (
+        {showVeiculos ? (
+          <View>
+            <Text style={styles.sectionTitle}>Veículos</Text>
+            <View style={styles.item}>
+              <Text style={styles.itemName}>Fora da cidade</Text>
+              <Text style={styles.itemNotes}>{event.outOfTown ? "Sim" : "Não"}</Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemName}>Veículos alocados</Text>
+              <Text style={styles.itemNotes}>{String((event.vehicleIds ?? []).length)}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {showCozinha && event.menuSetupNotes ? (
           <View>
             <Text style={styles.sectionTitle}>Observações — cozinha</Text>
             <Text style={styles.note}>{event.menuSetupNotes}</Text>
           </View>
         ) : null}
 
-        {event.managementNotes ? (
+        {showCozinha && event.managementNotes ? (
           <View>
             <Text style={styles.sectionTitle}>Gerenciais e Evento</Text>
             <Text style={styles.note}>{event.managementNotes}</Text>
           </View>
         ) : null}
 
-        {event.logisticsNotes ? (
+        {showLogisticaNotes && event.logisticsNotes ? (
           <View>
             <Text style={styles.sectionTitle}>Observações — logística</Text>
             <Text style={styles.note}>{event.logisticsNotes}</Text>
@@ -242,8 +383,9 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
 
         <View style={styles.footer} fixed wrap={false}>
           <Text>
-            Material dia anterior: {flag(event.logistics.materialPreviousDay)} · Cavalete:{" "}
-            {flag(event.logistics.trestleTable)}
+            {showLogistica
+              ? `Material dia anterior: ${yn(event.logistics.materialPreviousDay)} · Cavalete: ${yn(event.logistics.trestleTable)}`
+              : event.code}
           </Text>
           <Text
             render={({ pageNumber, totalPages }) =>
@@ -256,26 +398,12 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
   );
 }
 
-function flag(value: string) {
-  if (value === "sim") return "Sim";
-  if (value === "nao") return "Não";
-  return "—";
-}
-
-export async function downloadKitchenPdf(event: EventRecord) {
-  const blob = await pdf(<KitchenDocument event={event} />).toBlob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  const slug = event.title
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  link.href = url;
-  link.download = `ficha-cozinha-${event.code.toLowerCase()}-${slug || "evento"}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+export async function downloadKitchenPdf(event: EventRecord, sections?: KitchenPdfSectionKey[]) {
+  const chosen = sections?.length ? sections : ALL_KITCHEN_PDF_SECTIONS;
+  const blob = await pdf(<KitchenDocument event={event} sections={chosen} />).toBlob();
+  const suffix = chosen.length === ALL_KITCHEN_PDF_SECTIONS.length ? "completa" : chosen.join("-");
+  downloadBlob(
+    blob,
+    `ficha-${event.code.toLowerCase()}-${slugify(event.title) || "evento"}-${suffix}.pdf`,
+  );
 }
