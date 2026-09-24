@@ -728,7 +728,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         ) : null}
 
         <div className="mt-6">
-          <p className="mb-3 text-[13px] font-medium text-forest/45">Material</p>
+          <p className="mb-3 text-[13px] font-medium text-forest/45">Observações da logística</p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <YesNoField
               label="Material no dia anterior"
@@ -783,12 +783,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                 />
               </Field>
             ) : null}
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <p className="mb-3 text-[13px] font-medium text-forest/45">Infraestrutura do local</p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <YesNoField
               label="Local com cozinha"
               value={draft.logistics.hasKitchen}
@@ -825,15 +819,15 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(value) => patchLogistics({ hasMicrowave: value })}
             />
           </div>
+          <Field label="Notas da equipe de logística" className="mt-4">
+            <textarea
+              className={cn(fieldControlClass, "min-h-24 py-2")}
+              value={draft.logisticsNotes ?? ""}
+              onChange={(event) => update("logisticsNotes", event.target.value)}
+              placeholder="Materiais, local do evento e demais notas da logística."
+            />
+          </Field>
         </div>
-        <Field label="Observações — logística" className="mt-6">
-          <textarea
-            className={cn(fieldControlClass, "min-h-24 py-2")}
-            value={draft.logisticsNotes ?? ""}
-            onChange={(event) => update("logisticsNotes", event.target.value)}
-            placeholder="Notas da equipe de logística para este evento."
-          />
-        </Field>
       </FichaSection>
 
       <FichaSection title="Veículos">

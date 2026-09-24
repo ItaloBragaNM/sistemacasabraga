@@ -2,7 +2,6 @@
 
 import {
   AlertTriangle,
-  Bolt,
   ChevronDown,
   ClipboardList,
   FileDown,
@@ -83,6 +82,7 @@ export function SeparacaoMateriais() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [dateSort, setDateSort] = useState<"desc" | "asc">("desc");
 
   const paramId = searchParams.get("evento") ?? "";
   useEffect(() => {
@@ -102,7 +102,13 @@ export function SeparacaoMateriais() {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return [...events]
-      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.title.localeCompare(b.title, "pt-BR"))
+      .sort((a, b) => {
+        const byDate =
+          dateSort === "asc"
+            ? (a.date || "").localeCompare(b.date || "")
+            : (b.date || "").localeCompare(a.date || "");
+        return byDate || a.title.localeCompare(b.title, "pt-BR");
+      })
       .filter((event) => {
         if (statusFilter && event.status !== statusFilter) return false;
         if (typeFilter && event.type !== typeFilter) return false;
@@ -117,7 +123,7 @@ export function SeparacaoMateriais() {
           client.toLowerCase().includes(term)
         );
       });
-  }, [events, search, statusFilter, typeFilter, clientNames]);
+  }, [events, search, statusFilter, typeFilter, dateSort, clientNames]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
@@ -170,6 +176,17 @@ export function SeparacaoMateriais() {
                 })),
               },
             ]}
+            extra={
+              <select
+                aria-label="Ordenar por data"
+                className={cn(fieldControlClass, "h-10 w-auto min-w-[11rem] shrink-0")}
+                value={dateSort}
+                onChange={(event) => setDateSort(event.target.value === "asc" ? "asc" : "desc")}
+              >
+                <option value="desc">Data · mais recente</option>
+                <option value="asc">Data · mais antiga</option>
+              </select>
+            }
           />
           {filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-10 text-center">
@@ -960,15 +977,6 @@ function EventSummary({ event }: { event: EventRecord }) {
   );
 }
 
-function ScaleBadge({ label }: { label: string }) {
-  return (
-    <Chip size="sm" className="inline-flex items-center gap-1 bg-amber-100 font-medium text-amber-800">
-      <Bolt className="size-3 shrink-0" />
-      {label}
-    </Chip>
-  );
-}
-
 function KitsOnEvent({
   kits,
   event,
@@ -1016,7 +1024,7 @@ function KitsOnEvent({
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {kits.map((kit) => {
             const qty = kitQuantity(kit, event, sep, cadastros);
             const state = sep.kits?.[kit.id];
@@ -1024,33 +1032,30 @@ function KitsOnEvent({
             return (
               <article
                 key={kit.id}
-                className="overflow-hidden rounded-2xl border border-forest/10 bg-white"
+                className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-forest/10 bg-white"
               >
-                <header className="flex flex-wrap items-center justify-between gap-3 bg-petrol px-4 py-3 text-cream">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-[13px] font-semibold">{kit.name}</h3>
-                    {kit.scaleBaseId !== "base-fixo" ? <ScaleBadge label={scaleLabel} /> : null}
+                <header className="flex items-start justify-between gap-2 bg-petrol px-3 py-2 text-cream">
+                  <div className="min-w-0">
+                    <h3 className="text-[12px] font-semibold leading-tight">{kit.name}</h3>
+                    {kit.scaleBaseId !== "base-fixo" ? (
+                      <p className="mt-1 text-[10px] leading-tight opacity-80">{scaleLabel}</p>
+                    ) : null}
                   </div>
-                  <label className="flex items-center gap-2 text-xs">
-                    <span className="opacity-80">Quantidade de kits</span>
+                  <label className="flex shrink-0 flex-col items-end gap-0.5 text-[10px]">
+                    <span className="opacity-80">Kits</span>
                     <input
                       type="number"
                       min={0}
-                      className="h-8 w-16 rounded-md border-0 bg-white px-2 text-sm text-forest"
+                      className="h-7 w-14 rounded-md border-0 bg-white px-1.5 text-center text-xs text-forest"
                       value={qty}
                       onChange={(e) => patchKit(kit.id, { quantity: Number(e.target.value) })}
                     />
                   </label>
                 </header>
-                <p className="border-b border-forest/8 px-4 py-2 text-xs font-light text-forest/50">
-                  Quantidade por kit × {qty} kit{qty === 1 ? "" : "s"} = total a separar
-                </p>
                 {kit.items.length === 0 ? (
-                  <p className="px-4 py-3 text-sm font-light text-forest/45">
-                    Este kit ainda não tem materiais.
-                  </p>
+                  <p className="px-3 py-2 text-xs font-light text-forest/45">Sem materiais neste kit.</p>
                 ) : (
-                  <ul>
+                  <ul className="max-h-44 overflow-y-auto">
                     {kit.items.map((item, index) => {
                       const material = materialById.get(item.materialId);
                       const computedTotal = kitItemComputedTotal(item.qtyPerKit, qty);
@@ -1065,23 +1070,21 @@ function KitsOnEvent({
                         <li
                           key={`${item.materialId}-${index}`}
                           className={cn(
-                            "flex items-center gap-3 border-b border-forest/8 px-4 py-2 last:border-0",
+                            "flex items-center gap-2 border-b border-forest/8 px-3 py-1.5 last:border-0",
                             ruptureIds.has(item.materialId) && "bg-terracotta/[0.06]",
                           )}
                         >
-                          <span className="min-w-0 flex-1 text-sm text-forest">
-                            {item.qtyPerKit}x {material?.name ?? "Material removido"}
+                          <span className="min-w-0 flex-1 text-[11px] leading-tight text-forest">
+                            {item.qtyPerKit}× {material?.name ?? "Removido"}
                             {ruptureIds.has(item.materialId) ? (
-                              <Chip size="sm" className="ml-2 bg-terracotta/15 font-medium text-terracotta">
-                                ruptura
-                              </Chip>
+                              <span className="ml-1 text-terracotta">ruptura</span>
                             ) : null}
                           </span>
-                          <span className="field-label">Total</span>
                           <input
                             type="number"
                             min={0}
-                            className={cn(fieldControlClass, "h-9 w-20")}
+                            aria-label={`Total de ${material?.name ?? "material"}`}
+                            className={cn(fieldControlClass, "h-7 w-14 px-1.5 text-center text-xs")}
                             value={total}
                             onChange={(e) => {
                               const itemTotals = {
@@ -1094,7 +1097,7 @@ function KitsOnEvent({
                           {total !== computedTotal ? (
                             <button
                               type="button"
-                              className="text-xs font-light text-forest/45 hover:text-forest"
+                              className="text-[10px] font-light text-forest/45 hover:text-forest"
                               onClick={() => {
                                 const itemTotals = { ...(state?.itemTotals ?? {}) };
                                 delete itemTotals[item.materialId];

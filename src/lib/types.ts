@@ -488,7 +488,10 @@ export const ALCOHOL_TYPES = [
   { key: "cerveja", label: "Cerveja" },
   { key: "vinho", label: "Vinho" },
   { key: "espumante", label: "Espumante" },
-  { key: "destilados", label: "Destilados" },
+  { key: "whisky", label: "Whisky" },
+  { key: "vodka", label: "Vodka" },
+  { key: "gin", label: "Gin" },
+  { key: "tequila", label: "Tequila" },
   { key: "drinks", label: "Drinks / coquetéis" },
   { key: "outros", label: "Outros" },
 ] as const;
@@ -547,14 +550,22 @@ export function normalizeLogistics(input: unknown): Logistics {
   if (!input || typeof input !== "object") return next;
   const src = input as Partial<Logistics> & Record<string, unknown>;
   const alcohol = typeof src.alcohol === "string" ? src.alcohol : "";
-  const types = Array.isArray(src.alcoholTypes)
+  let types = Array.isArray(src.alcoholTypes)
     ? src.alcoholTypes.filter((item): item is string => typeof item === "string" && Boolean(item))
     : [];
+  let alcoholText = alcohol;
+  if (types.includes("destilados")) {
+    types = types.filter((item) => item !== "destilados");
+    if (!types.includes("outros")) types.push("outros");
+    if (!alcoholText.toLowerCase().includes("destil")) {
+      alcoholText = alcoholText.trim() ? `Destilados. ${alcoholText}` : "Destilados";
+    }
+  }
   let alcoholServed = yesNoValue(src.alcoholServed);
-  if (!alcoholServed && alcohol.trim()) alcoholServed = "sim";
+  if (!alcoholServed && alcoholText.trim()) alcoholServed = "sim";
   return {
     ...next,
-    alcohol,
+    alcohol: alcoholText,
     alcoholServed,
     alcoholTypes: types,
     materialPreviousDay: yesNoValue(src.materialPreviousDay),
