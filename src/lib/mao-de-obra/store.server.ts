@@ -2,10 +2,14 @@ import { readState, writeState } from "@/lib/store/kv.server";
 import {
   DEFAULT_LABOR_RATES,
   emptyMaoDeObra,
+  emptyWorkerUniformSizes,
+  normalizeWorkerUniformSizes,
   type ExternalWorker,
   type LaborPayment,
   type LaborRate,
   type MaoDeObraData,
+  type WorkerOccurrence,
+  type WorkerSex,
 } from "./types";
 
 const KEY = "mao_de_obra";
@@ -16,6 +20,16 @@ function num(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeOccurrence(input: Partial<WorkerOccurrence> | null | undefined): WorkerOccurrence | null {
+  if (!input?.id || !input.note?.trim()) return null;
+  return {
+    id: input.id,
+    type: input.type === "positivo" ? "positivo" : "negativo",
+    note: input.note.trim(),
+    createdAt: input.createdAt || new Date().toISOString(),
+  };
+}
+
 function normalizeWorker(input: Partial<ExternalWorker> | null | undefined): ExternalWorker | null {
   if (!input?.id || !input.name) return null;
   const functionKeys = Array.isArray(input.functionKeys)
@@ -23,6 +37,7 @@ function normalizeWorker(input: Partial<ExternalWorker> | null | undefined): Ext
     : input.functionKey
       ? [input.functionKey]
       : [];
+  const sex: WorkerSex = input.sex === "masculino" || input.sex === "feminino" ? input.sex : "";
   return {
     id: input.id,
     name: input.name.trim(),
@@ -31,6 +46,13 @@ function normalizeWorker(input: Partial<ExternalWorker> | null | undefined): Ext
     bankAccount: typeof input.bankAccount === "string" ? input.bankAccount : "",
     functionKey: functionKeys[0] || (typeof input.functionKey === "string" ? input.functionKey : ""),
     functionKeys,
+    sex,
+    uniformSizes: input.uniformSizes ? normalizeWorkerUniformSizes(input.uniformSizes) : emptyWorkerUniformSizes(),
+    occurrences: Array.isArray(input.occurrences)
+      ? input.occurrences
+          .map((item) => normalizeOccurrence(item))
+          .filter((item): item is WorkerOccurrence => Boolean(item))
+      : [],
     notes: typeof input.notes === "string" ? input.notes : "",
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),

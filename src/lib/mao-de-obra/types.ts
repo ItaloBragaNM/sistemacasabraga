@@ -1,4 +1,12 @@
-import { extraStaffLabel, PICKABLE_EXTRA_STAFF_ROLES, STAFF_ROLES } from "@/lib/types";
+import {
+  extraStaffLabel,
+  isUniformSize,
+  PICKABLE_EXTRA_STAFF_ROLES,
+  STAFF_ROLES,
+  UNIFORM_PIECES,
+  type UniformPieceKey,
+  type UniformSize,
+} from "@/lib/types";
 
 export const LABOR_CONTA_AZUL_CATEGORY = "mão de obra externa";
 
@@ -23,6 +31,39 @@ export function workerFunctionsLabel(worker: Pick<ExternalWorker, "functionKey" 
   return keys.length ? keys.map(laborFunctionLabel).join(", ") : "Sem função cadastrada";
 }
 
+export const WORKER_SEXES = ["masculino", "feminino"] as const;
+export type WorkerSex = (typeof WORKER_SEXES)[number] | "";
+export const WORKER_SEX_LABELS: Record<Exclude<WorkerSex, "">, string> = {
+  masculino: "Masculino",
+  feminino: "Feminino",
+};
+
+export type WorkerUniformSizes = Record<UniformPieceKey, UniformSize | "">;
+
+export function emptyWorkerUniformSizes(): WorkerUniformSizes {
+  return { dolma: "", bata: "", avental: "" };
+}
+
+export function normalizeWorkerUniformSizes(input: unknown): WorkerUniformSizes {
+  const next = emptyWorkerUniformSizes();
+  if (!input || typeof input !== "object") return next;
+  const record = input as Partial<Record<UniformPieceKey, unknown>>;
+  for (const piece of UNIFORM_PIECES) {
+    const value = record[piece.key];
+    next[piece.key] = isUniformSize(value) ? value : "";
+  }
+  return next;
+}
+
+export type WorkerOccurrenceType = "positivo" | "negativo";
+
+export interface WorkerOccurrence {
+  id: string;
+  type: WorkerOccurrenceType;
+  note: string;
+  createdAt: string;
+}
+
 export interface ExternalWorker {
   id: string;
   name: string;
@@ -33,6 +74,9 @@ export interface ExternalWorker {
   functionKey: string;
   /** Funções que o prestador pode exercer. A função do evento é escolhida na ficha. */
   functionKeys: string[];
+  sex: WorkerSex;
+  uniformSizes: WorkerUniformSizes;
+  occurrences: WorkerOccurrence[];
   notes: string;
   createdAt: string;
   updatedAt: string;

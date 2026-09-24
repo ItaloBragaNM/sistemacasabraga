@@ -62,16 +62,12 @@ export const APP_MODULES: AppModule[] = [
     ],
   },
   {
-    id: "administrativo",
-    label: "Administrativo",
+    id: "financeiro",
+    label: "Financeiro",
     ready: true,
     pages: [
       {
-        href: "/administrativo/mao-de-obra-externa",
-        label: "Controle de Mão de Obra Externa",
-      },
-      {
-        href: "/administrativo/pagamento-mao-de-obra",
+        href: "/financeiro/pagamento-mao-de-obra",
         label: "Pagamento de Mão de Obra Externa",
       },
     ],
@@ -87,6 +83,7 @@ export const APP_MODULES: AppModule[] = [
       { href: "/cadastros/insumos", label: "Insumos" },
       { href: "/cadastros/clientes", label: "Clientes" },
       { href: "/cadastros/veiculos", label: "Veículos" },
+      { href: "/cadastros/equipe-externa", label: "Cadastro de equipe externa" },
     ],
   },
   {

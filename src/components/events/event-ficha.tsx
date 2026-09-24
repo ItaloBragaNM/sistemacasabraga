@@ -10,8 +10,9 @@ import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { Modal, SearchInput } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
-import { fieldControlClass, Field, FichaSection } from "@/components/events/field";
+import { fieldControlClass, fieldControlCompactClass, Field, FichaSection } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
+import { useEvents } from "@/components/events/events-provider";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { downloadVehicleChecklistPdf } from "@/components/veiculos/checklist-pdf";
@@ -21,7 +22,7 @@ import { VEHICLE_USAGE_CATEGORY_LABELS } from "@/lib/cadastros/types";
 import { formatBRL } from "@/lib/crm/format";
 import { formatDateTime, formatLongDate, formatWeekday } from "@/lib/dates";
 import { menuFromPlan, uid, upsertMenuPlanFromDishes } from "@/lib/event-factory";
-import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
+import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import {
   ALCOHOL_TYPES,
   EVENT_ATTACHMENT_MAX_BYTES,
@@ -37,6 +38,7 @@ import {
   STAFF_ROLES,
   suggestedDrinkQuantities,
   DEFAULT_DRINK_PREMISES,
+  UNIFORM_PIECES,
   type ExtraStaffRoleKey,
   type EventLaborAllocation,
   type EventMenuSection,
@@ -44,12 +46,14 @@ import {
   type EventSaveMeta,
   type Guests,
   type Logistics,
+  type UniformPieceKey,
   type VenueKind,
   type YesNo,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { laborLineAmounts, rateFor } from "@/lib/mao-de-obra/calc";
 import { LABOR_FUNCTIONS, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
+import { applyLaborUniformDelta } from "@/lib/mao-de-obra/uniforms";
 
 type Props = {
   event: EventRecord;
@@ -64,6 +68,7 @@ function snapshotForDirty(event: EventRecord) {
 
 export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
+  const { events } = useEvents();
   const { data: cadastros, upsertCliente } = useCadastros();
   const { data: maoDeObra, reload: reloadLabor } = useMaoDeObra();
   const { markGenerated } = useVeiculosUso();
@@ -83,6 +88,15 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const clientMissing = Boolean(draft.clientId) && !clientName;
   const clientLabel = clientName || (clientMissing ? "Cliente não encontrado" : "Sem cliente");
   const dirty = useMemo(() => snapshotForDirty(draft) !== baseline, [baseline, draft]);
+  const dishPopularity = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of events) {
+      for (const id of item.selectedDishIds ?? []) {
+        map.set(id, (map.get(id) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [events]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -204,7 +218,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16">
+    <div className="mx-auto max-w-6xl space-y-4 pb-16">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <Link
@@ -287,18 +301,18 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         </div>
       </div>
 
-      <FichaSection title="Dados do evento">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <FichaSection title="Dados do evento" compact>
+        <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
           <Field label="★ Nome do evento" className="md:col-span-2">
             <input
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.title}
               onChange={(event) => update("title", event.target.value)}
             />
           </Field>
           <Field label="★ Tipo do evento">
             <select
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.type}
               onChange={(event) => update("type", event.target.value as EventRecord["type"])}
             >
@@ -312,7 +326,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <Field label="Cliente">
             <div className="flex gap-2">
               <select
-                className={cn(fieldControlClass, "min-w-0 flex-1")}
+                className={cn(fieldControlCompactClass, "min-w-0 flex-1")}
                 value={draft.clientId ?? ""}
                 onChange={(event) => update("clientId", event.target.value)}
               >
@@ -329,7 +343,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 shrink-0 px-3"
+                className="h-8 shrink-0 px-2"
                 onClick={() => setClientModal(true)}
                 aria-label="Cadastrar cliente"
               >
@@ -339,7 +353,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </Field>
           <Field label="Status interno">
             <select
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.status}
               onChange={(event) => update("status", event.target.value as EventRecord["status"])}
             >
@@ -353,38 +367,38 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <Field label="★ Data do evento">
             <input
               type="date"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.date}
               onChange={(event) => update("date", event.target.value)}
             />
           </Field>
-          <Field label="Data de entrega de material">
+          <Field label="Entrega de material">
             <input
               type="date"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.materialDeliveryDate}
               onChange={(event) => update("materialDeliveryDate", event.target.value)}
             />
           </Field>
-          <Field label="Data de recolhimento de material">
+          <Field label="Recolhimento de material">
             <input
               type="date"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.materialPickupDate ?? ""}
               onChange={(event) => update("materialPickupDate", event.target.value)}
             />
           </Field>
-          <Field label="Data de entrega de comida">
+          <Field label="Entrega de comida">
             <input
               type="date"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.foodDeliveryDate}
               onChange={(event) => update("foodDeliveryDate", event.target.value)}
             />
           </Field>
           <Field label="Tipo de local">
             <select
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.venue.kind}
               onChange={(event) => {
                 const kind = event.target.value as VenueKind;
@@ -404,53 +418,48 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </Field>
           <Field label="Duração do serviço">
             <input
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.serviceDuration ?? ""}
               onChange={(event) => update("serviceDuration", event.target.value)}
               placeholder="Ex.: 6 horas"
             />
           </Field>
-          <Field label="Local / endereço" className="md:col-span-2 xl:col-span-2">
+          <Field label="Local / endereço" className="md:col-span-2">
             <input
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.venue.address}
               onChange={(event) =>
                 update("venue", { ...draft.venue, address: event.target.value })
               }
             />
           </Field>
-        </div>
-      </FichaSection>
-
-      <FichaSection title="Convidados e horários">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Field label="★ Adultos">
             <input
               type="number"
               min={0}
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.guests.adults}
               onChange={(event) =>
                 setGuests({ ...draft.guests, adults: Number(event.target.value) })
               }
             />
           </Field>
-          <Field label="Crianças 0 a 5 anos">
+          <Field label="Crianças 0 a 5">
             <input
               type="number"
               min={0}
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.guests.children0to5 ?? 0}
               onChange={(event) =>
                 setGuests({ ...draft.guests, children0to5: Number(event.target.value) })
               }
             />
           </Field>
-          <Field label="Crianças 5 a 10 anos">
+          <Field label="Crianças 5 a 10">
             <input
               type="number"
               min={0}
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.guests.children5to10 ?? 0}
               onChange={(event) =>
                 setGuests({ ...draft.guests, children5to10: Number(event.target.value) })
@@ -461,7 +470,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <input
               type="number"
               min={0}
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.guests.professionals}
               onChange={(event) =>
                 setGuests({
@@ -474,7 +483,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <Field label="Chegada da equipe">
             <input
               type="time"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.teamArrival}
               onChange={(event) => update("teamArrival", event.target.value)}
             />
@@ -482,7 +491,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <Field label="Horário da cerimônia">
             <input
               type="time"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.ceremonyTime ?? ""}
               onChange={(event) => update("ceremonyTime", event.target.value)}
             />
@@ -490,7 +499,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <Field label="Horário do convite">
             <input
               type="time"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.invitationTime}
               onChange={(event) => update("invitationTime", event.target.value)}
             />
@@ -498,7 +507,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           <Field label="Horário do serviço">
             <input
               type="time"
-              className={fieldControlClass}
+              className={fieldControlCompactClass}
               value={draft.serviceTime}
               onChange={(event) => update("serviceTime", event.target.value)}
             />
@@ -506,14 +515,15 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         </div>
       </FichaSection>
 
-      <FichaSection title="Equipe">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <FichaSection title="Equipe" compact>
+        <p className="mb-2 text-[12px] font-medium text-forest/50">Casa</p>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
           {STAFF_ROLES.map((role) => (
             <Field key={role.key} label={role.label}>
               <input
                 type="number"
                 min={0}
-                className={fieldControlClass}
+                className={fieldControlCompactClass}
                 value={draft.staff[role.key]}
                 onChange={(event) =>
                   update("staff", {
@@ -526,14 +536,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           ))}
         </div>
         {draft.extraStaff?.length ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
             {draft.extraStaff.map((line) => (
               <Field key={line.key} label={extraStaffLabel(line.key)}>
                 <div className="flex gap-1">
                   <input
                     type="number"
                     min={0}
-                    className={cn(fieldControlClass, "min-w-0 flex-1")}
+                    className={cn(fieldControlCompactClass, "min-w-0 flex-1")}
                     value={line.quantity}
                     onChange={(event) =>
                       update(
@@ -549,7 +559,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                   <button
                     type="button"
                     aria-label={`Remover ${extraStaffLabel(line.key)}`}
-                    className="flex size-10 shrink-0 items-center justify-center rounded-lg text-forest/35 hover:text-terracotta"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg text-forest/35 hover:text-terracotta"
                     onClick={() =>
                       update(
                         "extraStaff",
@@ -567,7 +577,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         {PICKABLE_EXTRA_STAFF_ROLES.some(
           (role) => !(draft.extraStaff ?? []).some((line) => line.key === role.key),
         ) ? (
-          <div className="mt-4">
+          <div className="mt-3">
             <ExtraStaffPicker
               used={new Set([
                 ...(draft.extraStaff ?? []).map((line) => line.key),
@@ -579,6 +589,44 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             />
           </div>
         ) : null}
+
+        <p className="mb-2 mt-5 text-[12px] font-medium text-forest/50">Externa</p>
+        {(maoDeObra?.workers ?? []).length === 0 ? (
+          <p className="text-sm font-light text-forest/50">
+            Cadastre os prestadores em Cadastros → Equipe externa.
+          </p>
+        ) : (
+          <EventLaborAllocations
+            allocations={draft.laborAllocations ?? []}
+            outOfTown={Boolean(draft.outOfTown)}
+            workers={maoDeObra?.workers ?? []}
+            rates={maoDeObra?.rates ?? []}
+            onChange={(next) =>
+              setDraft((current) => ({
+                ...current,
+                laborAllocations: next,
+                uniforms: applyLaborUniformDelta(
+                  current.uniforms,
+                  current.laborAllocations ?? [],
+                  next,
+                  maoDeObra?.workers ?? [],
+                ),
+              }))
+            }
+          />
+        )}
+
+        <p className="mb-2 mt-5 text-[12px] font-medium text-forest/50">Fardamento</p>
+        <EventUniformsFields
+          embedded
+          uniforms={draft.uniforms}
+          onChange={(piece, size, value) =>
+            update("uniforms", {
+              ...draft.uniforms,
+              [piece]: { ...draft.uniforms[piece], [size]: value },
+            })
+          }
+        />
       </FichaSection>
 
       <FichaSection title="Pratos do cardápio (catálogo)">
@@ -586,6 +634,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           dishes={cadastros?.dishes ?? []}
           categoryOrder={cadastros?.dishCategories ?? []}
           selected={draft.selectedDishIds ?? []}
+          popularity={dishPopularity}
           onChange={(ids) => update("selectedDishIds", ids)}
         />
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -603,13 +652,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </FichaSection>
 
       <FichaSection title="Cardápio do evento">
-        {eventMenuSections(draft).length === 0 ? (
-          <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
-            Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita.
-          </p>
-        ) : (
-          <MenuPlanEditor sections={eventMenuSections(draft)} onChange={setMenuPlan} />
-        )}
+        <MenuPlanEditor sections={eventMenuSections(draft)} onChange={setMenuPlan} />
       </FichaSection>
 
       <EventDrinksFields
@@ -629,32 +672,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             drinksAuto: true,
             drinks: suggestedDrinkQuantities(guestTotal(current.guests), drinkPremises),
           }))
-        }
-      />
-
-      <FichaSection title="Equipe externa">
-        {(maoDeObra?.workers ?? []).length === 0 ? (
-          <p className="text-sm font-light text-forest/50">
-            Cadastre os prestadores em Administrativo → Mão de obra externa.
-          </p>
-        ) : (
-          <EventLaborAllocations
-            allocations={draft.laborAllocations ?? []}
-            outOfTown={Boolean(draft.outOfTown)}
-            workers={maoDeObra?.workers ?? []}
-            rates={maoDeObra?.rates ?? []}
-            onChange={(next) => update("laborAllocations", next)}
-          />
-        )}
-      </FichaSection>
-
-      <EventUniformsFields
-        uniforms={draft.uniforms}
-        onChange={(piece, size, value) =>
-          update("uniforms", {
-            ...draft.uniforms,
-            [piece]: { ...draft.uniforms[piece], [size]: value },
-          })
         }
       />
 
@@ -1067,7 +1084,7 @@ function EventLaborAllocations({
                 <Trash2 className="size-4" />
               </button>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <Field label="Função neste evento" className="sm:col-span-2">
                 <select
                   className={fieldControlClass}
@@ -1088,6 +1105,32 @@ function EventLaborAllocations({
                       {role.label}
                     </option>
                   ))}
+                </select>
+              </Field>
+              <Field label="Fardamento">
+                <select
+                  className={fieldControlClass}
+                  value={row.uniformPiece || ""}
+                  onChange={(event) =>
+                    onChange(
+                      allocations.map((item) =>
+                        item.workerId === row.workerId
+                          ? { ...item, uniformPiece: (event.target.value || "") as UniformPieceKey | "" }
+                          : item,
+                      ),
+                    )
+                  }
+                >
+                  <option value="">Sem farda</option>
+                  {UNIFORM_PIECES.map((piece) => {
+                    const size = worker?.uniformSizes?.[piece.key];
+                    return (
+                      <option key={piece.key} value={piece.key}>
+                        {piece.label}
+                        {size ? ` · ${UNIFORM_SIZE_LABELS[size]}` : " · sem tamanho"}
+                      </option>
+                    );
+                  })}
                 </select>
               </Field>
               <Field label="Diária (R$)">
@@ -1182,6 +1225,7 @@ function EventLaborAllocations({
                 overtimeHours: 0,
                 applyAllowance: true,
                 daily: rateFor(rates, functionKey).daily,
+                uniformPiece: "",
               },
             ]);
           }}
@@ -1293,11 +1337,13 @@ function CatalogDishPicker({
   dishes,
   categoryOrder,
   selected,
+  popularity,
   onChange,
 }: {
   dishes: DishRecord[];
   categoryOrder: string[];
   selected: string[];
+  popularity: Map<string, number>;
   onChange: (ids: string[]) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -1314,14 +1360,21 @@ function CatalogDishPicker({
   const selectedDishes = dishes
     .filter((dish) => selectedSet.has(dish.id))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const byPopularity = (a: DishRecord, b: DishRecord) => {
+    const pop = (popularity.get(b.id) ?? 0) - (popularity.get(a.id) ?? 0);
+    if (pop) return pop;
+    return a.name.localeCompare(b.name, "pt-BR");
+  };
   const searchHits = query
     ? dishes
         .filter(
           (dish) =>
             !selectedSet.has(dish.id) && dish.name.toLocaleLowerCase("pt-BR").includes(query),
         )
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+        .sort(byPopularity)
     : [];
+  const topHits = searchHits.filter((dish) => (popularity.get(dish.id) ?? 0) > 0);
+  const otherHits = searchHits.filter((dish) => (popularity.get(dish.id) ?? 0) === 0);
 
   const toggle = (id: string) => {
     const next = new Set(selectedSet);
@@ -1354,7 +1407,13 @@ function CatalogDishPicker({
         <div className="space-y-3">
           <p className="text-[13px] font-medium text-forest/55">Selecionados</p>
           {groupsFor(selectedDishes).map((group) => (
-            <DishGroup key={`sel-${group.category}`} group={group} selectedSet={selectedSet} onToggle={toggle} />
+            <DishGroup
+              key={`sel-${group.category}`}
+              group={group}
+              selectedSet={selectedSet}
+              popularity={popularity}
+              onToggle={toggle}
+            />
           ))}
         </div>
       ) : (
@@ -1367,10 +1426,36 @@ function CatalogDishPicker({
           </p>
         ) : (
           <div className="space-y-3">
-            <p className="text-[13px] font-medium text-forest/55">Resultados</p>
-            {groupsFor(searchHits).map((group) => (
-              <DishGroup key={`hit-${group.category}`} group={group} selectedSet={selectedSet} onToggle={toggle} />
-            ))}
+            {topHits.length > 0 ? (
+              <div>
+                <p className="mb-2 text-[13px] font-medium text-forest/55">Mais usados no cardápio</p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {topHits.slice(0, 8).map((dish) => (
+                    <DishChoice
+                      key={`pop-${dish.id}`}
+                      dish={dish}
+                      checked={false}
+                      uses={popularity.get(dish.id) ?? 0}
+                      onToggle={toggle}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {topHits.length === 0 || otherHits.length > 0 ? (
+              <>
+                <p className="text-[13px] font-medium text-forest/55">Resultados</p>
+                {groupsFor(topHits.length ? otherHits : searchHits).map((group) => (
+                  <DishGroup
+                    key={`hit-${group.category}`}
+                    group={group}
+                    selectedSet={selectedSet}
+                    popularity={popularity}
+                    onToggle={toggle}
+                  />
+                ))}
+              </>
+            ) : null}
           </div>
         )
       ) : null}
@@ -1381,38 +1466,65 @@ function CatalogDishPicker({
 function DishGroup({
   group,
   selectedSet,
+  popularity,
   onToggle,
 }: {
   group: { category: string; items: DishRecord[] };
   selectedSet: Set<string>;
+  popularity: Map<string, number>;
   onToggle: (id: string) => void;
 }) {
   return (
     <div>
       <h3 className="mb-2 text-[13px] font-medium text-forest/55">{group.category}</h3>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {group.items.map((dish) => {
-          const checked = selectedSet.has(dish.id);
-          return (
-            <label
-              key={dish.id}
-              className={cn(
-                "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
-                checked ? "border-forest/30 bg-forest/8" : "border-forest/10 hover:bg-forest/[0.03]",
-              )}
-            >
-              <input
-                type="checkbox"
-                className="size-4 accent-forest"
-                checked={checked}
-                onChange={() => onToggle(dish.id)}
-              />
-              <span className="text-forest">{dish.name}</span>
-            </label>
-          );
-        })}
+        {group.items.map((dish) => (
+          <DishChoice
+            key={dish.id}
+            dish={dish}
+            checked={selectedSet.has(dish.id)}
+            uses={popularity.get(dish.id) ?? 0}
+            onToggle={onToggle}
+          />
+        ))}
       </div>
     </div>
+  );
+}
+
+function DishChoice({
+  dish,
+  checked,
+  uses,
+  onToggle,
+}: {
+  dish: DishRecord;
+  checked: boolean;
+  uses: number;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <label
+      className={cn(
+        "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
+        checked ? "border-forest/30 bg-forest/8" : "border-forest/10 hover:bg-forest/[0.03]",
+      )}
+    >
+      <input
+        type="checkbox"
+        className="size-4 accent-forest"
+        checked={checked}
+        onChange={() => onToggle(dish.id)}
+      />
+      <span className="min-w-0 flex-1 text-forest">
+        {dish.name}
+        {uses > 0 ? (
+          <span className="ml-1 text-[11px] font-light text-forest/45">
+            {uses} {uses === 1 ? "evento" : "eventos"}
+          </span>
+        ) : null}
+      </span>
+    </label>
   );
 }
 
@@ -1478,6 +1590,50 @@ function MenuPlanEditor({
     patchSection(sectionIndex, { items });
   };
 
+  const moveItemToSection = (fromSection: number, itemIndex: number, toSectionId: string) => {
+    const item = sections[fromSection]?.items[itemIndex];
+    if (!item) return;
+    onChange(
+      sections.map((section, index) => {
+        if (index === fromSection) {
+          return { ...section, items: section.items.filter((_, i) => i !== itemIndex) };
+        }
+        if (section.id === toSectionId) {
+          return { ...section, items: [...section.items, item] };
+        }
+        return section;
+      }),
+    );
+  };
+
+  const removeSection = (index: number) => {
+    const section = sections[index];
+    const linked = section.items.filter((item) => item.name.trim()).length;
+    if (linked > 0) {
+      toast.error("Mova os pratos antes de excluir a seção.");
+      return;
+    }
+    onChange(sections.filter((_, i) => i !== index));
+  };
+
+  const addSection = () => {
+    onChange([...sections, { id: uid(), title: "Nova seção", time: "", items: [] }]);
+  };
+
+  if (sections.length === 0) {
+    return (
+      <div className="space-y-3">
+        <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+          Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita, ou crie uma seção para organizar.
+        </p>
+        <Button type="button" variant="outline" className="h-9 px-4" onClick={addSection}>
+          <Plus data-icon="inline-start" />
+          Nova seção
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-7">
       {sections.map((section, sectionIndex) => (
@@ -1516,6 +1672,14 @@ function MenuPlanEditor({
                 onClick={() => moveSection(sectionIndex, 1)}
               >
                 <ChevronDown className="size-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Excluir seção"
+                className="flex size-10 items-center justify-center rounded-lg text-forest/35 hover:text-terracotta"
+                onClick={() => removeSection(sectionIndex)}
+              >
+                <Trash2 className="size-4" />
               </button>
             </div>
           </div>
@@ -1589,18 +1753,41 @@ function MenuPlanEditor({
                       />
                     </td>
                     <td className="p-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          patchSection(sectionIndex, {
-                            items: section.items.filter((row) => row.id !== item.id),
-                          })
-                        }
-                        className="text-forest/35 transition-colors hover:text-terracotta"
-                        aria-label="Remover"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {sections.length > 1 ? (
+                          <select
+                            className={cn(fieldControlClass, "h-9 w-36")}
+                            value=""
+                            aria-label="Mover prato para outra seção"
+                            onChange={(event) => {
+                              const toId = event.target.value;
+                              if (!toId) return;
+                              moveItemToSection(sectionIndex, itemIndex, toId);
+                            }}
+                          >
+                            <option value="">Mover para…</option>
+                            {sections
+                              .filter((item) => item.id !== section.id)
+                              .map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.title || "Seção"}
+                                </option>
+                              ))}
+                          </select>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            patchSection(sectionIndex, {
+                              items: section.items.filter((row) => row.id !== item.id),
+                            })
+                          }
+                          className="text-forest/35 transition-colors hover:text-terracotta"
+                          aria-label="Remover"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1609,6 +1796,10 @@ function MenuPlanEditor({
           </div>
         </div>
       ))}
+      <Button type="button" variant="outline" className="h-9 px-4" onClick={addSection}>
+        <Plus data-icon="inline-start" />
+        Nova seção
+      </Button>
     </div>
   );
 }

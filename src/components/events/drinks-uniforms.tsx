@@ -3,6 +3,7 @@
 import { fieldControlClass, Field, FichaSection } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { UNIFORM_SIZE_LABELS } from "@/lib/labels";
+import { cn } from "@/lib/utils";
 import {
   DRINK_ITEMS,
   UNIFORM_PIECES,
@@ -62,34 +63,36 @@ export function EventDrinksFields({
 export function EventUniformsFields({
   uniforms,
   onChange,
+  embedded = false,
 }: {
   uniforms: Uniforms;
   onChange: (piece: UniformPieceKey, size: UniformSize, value: number) => void;
+  embedded?: boolean;
 }) {
-  return (
-    <FichaSection title="Fardamentos">
-      <div className="grid gap-6 md:grid-cols-3">
-        {UNIFORM_PIECES.map((piece) => (
-          <div key={piece.key} className="rounded-xl border border-forest/10 p-4">
-            <p className="mb-3 text-[13px] font-semibold text-forest">{piece.label}</p>
-            <div className="grid grid-cols-4 gap-2">
-              {UNIFORM_SIZES.map((size) => (
-                <Field key={size} label={UNIFORM_SIZE_LABELS[size]}>
-                  <input
-                    type="number"
-                    min={0}
-                    className={fieldControlClass}
-                    value={uniforms[piece.key][size]}
-                    onChange={(event) =>
-                      onChange(piece.key, size, Number(event.target.value))
-                    }
-                  />
-                </Field>
-              ))}
-            </div>
+  const body = (
+    <div className={cn("grid gap-3 md:grid-cols-3", !embedded && "gap-6")}>
+      {UNIFORM_PIECES.map((piece) => (
+        <div key={piece.key} className={cn("rounded-xl border border-forest/10", embedded ? "p-3" : "p-4")}>
+          <p className={cn("font-semibold text-forest", embedded ? "mb-2 text-xs" : "mb-3 text-[13px]")}>{piece.label}</p>
+          <div className="grid grid-cols-4 gap-2">
+            {UNIFORM_SIZES.map((size) => (
+              <Field key={size} label={UNIFORM_SIZE_LABELS[size]}>
+                <input
+                  type="number"
+                  min={0}
+                  className={fieldControlClass}
+                  value={uniforms[piece.key][size]}
+                  onChange={(event) =>
+                    onChange(piece.key, size, Number(event.target.value))
+                  }
+                />
+              </Field>
+            ))}
           </div>
-        ))}
-      </div>
-    </FichaSection>
+        </div>
+      ))}
+    </div>
   );
+  if (embedded) return body;
+  return <FichaSection title="Fardamentos">{body}</FichaSection>;
 }

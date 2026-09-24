@@ -62,7 +62,7 @@ export function PagamentoMaoDeObraPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16">
       <CadastrosHeader
-        eyebrow="Administrativo"
+        eyebrow="Financeiro"
         title="Pagamento de mão de obra"
         action={
           <Button

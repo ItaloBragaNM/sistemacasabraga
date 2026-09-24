@@ -1,5 +1,5 @@
-import { PagamentoMaoDeObraPage } from "@/components/mao-de-obra/pagamento-mao-de-obra";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <PagamentoMaoDeObraPage />;
+  redirect("/financeiro/pagamento-mao-de-obra");
 }

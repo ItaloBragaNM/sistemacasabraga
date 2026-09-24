@@ -15,12 +15,13 @@ import {
   PanelLeftOpen,
   Settings,
   Truck,
-  Users,
+  Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CasaBragaMark } from "@/components/brand/mark";
+import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { USER_ROLE_LABELS } from "@/lib/auth/roles";
 import type { PublicUser } from "@/lib/auth/types";
 import { findPageLabel, modulesVisibleTo, type AppModule } from "@/lib/modules";
@@ -34,7 +35,7 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   cozinha: ChefHat,
   logistica: Package,
   veiculos: Truck,
-  administrativo: Users,
+  financeiro: Wallet,
   cadastros: BookOpen,
   configuracoes: Settings,
 };
@@ -292,10 +293,7 @@ export function AppShell({
         collapsed ? "lg:grid-cols-[72px_minmax(0,1fr)]" : "lg:grid-cols-[272px_minmax(0,1fr)]",
       )}
     >
-      <aside className={cn(
-        "hidden bg-petrol lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col",
-        collapsed ? "lg:overflow-visible" : "lg:overflow-y-auto",
-      )}>
+      <aside className="hidden bg-petrol lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-visible">
         <div
           className={cn(
             "flex border-b border-white/10",
@@ -303,21 +301,24 @@ export function AppShell({
           )}
         >
           {collapsed ? null : <CasaBragaMark />}
-          <button
-            type="button"
-            aria-label={collapsed ? "Expandir menu" : "Minimizar menu"}
-            title={collapsed ? "Expandir menu" : "Minimizar menu"}
-            onClick={toggle}
-            className="flex size-8 items-center justify-center rounded-md text-cream/50 transition-colors hover:bg-white/10 hover:text-cream"
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="size-4" />
-            ) : (
-              <PanelLeftClose className="size-4" />
-            )}
-          </button>
+          <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
+            <NotificationsBell user={user} tone="dark" />
+            <button
+              type="button"
+              aria-label={collapsed ? "Expandir menu" : "Minimizar menu"}
+              title={collapsed ? "Expandir menu" : "Minimizar menu"}
+              onClick={toggle}
+              className="flex size-8 items-center justify-center rounded-md text-cream/50 transition-colors hover:bg-white/10 hover:text-cream"
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </button>
+          </div>
         </div>
-        <div className={cn("flex-1 py-4", collapsed ? "px-2" : "px-3 py-6")}>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto py-4", collapsed ? "overflow-visible px-2" : "px-3")}>
           <NavList user={user} collapsed={collapsed} />
         </div>
         <UserFooter user={user} collapsed={collapsed} />
@@ -326,14 +327,17 @@ export function AppShell({
       <div className="min-w-0">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-forest/10 bg-cream px-4 py-3 lg:hidden">
           <CasaBragaMark onLight />
-          <button
-            type="button"
-            aria-label="Abrir menu"
-            onClick={() => setOpen(true)}
-            className="flex size-10 items-center justify-center rounded-lg border border-forest/20 text-forest"
-          >
-            <Menu className="size-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationsBell user={user} />
+            <button
+              type="button"
+              aria-label="Abrir menu"
+              onClick={() => setOpen(true)}
+              className="flex size-10 items-center justify-center rounded-lg border border-forest/20 text-forest"
+            >
+              <Menu className="size-5" />
+            </button>
+          </div>
         </header>
 
         {open && (

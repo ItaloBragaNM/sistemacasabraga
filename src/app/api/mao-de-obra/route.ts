@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const { error } = await requireModule("administrativo");
+  const { error } = await requireModule("cadastros");
   if (error) return error;
   try {
     const data = await readMaoDeObra();
@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { user, error } = await requireModule("administrativo");
+  const { user, error } = await requireModule("cadastros");
   if (error) return error;
   let payload: MaoDeObraData;
   try {
@@ -33,13 +33,13 @@ export async function PUT(request: Request) {
     const data = await writeMaoDeObra(payload);
     const { appendAudit, diffRecords, scalarChange, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(user, [
-      ...tagged(diffRecords(previous.workers, data.workers, (item) => item.name), "administrativo", "prestador"),
+      ...tagged(diffRecords(previous.workers, data.workers, (item) => item.name), "cadastros", "prestador"),
       ...tagged(
         diffRecords(previous.payments, data.payments, (item) => `${item.workerName} · ${item.eventCode}`),
-        "administrativo",
+        "financeiro",
         "pagamento",
       ),
-      ...scalarChange("administrativo", "tabela de valores", previous.rates, data.rates),
+      ...scalarChange("cadastros", "tabela de valores", previous.rates, data.rates),
     ]);
     return NextResponse.json({ data });
   } catch (error) {

@@ -476,6 +476,14 @@ export function formatUniformSizeLine(
   return sizes.map((item) => `${labels[item.size]} ${item.quantity}`).join(separator);
 }
 
+export function isUniformPieceKey(value: unknown): value is UniformPieceKey {
+  return UNIFORM_PIECES.some((piece) => piece.key === value);
+}
+
+export function isUniformSize(value: unknown): value is UniformSize {
+  return (UNIFORM_SIZES as readonly string[]).includes(String(value));
+}
+
 export const ALCOHOL_TYPES = [
   { key: "cerveja", label: "Cerveja" },
   { key: "vinho", label: "Vinho" },
@@ -657,6 +665,8 @@ export interface EventLaborAllocation {
   applyAllowance: boolean;
   /** Diária neste evento. Se omitida, usa a tabela de valores da função. */
   daily?: number;
+  /** Peça de fardamento deste prestador neste evento. */
+  uniformPiece?: UniformPieceKey | "";
 }
 
 export function emptyLaborAllocations(): EventLaborAllocation[] {
@@ -675,6 +685,7 @@ export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[
     seen.add(workerId);
     const dailyRaw = (row as { daily?: unknown }).daily;
     const dailyParsed = Number(dailyRaw);
+    const uniformPiece = isUniformPieceKey(row.uniformPiece) ? row.uniformPiece : "";
     next.push({
       id: typeof row.id === "string" && row.id ? row.id : workerId,
       workerId,
@@ -683,6 +694,7 @@ export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[
       overtimeHours: Number(row.overtimeHours) || 0,
       applyAllowance: row.applyAllowance !== false,
       daily: Number.isFinite(dailyParsed) ? dailyParsed : undefined,
+      uniformPiece,
     });
   }
   return next;

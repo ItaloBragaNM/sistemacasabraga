@@ -1,5 +1,5 @@
-import { MaoDeObraAdmin } from "@/components/mao-de-obra/mao-de-obra-admin";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <MaoDeObraAdmin />;
+  redirect("/cadastros/equipe-externa");
 }

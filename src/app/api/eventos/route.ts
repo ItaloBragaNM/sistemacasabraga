@@ -61,6 +61,12 @@ export async function PUT(request: Request) {
         "evento",
       ),
     );
+    try {
+      const { notifyFichaUpdates } = await import("@/lib/notificacoes/store.server");
+      await notifyFichaUpdates(previous, data, user);
+    } catch (notifyError) {
+      console.error("Falha ao registrar notificações da ficha", notifyError);
+    }
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar os eventos", error);

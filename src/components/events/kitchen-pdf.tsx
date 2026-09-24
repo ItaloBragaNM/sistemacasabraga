@@ -1,7 +1,7 @@
 "use client";
 
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
-import { formatLongDate, formatWeekday } from "@/lib/dates";
+import { formatShortDate, formatWeekday } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   alcoholSummary,
@@ -10,7 +10,6 @@ import {
   eventStaffLines,
   formatUniformSizeLine,
   guestTotal,
-  guestsSummary,
   uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
@@ -27,9 +26,9 @@ const colors = {
 const styles = StyleSheet.create({
   page: {
     backgroundColor: colors.cream,
-    paddingTop: 148,
-    paddingBottom: 40,
-    paddingHorizontal: 32,
+    paddingTop: 52,
+    paddingBottom: 32,
+    paddingHorizontal: 24,
     fontFamily: "Helvetica",
     color: colors.forest,
   },
@@ -40,91 +39,80 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.petrol,
     color: colors.cream,
-    paddingTop: 16,
-    paddingBottom: 14,
-    paddingHorizontal: 32,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   brand: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    marginBottom: 5,
-    opacity: 0.85,
-  },
-  title: { fontSize: 18, fontFamily: "Times-Bold" },
-  subtitle: { fontSize: 9, marginTop: 4, color: colors.cream },
-  headerMeta: { fontSize: 9, marginTop: 3, color: colors.cream, opacity: 0.9 },
-  metaRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  meta: { flex: 1, borderWidth: 1, borderColor: colors.line, padding: 8 },
-  metaLabel: {
     fontSize: 7,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.muted,
-    marginBottom: 3,
+    opacity: 0.75,
+    marginBottom: 2,
   },
-  metaValue: { fontSize: 10, fontFamily: "Helvetica-Bold" },
+  title: { fontSize: 11, fontFamily: "Times-Bold" },
+  headerRight: { fontSize: 8, textAlign: "right", color: colors.cream, opacity: 0.92 },
+  meta: { fontSize: 8, color: colors.muted, marginBottom: 8 },
   alert: {
     backgroundColor: "#F8D9D7",
     borderWidth: 1,
     borderColor: colors.terracotta,
-    padding: 10,
-    marginBottom: 12,
+    padding: 6,
+    marginBottom: 8,
   },
   alertTitle: {
     color: colors.terracotta,
-    fontSize: 8,
-    letterSpacing: 1.2,
+    fontSize: 7,
+    letterSpacing: 1,
     textTransform: "uppercase",
-    marginBottom: 4,
+    marginBottom: 2,
     fontFamily: "Helvetica-Bold",
   },
   sectionTitle: {
-    fontSize: 9,
-    letterSpacing: 1.4,
+    fontSize: 8,
+    letterSpacing: 1.1,
     textTransform: "uppercase",
-    marginTop: 8,
-    marginBottom: 6,
+    marginTop: 6,
+    marginBottom: 4,
     color: colors.forest,
     fontFamily: "Helvetica-Bold",
   },
   item: {
     flexDirection: "row",
-    borderBottomWidth: 0.6,
+    borderBottomWidth: 0.5,
     borderBottomColor: colors.line,
-    paddingVertical: 4,
+    paddingVertical: 2.5,
   },
-  itemName: { flex: 3, fontSize: 10 },
-  itemQty: { width: 72, fontSize: 10 },
-  itemNotes: { flex: 2, fontSize: 9, color: colors.muted, textAlign: "right" },
-  note: { fontSize: 10, lineHeight: 1.4 },
+  itemName: { flex: 3, fontSize: 9 },
+  itemQty: { width: 64, fontSize: 9 },
+  itemNotes: { flex: 2, fontSize: 8, color: colors.muted, textAlign: "right" },
+  note: { fontSize: 9, lineHeight: 1.35 },
   footer: {
     position: "absolute",
-    bottom: 16,
-    left: 32,
-    right: 32,
-    fontSize: 8,
+    bottom: 12,
+    left: 24,
+    right: 24,
+    fontSize: 7,
     color: colors.muted,
     flexDirection: "row",
     justifyContent: "space-between",
   },
 });
 
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.meta}>
-      <Text style={styles.metaLabel}>{label}</Text>
-      <Text style={styles.metaValue}>{value}</Text>
-    </View>
-  );
-}
-
-function eventDateLabel(event: EventRecord) {
-  return event.date ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : "Data a definir";
-}
-
 function eventPlaceLabel(event: EventRecord) {
   return event.venue.address?.trim() || event.venue.name || "Local a definir";
+}
+
+function compactMeta(event: EventRecord) {
+  const parts = [
+    event.date ? `${formatWeekday(event.date).slice(0, 3)} ${formatShortDate(event.date)}` : "",
+    `${guestTotal(event.guests)} a servir`,
+    event.serviceTime ? `serviço ${event.serviceTime}` : "",
+    event.invitationTime ? `convite ${event.invitationTime}` : "",
+  ].filter(Boolean);
+  return parts.join("  ·  ");
 }
 
 export function KitchenDocument({ event }: { event: EventRecord }) {
@@ -136,44 +124,18 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header} fixed wrap={false}>
-          <Text style={styles.brand}>Casa Braga · Ficha de Cozinha</Text>
-          <Text style={styles.title}>{event.title || "Evento sem nome"}</Text>
-          <Text style={styles.subtitle}>
+          <View>
+            <Text style={styles.brand}>Casa Braga</Text>
+            <Text style={styles.title}>{event.title || "Evento sem nome"}</Text>
+          </View>
+          <Text style={styles.headerRight}>
             {event.code} · {EVENT_TYPE_LABELS[event.type]}
+            {"\n"}
+            {eventPlaceLabel(event)}
           </Text>
-          <Text style={styles.headerMeta}>{eventDateLabel(event)}</Text>
-          <Text style={styles.headerMeta}>{eventPlaceLabel(event)}</Text>
         </View>
 
-        <View style={styles.metaRow}>
-          <Meta
-            label="Data"
-            value={event.date ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : "—"}
-          />
-          <Meta
-            label="Cerimônia / convite / serviço"
-            value={`${event.ceremonyTime || "—"} / ${event.invitationTime || "—"} / ${event.serviceTime || "—"}${event.serviceDuration ? ` · ${event.serviceDuration}` : ""}`}
-          />
-          <Meta label="A servir" value={String(guestTotal(event.guests))} />
-        </View>
-        <View style={styles.metaRow}>
-          <Meta label="Local" value={event.venue.address || event.venue.name} />
-          <Meta label="Chegada da equipe" value={event.teamArrival || "—"} />
-          <Meta
-            label="Público"
-            value={guestsSummary(event.guests)}
-          />
-        </View>
-        <View style={styles.metaRow}>
-          <Meta
-            label="Entrega / recolhimento material"
-            value={`${event.materialDeliveryDate || "—"} → ${event.materialPickupDate || "—"} · comida ${event.foodDeliveryDate || "—"}`}
-          />
-          <Meta
-            label="Local"
-            value={`Cozinha ${flag(event.logistics.hasKitchen)} · Forno ${flag(event.logistics.hasOven)} · Freezer ${flag(event.logistics.hasFreezer)} · Micro-ondas ${flag(event.logistics.hasMicrowave)}`}
-          />
-        </View>
+        <Text style={styles.meta}>{compactMeta(event)}</Text>
 
         {event.dietaryNotes ? (
           <View style={styles.alert}>
@@ -190,13 +152,13 @@ export function KitchenDocument({ event }: { event: EventRecord }) {
             <View key={section.id}>
               <Text style={styles.sectionTitle}>{title}</Text>
               <View style={styles.item}>
-                <Text style={[styles.itemQty, { fontSize: 7, letterSpacing: 0.6, textTransform: "uppercase", color: colors.muted }]}>
+                <Text style={[styles.itemQty, { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted }]}>
                   Per capita
                 </Text>
-                <Text style={[styles.itemName, { fontSize: 7, letterSpacing: 0.6, textTransform: "uppercase", color: colors.muted }]}>
+                <Text style={[styles.itemName, { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted }]}>
                   Prato
                 </Text>
-                <Text style={[styles.itemNotes, { fontSize: 7, letterSpacing: 0.6, textTransform: "uppercase" }]}>
+                <Text style={[styles.itemNotes, { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase" }]}>
                   Obs
                 </Text>
               </View>
