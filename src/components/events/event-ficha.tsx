@@ -51,7 +51,7 @@ import {
   type YesNo,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { laborLineAmounts, rateFor } from "@/lib/mao-de-obra/calc";
+import { laborLineAmounts, rateFor, type EventLaborExtras } from "@/lib/mao-de-obra/calc";
 import { LABOR_FUNCTIONS, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
 import { applyLaborUniformDelta } from "@/lib/mao-de-obra/uniforms";
 
@@ -219,7 +219,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 pb-16">
+    <div className="mx-auto max-w-6xl space-y-4 pb-28">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <Link
@@ -260,20 +260,13 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </p>
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2">
-          <Button
-            className="h-9 bg-forest px-3 text-cream hover:bg-petrol"
-            disabled={!dirty || saveState === "saving"}
-            onClick={openSaveModal}
-          >
-            Salvar
-          </Button>
-          <Button
-            className="h-9 bg-terracotta px-3 text-cream hover:bg-terracotta/90"
-            disabled={pdfState === "working"}
-            onClick={() => setPdfModal(true)}
-          >
-            {pdfState === "working" ? "Gerando…" : "PDF"}
-          </Button>
+          <FichaActionButtons
+            dirty={dirty}
+            saveState={saveState}
+            pdfState={pdfState}
+            onSave={openSaveModal}
+            onPdf={() => setPdfModal(true)}
+          />
           <Button
             variant="outline"
             className="size-9 p-0 text-terracotta"
@@ -588,9 +581,21 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         ) : (
           <EventLaborAllocations
             allocations={draft.laborAllocations ?? []}
-            outOfTown={Boolean(draft.outOfTown)}
+            extras={{
+              overtime: draft.laborOvertime,
+              overtimeHours: draft.laborOvertimeHours,
+              applyAllowance: draft.laborApplyAllowance,
+            }}
             workers={maoDeObra?.workers ?? []}
             rates={maoDeObra?.rates ?? []}
+            onExtrasChange={(extras) =>
+              setDraft((current) => ({
+                ...current,
+                laborOvertime: extras.overtime,
+                laborOvertimeHours: extras.overtimeHours,
+                laborApplyAllowance: extras.applyAllowance,
+              }))
+            }
             onChange={(next) =>
               setDraft((current) => ({
                 ...current,
@@ -1033,22 +1038,69 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </div>
         </div>
       </Modal>
+
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-end p-4 sm:p-5 lg:p-8">
+        <div className="pointer-events-auto rounded-2xl border border-forest/10 bg-white/95 p-2 shadow-lg backdrop-blur">
+          <FichaActionButtons
+            dirty={dirty}
+            saveState={saveState}
+            pdfState={pdfState}
+            onSave={openSaveModal}
+            onPdf={() => setPdfModal(true)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FichaActionButtons({
+  dirty,
+  saveState,
+  pdfState,
+  onSave,
+  onPdf,
+}: {
+  dirty: boolean;
+  saveState: "idle" | "saving" | "saved";
+  pdfState: "idle" | "working";
+  onSave: () => void;
+  onPdf: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 flex-nowrap items-center gap-2">
+      <Button
+        className="h-9 bg-forest px-3 text-cream hover:bg-petrol"
+        disabled={!dirty || saveState === "saving"}
+        onClick={onSave}
+      >
+        {saveState === "saving" ? "Salvando…" : "Salvar"}
+      </Button>
+      <Button
+        className="h-9 bg-terracotta px-3 text-cream hover:bg-terracotta/90"
+        disabled={pdfState === "working"}
+        onClick={onPdf}
+      >
+        {pdfState === "working" ? "Gerando…" : "PDF"}
+      </Button>
     </div>
   );
 }
 
 function EventLaborAllocations({
   allocations,
-  outOfTown,
+  extras,
   workers,
   rates,
   onChange,
+  onExtrasChange,
 }: {
   allocations: EventLaborAllocation[];
-  outOfTown: boolean;
+  extras: EventLaborExtras;
   workers: ExternalWorker[];
   rates: LaborRate[];
   onChange: (next: EventLaborAllocation[]) => void;
+  onExtrasChange: (next: EventLaborExtras) => void;
 }) {
   const used = new Set(allocations.map((item) => item.workerId));
   const available = workers.filter((worker) => !used.has(worker.id)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
@@ -1056,13 +1108,44 @@ function EventLaborAllocations({
 
   return (
     <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <YesNoField
+          label="Ajuda de custo"
+          value={extras.applyAllowance ? "sim" : "nao"}
+          onChange={(value) => onExtrasChange({ ...extras, applyAllowance: value === "sim" })}
+        />
+        <YesNoField
+          label="Hora extra"
+          value={extras.overtime ? "sim" : "nao"}
+          onChange={(value) =>
+            onExtrasChange({
+              ...extras,
+              overtime: value === "sim",
+              overtimeHours: value === "sim" ? extras.overtimeHours : 0,
+            })
+          }
+        />
+        <Field label="Quantidade de horas extras">
+          <input
+            type="number"
+            min={0}
+            step="0.5"
+            className={fieldControlClass}
+            disabled={!extras.overtime}
+            value={extras.overtime ? extras.overtimeHours || "" : ""}
+            onChange={(event) =>
+              onExtrasChange({ ...extras, overtimeHours: Number(event.target.value) || 0 })
+            }
+          />
+        </Field>
+      </div>
       {allocations.map((row) => {
         const worker = workerById.get(row.workerId);
         const functionKey = row.functionKey || LABOR_FUNCTIONS[0]?.key || "";
         const rate = rateFor(rates, functionKey);
         const dailyValue =
           typeof row.daily === "number" && Number.isFinite(row.daily) ? row.daily : rate.daily;
-        const amounts = laborLineAmounts({ ...row, functionKey, daily: dailyValue }, rate, outOfTown);
+        const amounts = laborLineAmounts({ ...row, functionKey, daily: dailyValue }, rate, extras);
         return (
           <div key={row.workerId} className="rounded-xl border border-forest/10 p-3">
             <div className="flex items-start justify-between gap-2">
@@ -1070,7 +1153,8 @@ function EventLaborAllocations({
                 <p className="text-sm font-medium text-forest">{worker?.name || "Prestador removido"}</p>
                 <p className="text-xs font-light text-forest/45">
                   {formatBRL(amounts.total)}
-                  {amounts.allowance ? " · ajuda de custo" : outOfTown ? "" : " · ajuda só fora da cidade"}
+                  {amounts.allowance ? ` · ajuda ${formatBRL(amounts.allowance)}` : ""}
+                  {amounts.overtimeHours ? ` · ${amounts.overtimeHours}h extra` : ""}
                 </p>
               </div>
               <button
@@ -1082,7 +1166,7 @@ function EventLaborAllocations({
                 <Trash2 className="size-4" />
               </button>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Função neste evento" className="sm:col-span-2">
                 <select
                   className={fieldControlClass}
@@ -1149,59 +1233,7 @@ function EventLaborAllocations({
                   }
                 />
               </Field>
-              <Field label="Hora extra">
-                <select
-                  className={fieldControlClass}
-                  value={row.overtime ? "sim" : "nao"}
-                  onChange={(event) =>
-                    onChange(
-                      allocations.map((item) =>
-                        item.workerId === row.workerId
-                          ? { ...item, overtime: event.target.value === "sim" }
-                          : item,
-                      ),
-                    )
-                  }
-                >
-                  <option value="nao">Não</option>
-                  <option value="sim">Sim</option>
-                </select>
-              </Field>
-              <Field label="Horas">
-                <input
-                  type="number"
-                  min={0}
-                  className={fieldControlClass}
-                  disabled={!row.overtime}
-                  value={row.overtimeHours || ""}
-                  onChange={(event) =>
-                    onChange(
-                      allocations.map((item) =>
-                        item.workerId === row.workerId
-                          ? { ...item, overtimeHours: Number(event.target.value) || 0 }
-                          : item,
-                      ),
-                    )
-                  }
-                />
-              </Field>
             </div>
-            {outOfTown ? (
-              <label className="mt-3 flex items-center gap-2 text-sm text-forest/70">
-                <input
-                  type="checkbox"
-                  checked={row.applyAllowance !== false}
-                  onChange={(event) =>
-                    onChange(
-                      allocations.map((item) =>
-                        item.workerId === row.workerId ? { ...item, applyAllowance: event.target.checked } : item,
-                      ),
-                    )
-                  }
-                />
-                Aplicar ajuda de custo ({formatBRL(rateFor(rates, functionKey).allowance)})
-              </label>
-            ) : null}
           </div>
         );
       })}
@@ -1219,9 +1251,9 @@ function EventLaborAllocations({
                 id: worker.id,
                 workerId: worker.id,
                 functionKey,
-                overtime: false,
-                overtimeHours: 0,
-                applyAllowance: true,
+                overtime: extras.overtime,
+                overtimeHours: extras.overtimeHours,
+                applyAllowance: extras.applyAllowance,
                 daily: rateFor(rates, functionKey).daily,
                 uniformPiece: "",
               },

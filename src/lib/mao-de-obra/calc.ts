@@ -1,4 +1,4 @@
-import type { EventLaborAllocation } from "@/lib/types";
+import { normalizeLaborExtras, type EventLaborAllocation } from "@/lib/types";
 import {
   laborFunctionLabel,
   workerFunctionKeys,
@@ -7,6 +7,27 @@ import {
   type LaborRate,
   type MaoDeObraData,
 } from "./types";
+
+export type EventLaborExtras = {
+  overtime: boolean;
+  overtimeHours: number;
+  applyAllowance: boolean;
+};
+
+export function eventLaborExtras(event: {
+  laborOvertime?: boolean;
+  laborOvertimeHours?: number;
+  laborApplyAllowance?: boolean;
+  outOfTown?: boolean;
+  laborAllocations?: EventLaborAllocation[];
+}): EventLaborExtras {
+  const extras = normalizeLaborExtras(event);
+  return {
+    overtime: extras.laborOvertime,
+    overtimeHours: extras.laborOvertimeHours,
+    applyAllowance: extras.laborApplyAllowance,
+  };
+}
 
 export function rateFor(rates: LaborRate[], functionKey: string): LaborRate {
   return (
@@ -22,11 +43,11 @@ export function rateFor(rates: LaborRate[], functionKey: string): LaborRate {
 export function laborLineAmounts(
   allocation: EventLaborAllocation,
   rate: LaborRate,
-  outOfTown: boolean,
+  extras: EventLaborExtras,
 ) {
-  const overtimeHours = allocation.overtime ? Math.max(0, allocation.overtimeHours || 0) : 0;
+  const overtimeHours = extras.overtime ? Math.max(0, extras.overtimeHours || 0) : 0;
   const overtimeAmount = overtimeHours * (rate.overtimeHourly || 0);
-  const allowance = outOfTown && allocation.applyAllowance !== false ? rate.allowance || 0 : 0;
+  const allowance = extras.applyAllowance ? rate.allowance || 0 : 0;
   const daily =
     typeof allocation.daily === "number" && Number.isFinite(allocation.daily)
       ? allocation.daily
@@ -45,7 +66,17 @@ export function paymentIdFor(eventId: string, workerId: string) {
 }
 
 export function paymentFromAllocation(input: {
-  event: { id: string; code: string; title: string; date: string; outOfTown?: boolean };
+  event: {
+    id: string;
+    code: string;
+    title: string;
+    date: string;
+    outOfTown?: boolean;
+    laborOvertime?: boolean;
+    laborOvertimeHours?: number;
+    laborApplyAllowance?: boolean;
+    laborAllocations?: EventLaborAllocation[];
+  };
   allocation: EventLaborAllocation;
   worker: ExternalWorker;
   rates: LaborRate[];
@@ -55,7 +86,7 @@ export function paymentFromAllocation(input: {
   const amounts = laborLineAmounts(
     { ...input.allocation, functionKey: rate.functionKey },
     rate,
-    Boolean(input.event.outOfTown),
+    eventLaborExtras(input.event),
   );
   const now = new Date().toISOString();
   return {
@@ -79,6 +110,43 @@ export function paymentFromAllocation(input: {
   };
 }
 
+export function groupLaborPaymentsByEvent(payments: LaborPayment[]) {
+  const map = new Map<
+    string,
+    {
+      eventId: string;
+      eventCode: string;
+      eventTitle: string;
+      eventDate: string;
+      payments: LaborPayment[];
+      teamAmount: number;
+      overtimeAmount: number;
+      allowanceAmount: number;
+      total: number;
+    }
+  >();
+  for (const payment of payments) {
+    const current = map.get(payment.eventId) ?? {
+      eventId: payment.eventId,
+      eventCode: payment.eventCode,
+      eventTitle: payment.eventTitle,
+      eventDate: payment.eventDate,
+      payments: [] as LaborPayment[],
+      teamAmount: 0,
+      overtimeAmount: 0,
+      allowanceAmount: 0,
+      total: 0,
+    };
+    current.payments.push(payment);
+    current.teamAmount += payment.daily || 0;
+    current.overtimeAmount += payment.overtimeAmount || 0;
+    current.allowanceAmount += payment.allowance || 0;
+    current.total += payment.total || 0;
+    map.set(payment.eventId, current);
+  }
+  return [...map.values()].sort((a, b) => (b.eventDate || "").localeCompare(a.eventDate || "") || a.eventTitle.localeCompare(b.eventTitle, "pt-BR"));
+}
+
 export function syncPaymentsFromEvents(
   data: MaoDeObraData,
   events: Array<{
@@ -87,6 +155,9 @@ export function syncPaymentsFromEvents(
     title: string;
     date: string;
     outOfTown?: boolean;
+    laborOvertime?: boolean;
+    laborOvertimeHours?: number;
+    laborApplyAllowance?: boolean;
     laborAllocations?: EventLaborAllocation[];
   }>,
 ): MaoDeObraData {

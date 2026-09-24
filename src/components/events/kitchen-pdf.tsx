@@ -292,6 +292,20 @@ export function KitchenDocument({
                 <Text style={styles.itemNotes}>{String(event.laborAllocations.length)} prestadores</Text>
               </View>
             ) : null}
+            {event.laborOvertime ? (
+              <View style={styles.item}>
+                <Text style={styles.itemName}>Hora extra</Text>
+                <Text style={styles.itemNotes}>
+                  {event.laborOvertimeHours ? `${event.laborOvertimeHours} h` : "Sim"}
+                </Text>
+              </View>
+            ) : null}
+            {event.laborApplyAllowance ? (
+              <View style={styles.item}>
+                <Text style={styles.itemName}>Ajuda de custo</Text>
+                <Text style={styles.itemNotes}>Sim</Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
 

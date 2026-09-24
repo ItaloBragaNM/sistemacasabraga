@@ -137,6 +137,19 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
   push(changes, "Fora da cidade", previous.outOfTown ? "Sim" : "Não", next.outOfTown ? "Sim" : "Não");
   push(
     changes,
+    "Ajuda de custo (equipe externa)",
+    previous.laborApplyAllowance ? "Sim" : "Não",
+    next.laborApplyAllowance ? "Sim" : "Não",
+  );
+  push(changes, "Hora extra (equipe externa)", previous.laborOvertime ? "Sim" : "Não", next.laborOvertime ? "Sim" : "Não");
+  push(
+    changes,
+    "Horas extras (equipe externa)",
+    String(previous.laborOvertimeHours || 0),
+    String(next.laborOvertimeHours || 0),
+  );
+  push(
+    changes,
     "Veículos",
     String((previous.vehicleIds ?? []).length),
     String((next.vehicleIds ?? []).length),

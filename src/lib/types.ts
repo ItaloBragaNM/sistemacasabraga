@@ -700,6 +700,35 @@ export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[
   return next;
 }
 
+export function normalizeLaborExtras(event: {
+  laborOvertime?: boolean;
+  laborOvertimeHours?: number;
+  laborApplyAllowance?: boolean;
+  outOfTown?: boolean;
+  laborAllocations?: EventLaborAllocation[];
+}): { laborOvertime: boolean; laborOvertimeHours: number; laborApplyAllowance: boolean } {
+  const allocations = event.laborAllocations ?? [];
+  const laborOvertime =
+    typeof event.laborOvertime === "boolean"
+      ? event.laborOvertime
+      : allocations.some((item) => item.overtime);
+  const hoursRaw =
+    typeof event.laborOvertimeHours === "number"
+      ? event.laborOvertimeHours
+      : allocations.reduce((max, item) => Math.max(max, Number(item.overtimeHours) || 0), 0);
+  const laborOvertimeHours = Number.isFinite(Number(hoursRaw)) ? Math.max(0, Number(hoursRaw)) : 0;
+  const laborApplyAllowance =
+    typeof event.laborApplyAllowance === "boolean"
+      ? event.laborApplyAllowance
+      : Boolean(event.outOfTown) &&
+        (allocations.length === 0 || allocations.some((item) => item.applyAllowance !== false));
+  return {
+    laborOvertime,
+    laborOvertimeHours,
+    laborApplyAllowance,
+  };
+}
+
 export function normalizeVehicleIds(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
   return [...new Set(input.filter((id): id is string => typeof id === "string" && Boolean(id)))];
@@ -751,6 +780,11 @@ export interface EventRecord {
   logistics: Logistics;
   /** Evento fora da cidade — dispara ajuda de custo da equipe externa. */
   outOfTown: boolean;
+  /** Hora extra da equipe externa — uma vez por evento, aplicada a todos os prestadores. */
+  laborOvertime: boolean;
+  laborOvertimeHours: number;
+  /** Ajuda de custo da equipe externa — uma vez por evento. */
+  laborApplyAllowance: boolean;
   /** Veículos da frota alocados neste evento. */
   vehicleIds: string[];
   /** Prestadores da base de mão de obra externa. */
@@ -834,6 +868,8 @@ function normalizeIsoDate(value: unknown): string {
 export function normalizeEventRecord(event: EventRecord): EventRecord {
   const drinksAuto = event.drinksAuto !== false;
   const guests = normalizeGuests(event.guests);
+  const laborAllocations = normalizeLaborAllocations(event.laborAllocations);
+  const laborExtras = normalizeLaborExtras({ ...event, laborAllocations });
   return {
     ...event,
     type: normalizeEventType(event.type),
@@ -842,8 +878,9 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     extraStaff: extrasFromLegacyStaff(event.staff, normalizeExtraStaff(event.extraStaff)),
     clientId: event.clientId ?? "",
     outOfTown: Boolean(event.outOfTown),
+    ...laborExtras,
     vehicleIds: normalizeVehicleIds(event.vehicleIds),
-    laborAllocations: normalizeLaborAllocations(event.laborAllocations),
+    laborAllocations,
     ceremonyTime: typeof event.ceremonyTime === "string" ? event.ceremonyTime : "",
     serviceDuration: typeof event.serviceDuration === "string" ? event.serviceDuration : "",
     drinksNotes: typeof event.drinksNotes === "string" ? event.drinksNotes : "",
