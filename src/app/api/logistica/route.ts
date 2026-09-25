@@ -43,6 +43,11 @@ export async function PUT(request: Request) {
         "logistica",
         "inventário",
       ),
+      ...tagged(
+        diffRecords(previous.eventControls, data.eventControls, (item) => item.eventCode || item.id),
+        "logistica",
+        "controle de materiais",
+      ),
     ]);
     return NextResponse.json({ data });
   } catch (error) {

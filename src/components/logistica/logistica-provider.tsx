@@ -12,11 +12,13 @@ import {
 import { toast } from "sonner";
 import { uid } from "@/lib/event-factory";
 import type {
+  EventMaterialControl,
   InventorySession,
   LogisticaData,
   StockMeta,
   StockMovement,
 } from "@/lib/logistica/types";
+import { stockMovementsFromControl } from "@/lib/logistica/event-control";
 
 interface LogisticaContextValue {
   data: LogisticaData | null;
@@ -29,6 +31,8 @@ interface LogisticaContextValue {
   concludeInventory: (session: InventorySession) => void;
   updateInventory: (session: InventorySession) => void;
   removeInventory: (id: string) => void;
+  upsertEventControl: (control: EventMaterialControl) => void;
+  removeEventControl: (id: string) => void;
 }
 
 function movementsFromInventory(session: InventorySession): StockMovement[] {
@@ -140,6 +144,26 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
           ...current,
           movements: current.movements.filter((movement) => movement.ref !== id),
           inventories: current.inventories.filter((item) => item.id !== id),
+        })),
+      upsertEventControl: (control) =>
+        mutate((current) => {
+          const others = (current.eventControls ?? []).filter(
+            (item) => item.id !== control.id && item.eventId !== control.eventId,
+          );
+          return {
+            ...current,
+            eventControls: [...others, control],
+            movements: [
+              ...current.movements.filter((movement) => movement.ref !== control.id),
+              ...stockMovementsFromControl(control),
+            ],
+          };
+        }),
+      removeEventControl: (id) =>
+        mutate((current) => ({
+          ...current,
+          eventControls: (current.eventControls ?? []).filter((item) => item.id !== id),
+          movements: current.movements.filter((movement) => movement.ref !== id),
         })),
     }),
     [data, ready, error, saving, mutate],

@@ -4,7 +4,10 @@ import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer
 import { formatShortDate } from "@/lib/dates";
 import { downloadBlob, slugify } from "@/lib/download";
 import type { CatalogDishGroup } from "@/lib/cozinha/calc";
+import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
 import type { EventRecord } from "@/lib/types";
+
+registerPdfFonts();
 
 const colors = {
   forest: "#1E443E",
@@ -21,7 +24,7 @@ const styles = StyleSheet.create({
     paddingTop: 36,
     paddingBottom: 22,
     paddingHorizontal: 16,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT,
     color: colors.forest,
   },
   header: {
@@ -38,7 +41,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   brand: { fontSize: 7, letterSpacing: 1, textTransform: "uppercase", opacity: 0.75 },
-  title: { fontSize: 10, fontFamily: "Helvetica-Bold" },
+  title: { fontSize: 10, fontFamily: PDF_FONT, fontWeight: 700 },
   headerRight: { fontSize: 7, textAlign: "right", color: colors.cream, opacity: 0.92 },
   columns: { flexDirection: "row", gap: 10 },
   column: { flex: 1 },
@@ -49,7 +52,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 1,
   },
-  dishText: { fontSize: 7, fontFamily: "Helvetica-Bold" },
+  dishText: { fontSize: 7, fontFamily: PDF_FONT, fontWeight: 700 },
   tableHead: {
     flexDirection: "row",
     borderBottomWidth: 0.6,

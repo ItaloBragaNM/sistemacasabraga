@@ -34,8 +34,14 @@ export function uid() {
   return `id-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function menuItem(name = "", quantity = "", notes = ""): MenuItem {
-  return { id: uid(), name, quantity, notes };
+export function menuItem(name = "", quantity = "", notes = "", sourceDishId?: string): MenuItem {
+  return {
+    id: uid(),
+    name,
+    quantity,
+    notes,
+    ...(sourceDishId ? { sourceDishId } : {}),
+  };
 }
 
 export function emptyMenu(filled?: Partial<Record<keyof Menu, MenuItem[]>>): Menu {
@@ -58,34 +64,50 @@ export function menuFromPlan(plan: EventMenuSection[]): Menu {
 
 export function upsertMenuPlanFromDishes(
   previous: EventMenuSection[],
-  dishes: { name: string; category: string }[],
+  dishes: { id: string; name: string; category: string }[],
 ): EventMenuSection[] {
-  const prevItems = new Map<string, MenuItem>();
+  const prevByName = new Map<string, MenuItem>();
   for (const section of previous) {
     for (const item of section.items) {
       const key = item.name.trim().toLocaleLowerCase("pt-BR");
-      if (key && !prevItems.has(key)) prevItems.set(key, item);
+      if (key && !prevByName.has(key)) prevByName.set(key, item);
     }
   }
   const selected = dishes
-    .map((dish) => ({ name: dish.name.trim(), category: dish.category.trim() || "Menu" }))
+    .map((dish) => ({
+      id: dish.id,
+      name: dish.name.trim(),
+      category: dish.category.trim() || "Menu",
+    }))
     .filter((dish) => dish.name);
   const selectedKeys = new Set(selected.map((dish) => dish.name.toLocaleLowerCase("pt-BR")));
+  const selectedIds = new Set(selected.map((dish) => dish.id));
 
-  const plan = previous
-    .map((section) => ({
-      ...section,
-      items: section.items.filter((item) => selectedKeys.has(item.name.trim().toLocaleLowerCase("pt-BR"))),
-    }))
-    .filter((section) => section.items.length > 0);
+  const keepItem = (item: MenuItem) => {
+    if (!item.name.trim()) return true;
+    if (item.sourceDishId) return selectedIds.has(item.sourceDishId);
+    return selectedKeys.has(item.name.trim().toLocaleLowerCase("pt-BR"));
+  };
 
-  const present = new Set(
-    plan.flatMap((section) => section.items.map((item) => item.name.trim().toLocaleLowerCase("pt-BR"))),
+  const plan = previous.map((section) => ({
+    ...section,
+    items: section.items.filter(keepItem),
+  }));
+
+  const presentIds = new Set(
+    plan.flatMap((section) =>
+      section.items.map((item) => item.sourceDishId).filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const presentNames = new Set(
+    plan.flatMap((section) =>
+      section.items.map((item) => item.name.trim().toLocaleLowerCase("pt-BR")).filter(Boolean),
+    ),
   );
 
   for (const dish of selected) {
     const key = dish.name.toLocaleLowerCase("pt-BR");
-    if (present.has(key)) continue;
+    if (presentIds.has(dish.id) || presentNames.has(key)) continue;
     let section = plan.find(
       (item) => item.title.trim().toLocaleLowerCase("pt-BR") === dish.category.toLocaleLowerCase("pt-BR"),
     );
@@ -93,9 +115,14 @@ export function upsertMenuPlanFromDishes(
       section = { id: uid(), title: dish.category, time: "", items: [] };
       plan.push(section);
     }
-    const existing = prevItems.get(key);
-    section.items.push(existing ? { ...existing, name: dish.name } : menuItem(dish.name));
-    present.add(key);
+    const existing = prevByName.get(key);
+    section.items.push(
+      existing
+        ? { ...existing, name: dish.name, sourceDishId: dish.id }
+        : menuItem(dish.name, "", "", dish.id),
+    );
+    presentIds.add(dish.id);
+    presentNames.add(key);
   }
   return plan;
 }

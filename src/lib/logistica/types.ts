@@ -1,10 +1,11 @@
-export type MovementType = "entrada" | "saida" | "ajuste" | "inventario";
+export type MovementType = "entrada" | "saida" | "ajuste" | "inventario" | "perda";
 
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
   entrada: "Entrada",
   saida: "Saída",
   ajuste: "Ajuste",
   inventario: "Inventário",
+  perda: "Perda",
 };
 
 export interface StockMovement {
@@ -54,12 +55,55 @@ export interface InventorySession {
   createdAt: string;
 }
 
+export const MATERIAL_LOSS_REASONS = [
+  { key: "quebra", label: "Quebra / avaria" },
+  { key: "extravio", label: "Extravio" },
+  { key: "consumo", label: "Consumo / descartável" },
+  { key: "dano", label: "Dano no transporte" },
+  { key: "outro", label: "Outro" },
+] as const;
+
+export type MaterialLossReason = (typeof MATERIAL_LOSS_REASONS)[number]["key"];
+
+export function isMaterialLossReason(value: unknown): value is MaterialLossReason {
+  return MATERIAL_LOSS_REASONS.some((item) => item.key === value);
+}
+
+export function materialLossReasonLabel(key: string) {
+  return MATERIAL_LOSS_REASONS.find((item) => item.key === key)?.label ?? key;
+}
+
+export type EventMaterialControlStatus = "rascunho" | "conferido";
+
+export interface EventMaterialControlItem {
+  materialId: string;
+  planned: number;
+  sent: number;
+  returned: number;
+  reason: MaterialLossReason | "";
+  note: string;
+}
+
+export interface EventMaterialControl {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  eventCode: string;
+  eventDate: string;
+  status: EventMaterialControlStatus;
+  items: EventMaterialControlItem[];
+  note: string;
+  updatedAt: string;
+  concludedAt?: string;
+}
+
 export interface LogisticaData {
   movements: StockMovement[];
   meta: StockMeta[];
   inventories: InventorySession[];
+  eventControls: EventMaterialControl[];
 }
 
 export function emptyLogisticaData(): LogisticaData {
-  return { movements: [], meta: [], inventories: [] };
+  return { movements: [], meta: [], inventories: [], eventControls: [] };
 }

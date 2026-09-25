@@ -161,7 +161,7 @@ export function VeiculosAdmin() {
                           </p>
                         ) : null}
                       </td>
-                      <td className="py-3 font-mono text-forest/70">{item.plate || "—"}</td>
+                      <td className="py-3 text-forest/70">{item.plate || "—"}</td>
                       <td className="py-3 text-forest/70">{VEHICLE_USAGE_CATEGORY_LABELS[item.usageCategory]}</td>
                       <td className="py-3 text-forest/70">{VEHICLE_KIND_LABELS[item.kind]}</td>
                       <td className="py-3 text-forest/70">{item.capacity || "—"}</td>

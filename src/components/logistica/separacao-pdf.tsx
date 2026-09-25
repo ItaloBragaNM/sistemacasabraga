@@ -3,6 +3,7 @@
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { UNIFORM_SIZE_LABELS } from "@/lib/labels";
+import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
 import {
   DRINK_ITEMS,
   formatUniformSizeLine,
@@ -10,6 +11,8 @@ import {
   uniformPiecesForReport,
   type EventRecord,
 } from "@/lib/types";
+
+registerPdfFonts();
 
 const colors = {
   forest: "#1E443E",
@@ -27,12 +30,12 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     paddingBottom: 36,
     paddingHorizontal: 32,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT,
     color: colors.forest,
   },
   header: { backgroundColor: colors.petrol, color: colors.cream, padding: 16, marginBottom: 14 },
   brand: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 },
-  title: { fontSize: 22, fontFamily: "Times-Bold" },
+  title: { fontSize: 22, fontFamily: PDF_FONT, fontWeight: 700 },
   subtitle: { fontSize: 10, marginTop: 4, color: colors.cream },
   metaRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   meta: { flex: 1, borderWidth: 1, borderColor: colors.line, padding: 8 },
@@ -43,7 +46,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: 3,
   },
-  metaValue: { fontSize: 10, fontFamily: "Helvetica-Bold" },
+  metaValue: { fontSize: 10, fontFamily: PDF_FONT, fontWeight: 700 },
   sectionTitle: {
     fontSize: 9,
     letterSpacing: 1.4,
@@ -51,7 +54,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 6,
     color: colors.forest,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT, fontWeight: 700,
   },
   row: {
     flexDirection: "row",
@@ -62,10 +65,11 @@ const styles = StyleSheet.create({
   },
   check: { width: 16, fontSize: 11, color: colors.muted },
   name: { flex: 3, fontSize: 10 },
-  qty: { flex: 1, fontSize: 11, textAlign: "right", fontFamily: "Helvetica-Bold" },
+  qty: { flex: 1, fontSize: 11, textAlign: "right", fontFamily: PDF_FONT, fontWeight: 700 },
+  drinkQty: { flex: 1.6, fontSize: 11, fontFamily: PDF_FONT, fontWeight: 700 },
   unit: { width: 40, fontSize: 9, color: colors.muted, textAlign: "right" },
   note: { flex: 2, fontSize: 8, color: colors.muted, textAlign: "right" },
-  editedTag: { color: colors.edited, fontFamily: "Helvetica-Bold" },
+  editedTag: { color: colors.edited, fontFamily: PDF_FONT, fontWeight: 700 },
   footer: {
     position: "absolute",
     bottom: 16,
@@ -230,10 +234,8 @@ function SeparationDocument({
         {DRINK_ITEMS.map((drink) => (
             <View key={drink.key} style={styles.row}>
               <Text style={styles.check}>{"\u2610"}</Text>
+              <Text style={styles.drinkQty}>{event.drinks[drink.key] || "—"}</Text>
               <Text style={styles.name}>{drink.label}</Text>
-              <Text style={styles.qty}>{event.drinks[drink.key] || "—"}</Text>
-              <Text style={styles.unit} />
-              <Text style={styles.note} />
             </View>
         ))}
 

@@ -1,5 +1,5 @@
-import { guestTotal, type EventRecord } from "@/lib/types";
-import type { CadastrosData, CalcBase, MaterialRecord } from "./types";
+import { eventMenuSections, guestTotal, type EventRecord } from "@/lib/types";
+import type { CadastrosData, CalcBase, DishRecord, MaterialRecord } from "./types";
 
 export interface EventCalcContext {
   convidados: number;
@@ -13,11 +13,63 @@ export interface EventCalcContext {
   fritadeiras: number;
 }
 
+function dishMatchKey(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Pratos do catálogo que entram no cálculo: seleção na ficha + nomes do cardápio
+ * impresso que batem com o cadastro.
+ */
+export function resolveEventDishIds(
+  event: Pick<EventRecord, "selectedDishIds" | "menu" | "menuPlan">,
+  dishes: DishRecord[],
+): string[] {
+  const ids = new Set((event.selectedDishIds ?? []).filter(Boolean));
+  const known = new Set(dishes.map((dish) => dish.id));
+  const byKey = new Map<string, DishRecord[]>();
+  for (const dish of dishes) {
+    const key = dishMatchKey(dish.name);
+    if (!key) continue;
+    const list = byKey.get(key) ?? [];
+    list.push(dish);
+    byKey.set(key, list);
+  }
+  for (const section of eventMenuSections(event)) {
+    for (const item of section.items) {
+      if (item.sourceDishId && known.has(item.sourceDishId)) {
+        ids.add(item.sourceDishId);
+        continue;
+      }
+      const key = dishMatchKey(item.name);
+      if (!key) continue;
+      const exact = byKey.get(key);
+      if (exact?.length === 1) {
+        ids.add(exact[0].id);
+        continue;
+      }
+      const prefix = dishes.filter((dish) => {
+        const dishKey = dishMatchKey(dish.name);
+        return dishKey && (key === dishKey || key.startsWith(`${dishKey} `) || dishKey.startsWith(`${key} `));
+      });
+      if (prefix.length === 1) ids.add(prefix[0].id);
+    }
+  }
+  return [...ids];
+}
+
 export function eventCalcContext(
   event: EventRecord,
   cadastros?: Pick<CadastrosData, "dishes">,
 ): EventCalcContext {
-  const selectedDishIds = event.selectedDishIds ?? [];
+  const selectedDishIds = cadastros
+    ? resolveEventDishIds(event, cadastros.dishes)
+    : (event.selectedDishIds ?? []);
   let rechauds = 0;
   let fritadeiras = 0;
   if (cadastros) {
@@ -39,6 +91,20 @@ export function eventCalcContext(
     rechauds,
     fritadeiras,
   };
+}
+
+function usesDishEquipment(
+  material: MaterialRecord,
+  bases: Map<string, CalcBase>,
+  ctx: EventCalcContext,
+): boolean {
+  for (const factor of material.factors) {
+    const base = bases.get(factor.baseId);
+    if (base?.kind.type !== "dishesWith") continue;
+    const count = base.kind.tag === "fritadeira" ? ctx.fritadeiras : ctx.rechauds;
+    if (count > 0) return true;
+  }
+  return false;
 }
 
 /** Value of a single base for a given event and material occurrence count. */
@@ -152,8 +218,9 @@ export function computeSeparationItems(
 
   for (const material of cadastros.materials) {
     const fromDish = occurrences.get(material.id) ?? 0;
-    const manual = extra.has(material.id) && fromDish === 0;
-    if (!fromDish && !manual) continue;
+    const fromEquipment = fromDish === 0 && usesDishEquipment(material, bases, ctx);
+    const manual = extra.has(material.id) && fromDish === 0 && !fromEquipment;
+    if (!fromDish && !fromEquipment && !manual) continue;
     const occurrence = fromDish || 1;
     items.push({
       materialId: material.id,

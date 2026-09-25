@@ -2,6 +2,17 @@ import ExcelJS from "exceljs";
 
 export type Cell = string | number;
 
+const SHEET_FONT = "Poppins";
+
+export function applySheetFont(sheet: ExcelJS.Worksheet) {
+  sheet.eachRow((row) => {
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      const current = cell.font ?? {};
+      cell.font = { ...current, name: SHEET_FONT };
+    });
+  });
+}
+
 function cellToString(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toLocaleDateString("pt-BR");
@@ -23,12 +34,13 @@ export async function exportToXlsx(
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(sheetName.slice(0, 31) || "Dados");
   const headerRow = sheet.addRow(headers);
-  headerRow.font = { bold: true };
+  headerRow.font = { name: SHEET_FONT, bold: true };
   headerRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E443E" } };
-    cell.font = { bold: true, color: { argb: "FFFFFBFA" } };
+    cell.font = { name: SHEET_FONT, bold: true, color: { argb: "FFFFFBFA" } };
   });
   for (const row of rows) sheet.addRow(row);
+  applySheetFont(sheet);
   sheet.columns.forEach((column) => {
     let max = 12;
     column.eachCell?.({ includeEmpty: false }, (cell) => {

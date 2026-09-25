@@ -108,6 +108,8 @@ export interface MenuItem {
   name: string;
   quantity: string;
   notes: string;
+  /** Prato do catálogo; cópias no cardápio compartilham o mesmo id na logística. */
+  sourceDishId?: string;
 }
 
 export const MENU_SECTIONS = [
@@ -156,6 +158,10 @@ export function normalizeMenuItem(input: unknown): MenuItem | null {
     name,
     quantity: typeof row.quantity === "string" ? row.quantity : "",
     notes: typeof row.notes === "string" ? row.notes : "",
+    sourceDishId:
+      typeof row.sourceDishId === "string" && row.sourceDishId.trim()
+        ? row.sourceDishId.trim()
+        : undefined,
   };
 }
 

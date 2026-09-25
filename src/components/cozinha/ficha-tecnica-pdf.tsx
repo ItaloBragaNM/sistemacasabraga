@@ -5,6 +5,9 @@ import { formatBRL, formatDecimal } from "@/lib/crm/format";
 import { downloadBlob, slugify } from "@/lib/download";
 import { adjustedQuantity, costPerPortion, ingredientTotal, projectedCmv, recipeCost } from "@/lib/fichas-tecnicas/calc";
 import type { TechnicalSheet } from "@/lib/fichas-tecnicas/types";
+import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
+
+registerPdfFonts();
 
 const colors = {
   forest: "#1E443E",
@@ -20,12 +23,12 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 36,
     paddingHorizontal: 28,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT,
     color: colors.forest,
   },
   header: { backgroundColor: colors.petrol, color: colors.cream, padding: 14, marginBottom: 10 },
   brand: { fontSize: 8, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 },
-  title: { fontSize: 18, fontFamily: "Times-Bold" },
+  title: { fontSize: 18, fontFamily: PDF_FONT, fontWeight: 700 },
   subtitle: { fontSize: 9, marginTop: 3, color: colors.cream },
   meta: { flexDirection: "row", flexWrap: "wrap", marginBottom: 8 },
   metaBox: {
@@ -146,7 +149,7 @@ function SheetDocument({ sheet }: { sheet: TechnicalSheet }) {
           <View style={styles.totalBox}>
             <View style={styles.totalLine}>
               <Text style={{ fontSize: 8 }}>Custo total da receita</Text>
-              <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold" }}>{formatBRL(cost)}</Text>
+              <Text style={{ fontSize: 9, fontFamily: PDF_FONT, fontWeight: 700 }}>{formatBRL(cost)}</Text>
             </View>
             <View style={styles.totalLine}>
               <Text style={{ fontSize: 8 }}>Custo por porção</Text>
@@ -158,7 +161,7 @@ function SheetDocument({ sheet }: { sheet: TechnicalSheet }) {
             </View>
             <View style={[styles.totalLine, { marginBottom: 0 }]}>
               <Text style={{ fontSize: 8 }}>CMV projetado</Text>
-              <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold" }}>{formatDecimal(cmv, 1)}%</Text>
+              <Text style={{ fontSize: 11, fontFamily: PDF_FONT, fontWeight: 700 }}>{formatDecimal(cmv, 1)}%</Text>
             </View>
           </View>
         </View>

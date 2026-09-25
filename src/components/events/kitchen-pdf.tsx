@@ -3,6 +3,7 @@
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import { formatShortDate, formatWeekday } from "@/lib/dates";
 import { downloadBlob, slugify } from "@/lib/download";
+import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
 import {
   EVENT_STATUS_LABELS,
   EVENT_TYPE_LABELS,
@@ -12,7 +13,6 @@ import {
 } from "@/lib/labels";
 import {
   alcoholSummary,
-  DRINK_ITEMS,
   eventMenuSections,
   eventStaffLines,
   formatUniformSizeLine,
@@ -23,10 +23,11 @@ import {
   type YesNo,
 } from "@/lib/types";
 
+registerPdfFonts();
+
 export const KITCHEN_PDF_SECTIONS = [
   { key: "evento", label: "Informações do evento" },
   { key: "cardapio", label: "Cardápio" },
-  { key: "bebidas", label: "Bebidas" },
   { key: "equipe", label: "Equipe" },
   { key: "logistica", label: "Extras e logística" },
   { key: "logisticaNotes", label: "Observações da logística" },
@@ -53,7 +54,7 @@ const styles = StyleSheet.create({
     paddingTop: 52,
     paddingBottom: 32,
     paddingHorizontal: 24,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT,
     color: colors.forest,
   },
   header: {
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
     marginBottom: 2,
   },
-  title: { fontSize: 11, fontFamily: "Times-Bold" },
+  title: { fontSize: 11, fontFamily: PDF_FONT, fontWeight: 700 },
   headerRight: { fontSize: 8, textAlign: "right", color: colors.cream, opacity: 0.92 },
   metaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
   meta: { width: "31%", borderWidth: 0.6, borderColor: colors.line, padding: 5 },
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: 2,
   },
-  metaValue: { fontSize: 8.5, fontFamily: "Helvetica-Bold" },
+  metaValue: { fontSize: 8.5, fontFamily: PDF_FONT, fontWeight: 700 },
   alert: {
     backgroundColor: "#F8D9D7",
     borderWidth: 1,
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
     marginBottom: 2,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT, fontWeight: 700,
   },
   sectionTitle: {
     fontSize: 8,
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 4,
     color: colors.forest,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT, fontWeight: 700,
   },
   item: {
     flexDirection: "row",
@@ -165,12 +166,10 @@ export function KitchenDocument({
   sections?: KitchenPdfSectionKey[];
 }) {
   const selected = new Set(sections);
-  const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
   const staff = eventStaffLines(event);
   const uniforms = uniformPiecesForReport(event.uniforms);
   const showEvento = hasSection(selected, "evento");
   const showCardapio = hasSection(selected, "cardapio");
-  const showBebidas = hasSection(selected, "bebidas");
   const showEquipe = hasSection(selected, "equipe");
   const showLogistica = hasSection(selected, "logistica");
   const showLogisticaNotes = hasSection(selected, "logisticaNotes");
@@ -263,19 +262,6 @@ export function KitchenDocument({
               );
             })
           : null}
-
-        {showBebidas && (drinks.length > 0 || event.drinksNotes) ? (
-          <View>
-            <Text style={styles.sectionTitle}>Bebidas</Text>
-            {drinks.map((item) => (
-              <View key={item.key} style={styles.item}>
-                <Text style={styles.itemName}>{item.label}</Text>
-                <Text style={styles.itemNotes}>{event.drinks[item.key]}</Text>
-              </View>
-            ))}
-            {event.drinksNotes ? <Text style={styles.note}>{event.drinksNotes}</Text> : null}
-          </View>
-        ) : null}
 
         {showEquipe && (staff.length > 0 || (event.laborAllocations ?? []).length > 0) ? (
           <View>

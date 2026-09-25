@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { basesMap, describeProportion } from "@/lib/cadastros/calc";
 import { MAX_FACTORS, MATERIAL_KIND_LABELS, MATERIAL_KINDS, type MaterialKind, type MaterialRecord, type ProportionFactor } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
+import { compressImageToDataUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 export function MateriaisAdmin() {
@@ -170,6 +171,7 @@ export function MateriaisAdmin() {
                         onChange={selection.toggleAllVisible}
                       />
                     </Th>
+                    <Th className="w-14">Foto</Th>
                     <Th>Material</Th>
                     <Th>Tipo</Th>
                     <Th>Proporção</Th>
@@ -190,6 +192,20 @@ export function MateriaisAdmin() {
                           checked={selection.selected.has(material.id)}
                           onChange={() => selection.toggle(material.id)}
                         />
+                      </td>
+                      <td className="py-3">
+                        {material.photoDataUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={material.photoDataUrl}
+                            alt=""
+                            className="size-10 rounded-md object-cover ring-1 ring-forest/10"
+                          />
+                        ) : (
+                          <span className="flex size-10 items-center justify-center rounded-md bg-forest/[0.04] text-forest/25">
+                            <ImagePlus className="size-4" />
+                          </span>
+                        )}
                       </td>
                       <td className="py-3">
                         <p className="font-medium text-forest">{material.name}</p>
@@ -318,6 +334,8 @@ function MaterialForm({
   const [newVariant, setNewVariant] = useState("");
   const [locationId, setLocationId] = useState(initial?.locationId ?? "");
   const [factors, setFactors] = useState<ProportionFactor[]>(initial?.factors ?? []);
+  const [photoDataUrl, setPhotoDataUrl] = useState(initial?.photoDataUrl ?? "");
+  const [photoBusy, setPhotoBusy] = useState(false);
   const basesById = useMemo(() => new Map(bases.map((base) => [base.id, base])), [bases]);
 
   const submit = () => {
@@ -339,6 +357,7 @@ function MaterialForm({
       variants,
       factors: factors.map((factor) => ({ baseId: factor.baseId, mult: factor.mult || 0 })),
       locationId: locationId || undefined,
+      photoDataUrl: photoDataUrl || undefined,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     });
@@ -418,6 +437,64 @@ function MaterialForm({
       <p className="-mt-2 text-xs font-light text-forest/45">
         Permanente volta do evento. Descartável consome-se. Misto é para kits que misturam os dois.
       </p>
+
+      <div>
+        <p className="field-label mb-2">Foto do material</p>
+        <div className="flex items-center gap-4">
+          {photoDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoDataUrl}
+              alt={name || "Material"}
+              className="size-20 rounded-xl object-cover ring-1 ring-forest/10"
+            />
+          ) : (
+            <span className="flex size-20 items-center justify-center rounded-xl bg-forest/[0.04] text-forest/25">
+              <ImagePlus className="size-6" />
+            </span>
+          )}
+          <div className="space-y-2">
+            <label className="inline-flex h-10 cursor-pointer items-center rounded-md border border-forest/15 px-4 text-sm text-forest/80 hover:border-forest/30">
+              {photoBusy ? "Compactando…" : photoDataUrl ? "Trocar foto" : "Enviar foto"}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                disabled={photoBusy}
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  try {
+                    setPhotoBusy(true);
+                    setPhotoDataUrl(await compressImageToDataUrl(file));
+                  } catch (error) {
+                    console.error(error);
+                    toast.error(
+                      error instanceof Error && error.message === "too-large"
+                        ? "A foto ficou grande demais. Use outra imagem."
+                        : "Não foi possível ler a foto.",
+                    );
+                  } finally {
+                    setPhotoBusy(false);
+                  }
+                }}
+              />
+            </label>
+            {photoDataUrl ? (
+              <button
+                type="button"
+                className="block text-xs text-forest/50 hover:text-terracotta"
+                onClick={() => setPhotoDataUrl("")}
+              >
+                Remover foto
+              </button>
+            ) : (
+              <p className="text-xs font-light text-forest/45">JPEG compactado, só para identificação.</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div>
         <p className="field-label mb-2">Variantes (marca, tipo, cor, tamanho)</p>

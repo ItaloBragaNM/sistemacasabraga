@@ -38,6 +38,12 @@ function normalizeMaterial(input: Partial<MaterialRecord>, fallbackCategory: str
       : [],
     factors: Array.isArray(input.factors) ? input.factors : [],
     locationId: typeof input.locationId === "string" && input.locationId.trim() ? input.locationId : undefined,
+    photoDataUrl:
+      typeof input.photoDataUrl === "string" &&
+      input.photoDataUrl.startsWith("data:image/") &&
+      input.photoDataUrl.length < 160_000
+        ? input.photoDataUrl
+        : undefined,
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
   };
@@ -170,6 +176,9 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
     ? input.dishes.map((dish) => ({
         ...dish,
         category: dishCategoryLabel(dish.category || dishCategoriesSource[0] || "Menu"),
+        materialIds: Array.isArray(dish.materialIds)
+          ? dish.materialIds.filter((id): id is string => typeof id === "string" && Boolean(id.trim()))
+          : [],
         insumoIds: Array.isArray(dish.insumoIds) ? dish.insumoIds : [],
         hasRechaud: Boolean(dish.hasRechaud),
         hasFritadeira: Boolean(dish.hasFritadeira),

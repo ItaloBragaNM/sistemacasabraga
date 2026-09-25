@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { applySheetFont } from "@/lib/cadastros/xlsx";
 import { downloadBlob } from "@/lib/download";
 import { LABOR_CONTA_AZUL_CATEGORY, type LaborPayment } from "./types";
 
@@ -25,10 +26,10 @@ export async function downloadContaAzulSheet(payments: LaborPayment[], fileName:
     "Observações",
   ];
   const headerRow = sheet.addRow(headers);
-  headerRow.font = { bold: true };
+  headerRow.font = { name: "Poppins", bold: true };
   headerRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E443E" } };
-    cell.font = { bold: true, color: { argb: "FFFFFBFA" } };
+    cell.font = { name: "Poppins", bold: true, color: { argb: "FFFFFBFA" } };
   });
 
   for (const payment of payments) {
@@ -58,6 +59,7 @@ export async function downloadContaAzulSheet(payments: LaborPayment[], fileName:
     column.width = 28;
   });
   sheet.getColumn(4).numFmt = "0.00";
+  applySheetFont(sheet);
 
   const buffer = await workbook.xlsx.writeBuffer();
   downloadBlob(

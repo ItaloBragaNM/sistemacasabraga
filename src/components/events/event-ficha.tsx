@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, ChevronUp, ClipboardList, FileDown, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Copy, FileDown, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ClienteForm } from "@/components/cadastros/cliente-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -21,7 +21,7 @@ import type { DishRecord } from "@/lib/cadastros/types";
 import { VEHICLE_USAGE_CATEGORY_LABELS } from "@/lib/cadastros/types";
 import { formatBRL } from "@/lib/crm/format";
 import { formatDateTime, formatLongDate, formatWeekday } from "@/lib/dates";
-import { menuFromPlan, uid, upsertMenuPlanFromDishes } from "@/lib/event-factory";
+import { menuFromPlan, menuItem, uid, upsertMenuPlanFromDishes } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import {
   ALCOHOL_TYPES,
@@ -647,6 +647,10 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </FichaSection>
 
       <FichaSection title="Cardápio do evento">
+        <p className="mb-4 text-sm font-light text-forest/55">
+          Crie seções para organizar o serviço e duplique pratos se precisar listá-los mais de uma vez.
+          A logística conta cada prato do catálogo só uma vez.
+        </p>
         <MenuPlanEditor sections={eventMenuSections(draft)} onChange={setMenuPlan} />
       </FichaSection>
 
@@ -1644,6 +1648,20 @@ function MenuPlanEditor({
     onChange([...sections, { id: uid(), title: "Nova seção", time: "", items: [] }]);
   };
 
+  const addItem = (sectionIndex: number) => {
+    const section = sections[sectionIndex];
+    patchSection(sectionIndex, { items: [...section.items, menuItem()] });
+  };
+
+  const duplicateItem = (sectionIndex: number, itemIndex: number) => {
+    const section = sections[sectionIndex];
+    const item = section.items[itemIndex];
+    if (!item) return;
+    const items = [...section.items];
+    items.splice(itemIndex + 1, 0, { ...item, id: uid() });
+    patchSection(sectionIndex, { items });
+  };
+
   if (sections.length === 0) {
     return (
       <div className="space-y-3">
@@ -1801,6 +1819,14 @@ function MenuPlanEditor({
                         ) : null}
                         <button
                           type="button"
+                          onClick={() => duplicateItem(sectionIndex, itemIndex)}
+                          className="text-forest/35 transition-colors hover:text-forest"
+                          aria-label="Duplicar prato"
+                        >
+                          <Copy className="size-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() =>
                             patchSection(sectionIndex, {
                               items: section.items.filter((row) => row.id !== item.id),
@@ -1818,6 +1844,15 @@ function MenuPlanEditor({
               </tbody>
             </table>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 h-9 px-4"
+            onClick={() => addItem(sectionIndex)}
+          >
+            <Plus data-icon="inline-start" />
+            Adicionar prato
+          </Button>
         </div>
       ))}
       <Button type="button" variant="outline" className="h-9 px-4" onClick={addSection}>

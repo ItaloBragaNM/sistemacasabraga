@@ -280,8 +280,19 @@ export function EstoqueMateriais() {
                         )}
                       >
                         <td className="py-3 pl-5">
-                          <p className="text-forest">{material.name}</p>
-                          <p className="text-xs font-light text-forest/40">{material.category}</p>
+                          <div className="flex items-center gap-3">
+                            {material.photoDataUrl ? (
+                              <img
+                                src={material.photoDataUrl}
+                                alt=""
+                                className="size-10 shrink-0 rounded-md object-cover"
+                              />
+                            ) : null}
+                            <div>
+                              <p className="text-forest">{material.name}</p>
+                              <p className="text-xs font-light text-forest/40">{material.category}</p>
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 text-center">
                           <span className={cn("tabular-nums", low ? "text-terracotta" : "text-forest")}>
@@ -435,17 +446,26 @@ function MaterialStockPanel({
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-forest/10 bg-forest/[0.02] px-4 py-3">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <p className="field-label">Quantidade total</p>
-            <p className="mt-1 text-xs font-light text-forest/50">
-              {MATERIAL_KIND_LABELS[material.kind]}
-              {lastCount ? ` · última contagem ${formatShortDate(lastCount)}` : " · ainda sem inventário"}
-            </p>
+        <div className="flex items-start gap-3">
+          {material.photoDataUrl ? (
+            <img
+              src={material.photoDataUrl}
+              alt=""
+              className="size-16 shrink-0 rounded-md object-cover"
+            />
+          ) : null}
+          <div className="flex min-w-0 flex-1 items-baseline justify-between">
+            <div>
+              <p className="field-label">Quantidade total</p>
+              <p className="mt-1 text-xs font-light text-forest/50">
+                {MATERIAL_KIND_LABELS[material.kind]}
+                {lastCount ? ` · última contagem ${formatShortDate(lastCount)}` : " · ainda sem inventário"}
+              </p>
+            </div>
+            <span className="text-[15px] font-semibold text-forest">
+              {formatInt(total)} <span className="text-base text-forest/50">{material.unit}</span>
+            </span>
           </div>
-          <span className="text-[15px] font-semibold text-forest">
-            {formatInt(total)} <span className="text-base text-forest/50">{material.unit}</span>
-          </span>
         </div>
         {variants.length > 0 ? (
           <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">

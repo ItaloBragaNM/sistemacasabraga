@@ -85,7 +85,7 @@ export function FichaSection({
 }
 
 export const fieldControlClass =
-  "h-10 w-full rounded-md border border-forest/15 bg-white px-3 text-sm text-forest outline-none transition-colors placeholder:text-forest/35 focus-visible:border-forest focus-visible:ring-2 focus-visible:ring-forest/15";
+  "h-10 w-full rounded-md border border-forest/15 bg-white px-3 font-sans text-sm text-forest outline-none transition-colors placeholder:text-forest/35 focus-visible:border-forest focus-visible:ring-2 focus-visible:ring-forest/15";
 
 export const fieldControlCompactClass =
-  "h-8 w-full rounded-md border border-forest/15 bg-white px-2.5 text-[13px] text-forest outline-none transition-colors placeholder:text-forest/35 focus-visible:border-forest focus-visible:ring-2 focus-visible:ring-forest/15";
+  "h-8 w-full rounded-md border border-forest/15 bg-white px-2.5 font-sans text-[13px] text-forest outline-none transition-colors placeholder:text-forest/35 focus-visible:border-forest focus-visible:ring-2 focus-visible:ring-forest/15";

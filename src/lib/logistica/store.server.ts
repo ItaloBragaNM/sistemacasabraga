@@ -2,6 +2,9 @@ import { readState, writeState } from "@/lib/store/kv.server";
 import { normalizeVariant } from "./calc";
 import {
   emptyLogisticaData,
+  isMaterialLossReason,
+  type EventMaterialControl,
+  type EventMaterialControlItem,
   type InventoryItem,
   type InventorySession,
   type InventorySkip,
@@ -78,6 +81,43 @@ function normalizeInventory(input: Partial<InventorySession> | null | undefined)
   };
 }
 
+function num(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeControlItem(input: Partial<EventMaterialControlItem> | null | undefined): EventMaterialControlItem | null {
+  if (!input?.materialId) return null;
+  return {
+    materialId: input.materialId,
+    planned: Math.max(0, num(input.planned)),
+    sent: Math.max(0, num(input.sent)),
+    returned: Math.max(0, num(input.returned)),
+    reason: isMaterialLossReason(input.reason) ? input.reason : "",
+    note: typeof input.note === "string" ? input.note : "",
+  };
+}
+
+function normalizeEventControl(input: Partial<EventMaterialControl> | null | undefined): EventMaterialControl | null {
+  if (!input?.id || !input.eventId) return null;
+  return {
+    id: input.id,
+    eventId: input.eventId,
+    eventTitle: typeof input.eventTitle === "string" ? input.eventTitle : "",
+    eventCode: typeof input.eventCode === "string" ? input.eventCode : "",
+    eventDate: typeof input.eventDate === "string" ? input.eventDate.slice(0, 10) : "",
+    status: input.status === "conferido" ? "conferido" : "rascunho",
+    items: Array.isArray(input.items)
+      ? input.items
+          .map((item) => normalizeControlItem(item))
+          .filter((item): item is EventMaterialControlItem => Boolean(item))
+      : [],
+    note: typeof input.note === "string" ? input.note : "",
+    updatedAt: input.updatedAt || new Date().toISOString(),
+    concludedAt: typeof input.concludedAt === "string" ? input.concludedAt : undefined,
+  };
+}
+
 function normalize(input: Partial<LogisticaData> | null): LogisticaData {
   const base = emptyLogisticaData();
   if (!input) return base;
@@ -93,6 +133,11 @@ function normalize(input: Partial<LogisticaData> | null): LogisticaData {
           .map((session) => normalizeInventory(session))
           .filter((session): session is InventorySession => Boolean(session))
       : base.inventories,
+    eventControls: Array.isArray(input.eventControls)
+      ? input.eventControls
+          .map((item) => normalizeEventControl(item))
+          .filter((item): item is EventMaterialControl => Boolean(item))
+      : base.eventControls,
   };
 }
 

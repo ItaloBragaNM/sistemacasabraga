@@ -449,6 +449,7 @@ function CountSheetModal({
     [materials],
   );
   const [date, setDate] = useState(todayIsoDate());
+  const [responsible, setResponsible] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(() => new Set(categories));
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(() => {
     const ids = new Set(locations.map((item) => item.id));
@@ -465,6 +466,10 @@ function CountSheetModal({
   };
 
   const generate = async () => {
+    if (!responsible.trim()) {
+      toast.error("Informe o responsável pela contagem antes de gerar o PDF.");
+      return;
+    }
     const rows = materials
       .filter((item) => selectedCategories.has(item.category))
       .filter((item) => {
@@ -500,6 +505,7 @@ function CountSheetModal({
     try {
       await downloadCountSheetPdf({
         date,
+        responsible: responsible.trim(),
         rows,
         filters: `Inclui ${catLabel} · ${locLabel}`,
       });
@@ -523,6 +529,15 @@ function CountSheetModal({
             className={fieldControlClass}
             value={date}
             onChange={(event) => setDate(event.target.value)}
+          />
+        </Field>
+        <Field label="Responsável pela contagem">
+          <input
+            className={fieldControlClass}
+            value={responsible}
+            onChange={(event) => setResponsible(event.target.value)}
+            placeholder="Nome de quem vai contar"
+            autoComplete="name"
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">

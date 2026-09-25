@@ -49,6 +49,10 @@ export const APP_MODULES: AppModule[] = [
         href: "/logistica/alocacao-materiais",
         label: "Controle de Alocação de Materiais",
       },
+      {
+        href: "/logistica/controle-materiais",
+        label: "Controle de Materiais em Eventos",
+      },
       { href: "/logistica/inventario-materiais", label: "Inventário de Materiais" },
       { href: "/logistica/planejamento-compras", label: "Planejamento de Compras" },
     ],
@@ -66,6 +70,7 @@ export const APP_MODULES: AppModule[] = [
     label: "Financeiro",
     ready: true,
     pages: [
+      { href: "/financeiro/contas-a-receber", label: "Contas a Receber" },
       {
         href: "/financeiro/pagamento-mao-de-obra",
         label: "Pagamento de Mão de Obra Externa",

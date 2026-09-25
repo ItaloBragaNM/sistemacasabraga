@@ -9,7 +9,6 @@ import { formatLongDate, formatWeekday } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
   alcoholSummary,
-  DRINK_ITEMS,
   eventMenuSections,
   eventStaffLines,
   formatUniformSizeLine,
@@ -20,7 +19,6 @@ import {
 } from "@/lib/types";
 
 export function KitchenSheet({ event }: { event: EventRecord }) {
-  const drinks = DRINK_ITEMS.filter((item) => event.drinks[item.key].trim());
   const staff = eventStaffLines(event);
   const uniforms = uniformPiecesForReport(event.uniforms);
 
@@ -125,27 +123,6 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
             </section>
           );
         })}
-
-        {(drinks.length > 0 || event.drinksNotes) && (
-          <section className="mt-6">
-            <h2 className="mb-2 border-b border-forest/15 pb-1 text-[13px] font-semibold">
-              Bebidas
-            </h2>
-            {drinks.length > 0 ? (
-              <ul className="grid grid-cols-2 gap-x-6 text-sm sm:grid-cols-3">
-                {drinks.map((item) => (
-                  <li key={item.key} className="flex justify-between border-b border-forest/8 py-2">
-                    <span>{item.label}</span>
-                    <span className="text-forest/60">{event.drinks[item.key]}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {event.drinksNotes ? (
-              <p className="mt-2 text-sm leading-6">{event.drinksNotes}</p>
-            ) : null}
-          </section>
-        )}
 
         {staff.length > 0 && (
           <section className="mt-6">

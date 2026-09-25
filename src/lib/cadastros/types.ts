@@ -72,6 +72,8 @@ export interface MaterialRecord {
   factors: ProportionFactor[];
   /** Local do estoque da casa (cadastro em Configurações do Módulo de Cadastros). */
   locationId?: string;
+  /** Miniatura JPEG em data URL (cadastro operacional). */
+  photoDataUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

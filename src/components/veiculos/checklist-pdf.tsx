@@ -4,7 +4,10 @@ import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer
 import { downloadBlob, slugify } from "@/lib/download";
 import { formatLongDate } from "@/lib/dates";
 import { VEHICLE_KIND_LABELS, VEHICLE_USAGE_CATEGORY_LABELS, type VeiculoRecord } from "@/lib/cadastros/types";
+import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
 import type { EventRecord } from "@/lib/types";
+
+registerPdfFonts();
 
 const colors = {
   forest: "#1E443E",
@@ -33,12 +36,12 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     paddingBottom: 40,
     paddingHorizontal: 32,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT,
     color: colors.forest,
   },
   header: { backgroundColor: colors.petrol, color: colors.cream, padding: 16, marginBottom: 14 },
   brand: { fontSize: 9, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 },
-  title: { fontSize: 18, fontFamily: "Times-Bold" },
+  title: { fontSize: 18, fontFamily: PDF_FONT, fontWeight: 700 },
   subtitle: { fontSize: 10, marginTop: 4, color: colors.cream },
   hint: { fontSize: 9, color: colors.muted, marginBottom: 12 },
   grid: { flexDirection: "row", gap: 10, marginBottom: 12 },

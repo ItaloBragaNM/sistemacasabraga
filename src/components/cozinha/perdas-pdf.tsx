@@ -4,6 +4,9 @@ import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer
 import { formatLongDate } from "@/lib/dates";
 import { downloadBlob } from "@/lib/download";
 import { LOSS_REASONS } from "@/lib/cozinha/types";
+import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
+
+registerPdfFonts();
 
 const colors = {
   forest: "#1E443E",
@@ -19,12 +22,12 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 32,
     paddingHorizontal: 28,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT,
     color: colors.forest,
   },
   header: { backgroundColor: colors.petrol, color: colors.cream, padding: 14, marginBottom: 12 },
   brand: { fontSize: 8, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 },
-  title: { fontSize: 18, fontFamily: "Times-Bold" },
+  title: { fontSize: 18, fontFamily: PDF_FONT, fontWeight: 700 },
   subtitle: { fontSize: 9, marginTop: 3, color: colors.cream },
   meta: { flexDirection: "row", gap: 10, marginBottom: 10 },
   metaBox: {

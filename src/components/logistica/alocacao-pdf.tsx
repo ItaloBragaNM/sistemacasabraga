@@ -4,6 +4,9 @@ import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer
 import { formatInt } from "@/lib/crm/format";
 import { formatShortDate } from "@/lib/dates";
 import type { MaterialWeekRow, OccupyingEvent } from "@/lib/logistica/alocacao";
+import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
+
+registerPdfFonts();
 
 const colors = {
   forest: "#1E443E",
@@ -20,12 +23,12 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     paddingBottom: 36,
     paddingHorizontal: 32,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT,
     color: colors.forest,
   },
   header: { backgroundColor: colors.petrol, color: colors.cream, padding: 16, marginBottom: 14 },
   brand: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 },
-  title: { fontSize: 20, fontFamily: "Times-Bold" },
+  title: { fontSize: 20, fontFamily: PDF_FONT, fontWeight: 700 },
   subtitle: { fontSize: 10, marginTop: 4, color: colors.cream },
   summary: { fontSize: 10, marginBottom: 12, color: colors.muted },
   empty: { fontSize: 11, color: colors.muted, marginTop: 8 },
@@ -35,7 +38,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginTop: 12,
     marginBottom: 6,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT, fontWeight: 700,
   },
   row: {
     flexDirection: "row",
@@ -47,7 +50,7 @@ const styles = StyleSheet.create({
   name: { flex: 3, fontSize: 10 },
   num: { width: 52, fontSize: 10, textAlign: "right" },
   meta: { flex: 2.4, fontSize: 8, color: colors.muted, paddingLeft: 8 },
-  shortage: { width: 52, fontSize: 10, textAlign: "right", color: colors.terracotta, fontFamily: "Helvetica-Bold" },
+  shortage: { width: 52, fontSize: 10, textAlign: "right", color: colors.terracotta, fontFamily: PDF_FONT, fontWeight: 700 },
   eventTitle: { flex: 3, fontSize: 10 },
   eventMeta: { flex: 2, fontSize: 8, color: colors.muted },
   footer: {
@@ -94,11 +97,11 @@ function RuptureDocument({
         ) : (
           <>
             <View style={styles.row}>
-              <Text style={[styles.name, { fontFamily: "Helvetica-Bold", fontSize: 8 }]}>MATERIAL</Text>
-              <Text style={[styles.num, { fontFamily: "Helvetica-Bold", fontSize: 8 }]}>ESTOQUE</Text>
-              <Text style={[styles.num, { fontFamily: "Helvetica-Bold", fontSize: 8 }]}>PICO</Text>
+              <Text style={[styles.name, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>MATERIAL</Text>
+              <Text style={[styles.num, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>ESTOQUE</Text>
+              <Text style={[styles.num, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>PICO</Text>
               <Text style={[styles.shortage, { fontSize: 8 }]}>FALTA</Text>
-              <Text style={[styles.meta, { fontFamily: "Helvetica-Bold" }]}>DIAS EM RUPTURA</Text>
+              <Text style={[styles.meta, { fontFamily: PDF_FONT, fontWeight: 700 }]}>DIAS EM RUPTURA</Text>
             </View>
             {ruptures.map((row) => {
               const ruptureDays = row.days
