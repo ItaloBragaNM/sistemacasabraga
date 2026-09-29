@@ -11,6 +11,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
+import { assertSaved, saveErrorMessage } from "@/lib/http";
 import {
   createEvent,
   deleteEvent,
@@ -60,10 +61,10 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: eventsRef.current }),
         });
-        if (!res.ok) throw new Error("save");
+        assertSaved(res);
       })
-      .catch(() => {
-        toast.error("Não foi possível salvar o evento. Verifique a conexão.");
+      .catch((error) => {
+        toast.error(saveErrorMessage(error, "Não foi possível salvar o evento. Verifique a conexão."));
       });
   }, []);
 

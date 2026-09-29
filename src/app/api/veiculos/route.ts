@@ -38,6 +38,7 @@ export async function PUT(request: Request) {
         diffRecords(previous.usages, data.usages, (item) => `${item.eventId} · ${item.vehicleId}`),
         "veiculos",
         "uso de veículo",
+        "Veículos · Agenda de Uso dos Veículos",
       ),
     );
     return NextResponse.json({ data });

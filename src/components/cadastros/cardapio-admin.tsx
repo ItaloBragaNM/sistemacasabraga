@@ -13,8 +13,11 @@ import {
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, Chip, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { compareSort, SortButton, useColumnSort } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
+import { StatusPill } from "@/components/ui/status-pill";
 import type { DishRecord, InsumoRecord, MaterialRecord } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
@@ -24,6 +27,8 @@ export function CardapioAdmin() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [materialsFilter, setMaterialsFilter] = useState("");
+  const [linkView, setLinkView] = useState<"both" | "insumos" | "materiais">("both");
+  const nameSort = useColumnSort<"name">("name");
   const [editing, setEditing] = useState<DishRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -56,10 +61,10 @@ export function CardapioAdmin() {
         category,
         dishes: dishes
           .filter((dish) => dish.category === category)
-          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+          .sort((a, b) => compareSort(a.name, b.name, nameSort.dir)),
       }))
       .filter((group) => group.dishes.length > 0);
-  }, [data, search, categoryFilter, materialsFilter]);
+  }, [data, search, categoryFilter, materialsFilter, nameSort.dir]);
 
   const startNew = () => {
     setEditing(null);
@@ -88,13 +93,13 @@ export function CardapioAdmin() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <PageShell>
       <CadastrosHeader
         title="Cardápio"
         action={
-          <div className="flex flex-nowrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ImportExport entity="dishes" />
-            <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
+            <Button className="h-10 px-5" onClick={startNew}>
               <Plus data-icon="inline-start" />
               Novo prato
             </Button>
@@ -108,45 +113,45 @@ export function CardapioAdmin() {
         <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <CatalogFilters
-                search={search}
-                onSearch={setSearch}
-                searchPlaceholder="Buscar prato…"
-                facets={[
-                  {
-                    id: "category",
-                    label: "Categoria",
-                    value: categoryFilter,
-                    onChange: setCategoryFilter,
-                    options: data.dishCategories.map((category) => ({
-                      value: category,
-                      label: category,
-                    })),
-                  },
-                  {
-                    id: "materials",
-                    label: "Materiais",
-                    value: materialsFilter,
-                    onChange: setMaterialsFilter,
-                    options: [{ value: "none", label: "Sem materiais vinculados" }],
-                  },
-                ]}
-              />
-            </div>
-            {groups.length > 0 ? (
-              <label className="flex items-center gap-2 text-sm font-light text-forest/60">
-                <ItemCheckbox
-                  label="Selecionar todos"
-                  checked={selection.allVisibleSelected}
-                  indeterminate={selection.someVisibleSelected}
-                  onChange={selection.toggleAllVisible}
-                />
-                Selecionar todos
-              </label>
-            ) : null}
-          </div>
+          <CatalogFilters
+            search={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar prato…"
+            facets={[
+              {
+                id: "category",
+                label: "Categoria",
+                value: categoryFilter,
+                onChange: setCategoryFilter,
+                options: data.dishCategories.map((category) => ({
+                  value: category,
+                  label: category,
+                })),
+              },
+              {
+                id: "materials",
+                label: "Materiais",
+                value: materialsFilter,
+                onChange: setMaterialsFilter,
+                options: [{ value: "none", label: "Sem materiais vinculados" }],
+              },
+            ]}
+            extra={
+              <select
+                aria-label="O que mostrar nos pratos"
+                className={cn(fieldControlClass, "h-10 w-auto min-w-[12rem] shrink-0")}
+                value={linkView}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setLinkView(value === "insumos" || value === "materiais" ? value : "both");
+                }}
+              >
+                <option value="both">Insumos e materiais</option>
+                <option value="insumos">Apenas insumos</option>
+                <option value="materiais">Apenas materiais</option>
+              </select>
+            }
+          />
           <BulkBar
             count={selection.selectedVisible.length}
             noun="prato"
@@ -160,7 +165,7 @@ export function CardapioAdmin() {
               title="Nenhum prato"
               description="Cadastre os pratos do buffet e vincule os materiais usados no serviço."
               action={
-                <Button className="bg-forest text-cream hover:bg-petrol" onClick={startNew}>
+                <Button className="h-10" onClick={startNew}>
                   <Plus data-icon="inline-start" />
                   Novo prato
                 </Button>
@@ -168,16 +173,26 @@ export function CardapioAdmin() {
             />
           ) : (
             <div className="space-y-6">
+              <div className="surface-card flex items-center justify-between gap-3 px-4 py-3">
+                <label className="flex items-center gap-2 text-sm text-forest/70">
+                  <ItemCheckbox
+                    label="Selecionar todos"
+                    checked={selection.allVisibleSelected}
+                    indeterminate={selection.someVisibleSelected}
+                    onChange={selection.toggleAllVisible}
+                  />
+                  Selecionar todos
+                </label>
+                <SortButton label="Prato" dir={nameSort.dir} onClick={() => nameSort.toggle("name")} />
+              </div>
               {groups.map((group) => (
                 <div key={group.category}>
-                  <h2 className="mb-3 text-[13px] font-semibold text-forest/70">
-                    {group.category}
-                  </h2>
+                  <h2 className="group-title mb-3">{group.category}</h2>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {group.dishes.map((dish) => (
                       <div
                         key={dish.id}
-                        className="flex items-start justify-between gap-3 rounded-xl border border-forest/10 bg-white p-4"
+                        className="surface-card flex items-start justify-between gap-3 p-4"
                       >
                         <div className="flex min-w-0 items-start gap-3">
                           <ItemCheckbox
@@ -188,57 +203,53 @@ export function CardapioAdmin() {
                           <div className="min-w-0">
                             <p className="font-medium text-forest">{dish.name}</p>
                             <div className="mt-3 space-y-2">
-                              <div>
-                                <p className="field-label">Materiais</p>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {dish.materialIds.length > 0 ? (
-                                    dish.materialIds
-                                      .map((id) => materialName.get(id))
-                                      .filter(Boolean)
-                                      .map((name) => (
-                                        <Chip key={name} size="sm" className="bg-forest/8 text-forest/75">
-                                          {name}
-                                        </Chip>
-                                      ))
-                                  ) : (
-                                    <Chip size="sm" className="bg-terracotta/10 text-terracotta">
-                                      Sem materiais
-                                    </Chip>
-                                  )}
+                              {linkView !== "insumos" ? (
+                                <div>
+                                  <p className="field-label">Materiais</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {dish.materialIds.length > 0 ? (
+                                      dish.materialIds
+                                        .map((id) => materialName.get(id))
+                                        .filter(Boolean)
+                                        .map((name) => (
+                                          <Chip key={name} size="sm" className="bg-forest/8 text-forest/75">
+                                            {name}
+                                          </Chip>
+                                        ))
+                                    ) : (
+                                      <Chip size="sm" className="bg-danger/10 text-danger">
+                                        Sem materiais
+                                      </Chip>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div>
-                                <p className="field-label">Insumos</p>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {(dish.insumoIds ?? []).length > 0 ? (
-                                    (dish.insumoIds ?? [])
-                                      .map((id) => insumoName.get(id))
-                                      .filter(Boolean)
-                                      .map((name) => (
-                                        <Chip key={name} size="sm" className="bg-cream text-forest/75">
-                                          {name}
-                                        </Chip>
-                                      ))
-                                  ) : (
-                                    <Chip size="sm" className="bg-forest/8 text-forest/55">
-                                      Sem insumos
-                                    </Chip>
-                                  )}
+                              ) : null}
+                              {linkView !== "materiais" ? (
+                                <div>
+                                  <p className="field-label">Insumos</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {(dish.insumoIds ?? []).length > 0 ? (
+                                      (dish.insumoIds ?? [])
+                                        .map((id) => insumoName.get(id))
+                                        .filter(Boolean)
+                                        .map((name) => (
+                                          <Chip key={name} size="sm" className="bg-cream text-forest/75">
+                                            {name}
+                                          </Chip>
+                                        ))
+                                    ) : (
+                                      <Chip size="sm" className="bg-forest/8 text-forest/55">
+                                        Sem insumos
+                                      </Chip>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
+                              ) : null}
                             </div>
                             {dish.hasRechaud || dish.hasFritadeira ? (
-                              <p className="mt-1.5 flex flex-wrap gap-1">
-                                {dish.hasRechaud ? (
-                                  <Chip size="sm" className="bg-amber-100 text-amber-800">
-                                    rechaud
-                                  </Chip>
-                                ) : null}
-                                {dish.hasFritadeira ? (
-                                  <Chip size="sm" className="bg-sky-100 text-sky-800">
-                                    fritadeira
-                                  </Chip>
-                                ) : null}
+                              <p className="mt-2 flex flex-wrap gap-1">
+                                {dish.hasRechaud ? <StatusPill tone="info">rechaud</StatusPill> : null}
+                                {dish.hasFritadeira ? <StatusPill tone="info">fritadeira</StatusPill> : null}
                               </p>
                             ) : null}
                           </div>
@@ -281,7 +292,7 @@ export function CardapioAdmin() {
           />
         </Modal>
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 
@@ -415,7 +426,7 @@ function DishForm({
           Possui fritadeira
         </label>
       </div>
-      <p className="text-xs font-light text-forest/50">
+      <p className="meta-text">
         As bases de cálculo Rechauds e Fritadeiras contam quantos pratos do evento estão marcados
         aqui.
       </p>
@@ -423,12 +434,12 @@ function DishForm({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <p className="field-label">Materiais vinculados</p>
-          <span className="text-xs font-light text-forest/45">
+          <span className="meta-text">
             {materialIds.length} selecionado(s)
           </span>
         </div>
         {materialIds.length === 0 ? (
-          <p className="mb-2 rounded-lg bg-terracotta/10 px-3 py-2 text-xs text-terracotta">
+          <p className="mb-2 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
             Este prato não possui materiais vinculados.
           </p>
         ) : null}
@@ -440,11 +451,11 @@ function DishForm({
           />
         </div>
         {materials.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+          <p className="meta-text rounded-lg border border-dashed border-forest/20 p-4">
             Cadastre materiais primeiro para vinculá-los aos pratos.
           </p>
         ) : (
-          <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-forest/10 p-2">
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
             {filteredMaterials.map((material) => {
               const checked = materialIds.includes(material.id);
               return (
@@ -464,7 +475,7 @@ function DishForm({
                     />
                     <span className="text-forest">{material.name}</span>
                   </span>
-                  <span className="text-xs font-light text-forest/45">{material.category}</span>
+                  <span className="meta-text">{material.category}</span>
                 </label>
               );
             })}
@@ -475,16 +486,16 @@ function DishForm({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <p className="field-label">Insumos vinculados</p>
-          <span className="text-xs font-light text-forest/45">
+          <span className="meta-text">
             {insumoIds.length} selecionado(s)
           </span>
         </div>
-        <p className="mb-2 text-xs font-light text-forest/50">
+        <p className="meta-text mb-2">
           Usados na separação de insumos quando a lista é gerada pelo cadastro do prato (sem
           quantidade calculada).
         </p>
         {insumoIds.length === 0 ? (
-          <p className="mb-2 rounded-lg bg-forest/8 px-3 py-2 text-xs text-forest/60">
+          <p className="mb-2 rounded-md bg-forest/[0.06] px-3 py-2 text-[13px] text-forest/70">
             Este prato não possui insumos vinculados.
           </p>
         ) : null}
@@ -496,11 +507,11 @@ function DishForm({
           />
         </div>
         {insumos.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+          <p className="meta-text rounded-lg border border-dashed border-forest/20 p-4">
             Cadastre insumos primeiro para vinculá-los aos pratos.
           </p>
         ) : (
-          <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-forest/10 p-2">
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
             {filteredInsumos.map((insumo) => {
               const checked = insumoIds.includes(insumo.id);
               return (
@@ -520,7 +531,7 @@ function DishForm({
                     />
                     <span className="text-forest">{insumo.name}</span>
                   </span>
-                  <span className="text-xs font-light text-forest/45">
+                  <span className="meta-text">
                     {insumo.category}
                     {insumo.unit ? ` · ${insumo.unit}` : ""}
                   </span>
@@ -531,11 +542,11 @@ function DishForm({
         )}
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={submit}>
+        <Button className="h-10 px-5" onClick={submit}>
           {initial ? "Salvar alterações" : "Cadastrar prato"}
         </Button>
       </div>

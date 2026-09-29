@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       {
         module: "configuracoes",
         entity: "usuário",
+        page: "Configurações · Cadastro de Usuários",
         action: "criar",
         summary: `Criou usuário ${user.name} (${user.username})`,
       },

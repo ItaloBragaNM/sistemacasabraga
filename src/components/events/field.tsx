@@ -31,7 +31,7 @@ export function SectionTitle({
   hint?: string;
 }) {
   return (
-    <div className="mb-4 flex flex-col gap-1 border-b border-forest/10 pb-3">
+    <div className="mb-4 flex flex-col gap-1 border-b border-line pb-3">
       {eyebrow && (
         <p className="text-[13px] font-medium text-forest/50">{eyebrow}</p>
       )}
@@ -48,37 +48,42 @@ export function FichaSection({
   eyebrow,
   defaultOpen = true,
   compact = false,
+  actions,
   children,
 }: {
   title: string;
   eyebrow?: string;
   defaultOpen?: boolean;
   compact?: boolean;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className={cn("rounded-2xl border border-forest/10 bg-white", compact ? "p-3 sm:p-4" : "p-5 sm:p-6")}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+    <section className={cn("surface-card", compact ? "p-4" : "p-5")}>
+      <div
         className={cn(
-          "flex w-full items-start justify-between gap-3 text-left",
-          open && (compact ? "mb-3 border-b border-forest/10 pb-2" : "mb-5 border-b border-forest/10 pb-3"),
+          "flex items-center gap-2",
+          open && (compact ? "mb-3 border-b border-line pb-2" : "mb-4 border-b border-line pb-3"),
         )}
       >
-        <div>
+        <button type="button" onClick={() => setOpen((current) => !current)} className="min-w-0 flex-1 text-left">
           {eyebrow ? <p className="text-[13px] font-medium text-forest/50">{eyebrow}</p> : null}
-          <h2 className={cn("font-semibold text-forest", compact ? "text-sm" : "text-[15px]", eyebrow && "mt-1")}>{title}</h2>
-        </div>
-        <ChevronDown
-          className={cn(
-            "mt-0.5 size-4 shrink-0 text-forest/40 transition-transform",
-            open && "rotate-180",
-          )}
-        />
-      </button>
+          <h2 className={cn("font-semibold text-forest", compact ? "text-sm" : "text-[15px]", eyebrow && "mt-1")}>
+            {title}
+          </h2>
+        </button>
+        {actions ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{actions}</div> : null}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? "Recolher seção" : "Expandir seção"}
+          onClick={() => setOpen((current) => !current)}
+          className="flex size-8 shrink-0 items-center justify-center text-forest/40"
+        >
+          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+        </button>
+      </div>
       {open ? children : null}
     </section>
   );

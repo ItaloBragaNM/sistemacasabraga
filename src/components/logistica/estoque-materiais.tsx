@@ -4,10 +4,13 @@ import { AlertTriangle, ArrowDown, ArrowUp, Download, History } from "lucide-rea
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { StatusPill } from "@/components/ui/status-pill";
 import {
   computeBalances,
   getMeta,
@@ -162,17 +165,16 @@ export function EstoqueMateriais() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <CadastrosHeader
-        eyebrow="Logística"
-        title="Estoque de Materiais"
-        action={
-          <Button variant="outline" className="h-10 px-3" onClick={handleExport} disabled={!cadastros}>
-            <Download data-icon="inline-start" />
-            Exportar
-          </Button>
-        }
-      />
+    <PageShell
+      eyebrow="Logística"
+      title="Estoque de Materiais"
+      actions={
+        <Button variant="outline" className="h-10 px-3" onClick={handleExport} disabled={!cadastros}>
+          <Download data-icon="inline-start" />
+          Exportar
+        </Button>
+      }
+    >
 
       {!ready ? (
         <LoadingBlock />
@@ -218,23 +220,23 @@ export function EstoqueMateriais() {
               ]}
             />
             {belowMin > 0 ? (
-              <span className="inline-flex max-w-full items-center gap-2 self-start rounded-md bg-terracotta/10 px-3 py-1.5 text-sm leading-snug text-terracotta">
-                <AlertTriangle className="size-4" />
+              <StatusPill tone="danger" className="gap-1.5 self-start tabular">
+                <AlertTriangle className="size-3.5" />
                 {belowMin} abaixo do mínimo
-              </span>
+              </StatusPill>
             ) : null}
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+          <Card flush>
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-forest/10">
+                <tr className="border-b border-line">
                   <SortTh
                     label="Material"
                     active={sortKey === "name"}
                     dir={sortDir}
                     onClick={() => toggleSort("name")}
-                    className="pl-5"
+                    className="pl-4 sm:pl-5"
                   />
                   <SortTh
                     label="Quantidade"
@@ -249,14 +251,14 @@ export function EstoqueMateriais() {
                     active={sortKey === "location"}
                     dir={sortDir}
                     onClick={() => toggleSort("location")}
-                    className="pr-5"
+                    className="pr-4 sm:pr-5"
                   />
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-5 py-10 text-center text-sm font-light text-forest/50">
+                    <td colSpan={3} className="meta-text px-5 py-10 text-center">
                       Nenhum material com esses filtros.
                     </td>
                   </tr>
@@ -275,39 +277,40 @@ export function EstoqueMateriais() {
                           }
                         }}
                         className={cn(
-                          "cursor-pointer border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]",
-                          low && "bg-terracotta/[0.04]",
+                          "cursor-pointer border-b border-line last:border-0 hover:bg-forest/[0.02]",
+                          low && "bg-danger/[0.04]",
                         )}
                       >
-                        <td className="py-3 pl-5">
+                        <td className="py-3 pl-4 sm:pl-5">
                           <div className="flex items-center gap-3">
                             {material.photoDataUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={material.photoDataUrl}
                                 alt=""
                                 className="size-10 shrink-0 rounded-md object-cover"
                               />
                             ) : null}
-                            <div>
+                            <div className="min-w-0">
                               <p className="text-forest">{material.name}</p>
-                              <p className="text-xs font-light text-forest/40">{material.category}</p>
+                              <p className="meta-text">{material.category}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 text-center">
-                          <span className={cn("tabular-nums", low ? "text-terracotta" : "text-forest")}>
+                        <td className="px-2 py-3 text-center whitespace-nowrap">
+                          <span className={cn("tabular", low ? "font-medium text-danger" : "text-forest")}>
                             {formatInt(balance)}
                           </span>
-                          <span className="ml-1 text-xs font-light text-forest/40">{material.unit}</span>
+                          <span className="meta-text ml-1">{material.unit}</span>
                         </td>
-                        <td className="py-3 pr-5 text-center text-forest/60">{location || "—"}</td>
+                        <td className="py-3 pr-4 text-center text-forest/60 sm:pr-5">{location || "—"}</td>
                       </tr>
                     );
                   })
                 )}
               </tbody>
             </table>
-          </div>
+          </Card>
         </>
       )}
 
@@ -351,7 +354,7 @@ export function EstoqueMateriais() {
           />
         </Modal>
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 
@@ -445,25 +448,26 @@ function MaterialStockPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-forest/10 bg-forest/[0.02] px-4 py-3">
+      <div className="surface-card px-4 py-3">
         <div className="flex items-start gap-3">
           {material.photoDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={material.photoDataUrl}
               alt=""
               className="size-16 shrink-0 rounded-md object-cover"
             />
           ) : null}
-          <div className="flex min-w-0 flex-1 items-baseline justify-between">
-            <div>
+          <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+            <div className="min-w-0">
               <p className="field-label">Quantidade total</p>
-              <p className="mt-1 text-xs font-light text-forest/50">
+              <p className="meta-text mt-1">
                 {MATERIAL_KIND_LABELS[material.kind]}
                 {lastCount ? ` · última contagem ${formatShortDate(lastCount)}` : " · ainda sem inventário"}
               </p>
             </div>
-            <span className="text-[15px] font-semibold text-forest">
-              {formatInt(total)} <span className="text-base text-forest/50">{material.unit}</span>
+            <span className="section-title shrink-0 tabular">
+              {formatInt(total)} <span className="font-normal text-forest/50">{material.unit}</span>
             </span>
           </div>
         </div>
@@ -472,10 +476,10 @@ function MaterialStockPanel({
             {variants.map((item) => (
               <li
                 key={item.variant || "__unclassified__"}
-                className="flex items-baseline justify-between rounded-lg bg-white px-3 py-1.5 text-sm"
+                className="flex items-baseline justify-between gap-3 rounded-md border border-line bg-white px-3 py-1.5 text-sm"
               >
                 <span className="text-forest/70">{item.label}</span>
-                <span className="font-medium text-forest">
+                <span className="font-medium text-forest tabular">
                   {formatInt(item.qty)} {material.unit}
                 </span>
               </li>
@@ -509,12 +513,12 @@ function MaterialStockPanel({
           <input
             type="number"
             min={0}
-            className={fieldControlClass}
+            className={cn(fieldControlClass, "text-right tabular")}
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value))}
             placeholder={type === "ajuste" ? "Novo saldo" : "Quantidade"}
           />
-          <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={registerMovement}>
+          <Button className="h-10 px-5" onClick={registerMovement}>
             Registrar
           </Button>
         </div>
@@ -526,13 +530,12 @@ function MaterialStockPanel({
         />
       </div>
 
-
       <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <Field label="Estoque mínimo">
           <input
             type="number"
             min={0}
-            className={fieldControlClass}
+            className={cn(fieldControlClass, "text-right tabular")}
             value={min}
             onChange={(e) => setMin(Number(e.target.value))}
           />
@@ -562,26 +565,26 @@ function MaterialStockPanel({
           Movimentações
         </p>
         {movements.length === 0 ? (
-          <p className="py-3 text-sm font-light text-forest/45">Nenhuma movimentação ainda.</p>
+          <p className="meta-text py-3">Nenhuma movimentação ainda.</p>
         ) : (
           <ul className="max-h-52 space-y-1 overflow-y-auto">
             {movements.map((m) => (
               <li
                 key={m.id}
-                className="flex items-center justify-between border-b border-forest/5 py-1.5 text-sm last:border-0"
+                className="flex items-center justify-between gap-3 border-b border-line py-1.5 text-sm last:border-0"
               >
-                <span className="flex items-center gap-2">
-                  <span className="text-xs text-forest/45">{formatShortDate(m.date.slice(0, 10))}</span>
+                <span className="flex min-w-0 flex-wrap items-center gap-x-2">
+                  <span className="meta-text tabular">{formatShortDate(m.date.slice(0, 10))}</span>
                   <span className="text-forest/70">{MOVEMENT_LABELS[m.type]}</span>
                   {m.variant ? (
-                    <span className="text-xs font-light text-forest/45">· {m.variant}</span>
+                    <span className="meta-text">· {m.variant}</span>
                   ) : null}
-                  {m.note ? <span className="text-xs font-light text-forest/45">· {m.note}</span> : null}
+                  {m.note ? <span className="meta-text">· {m.note}</span> : null}
                 </span>
                 <span
                   className={cn(
-                    "font-medium",
-                    m.quantity >= 0 ? "text-forest" : "text-terracotta",
+                    "shrink-0 font-medium tabular",
+                    m.quantity >= 0 ? "text-forest" : "text-forest/60",
                   )}
                 >
                   {m.quantity >= 0 ? "+" : ""}

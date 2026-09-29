@@ -14,6 +14,7 @@ export interface AuditEntry {
   userName: string;
   module: string;
   entity: string;
+  page: string;
   action: AuditAction;
   summary: string;
 }

@@ -26,6 +26,12 @@ import { formatBRL } from "@/lib/money";
 import { formatBRLCompact, formatInt, formatPercent } from "@/lib/crm/format";
 import type { CrmSnapshot } from "@/lib/crm/types";
 import { cn } from "@/lib/utils";
+import { EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { fieldControlClass } from "@/components/events/field";
+import { Button } from "@/components/ui/button";
+import { Card as UICard } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { SegmentedControl } from "@/components/ui/segmented";
 
 const D = {
   totalWon:
@@ -141,8 +147,24 @@ export function ComercialDashboard() {
     return `${format(period.start, "dd/MM/yyyy")} a ${format(period.end, "dd/MM/yyyy")}`;
   }, [mode, period]);
 
+  const openUpload = () => fileRef.current?.click();
+
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-16">
+    <PageShell
+      width="wide"
+      eyebrow="Comercial"
+      title="Dashboard Comercial"
+      description={
+        snapshot ? (
+          <>
+            Última atualização:{" "}
+            <span className="tabular">{format(new Date(snapshot.uploadedAt), "dd/MM/yyyy 'às' HH:mm")}</span> ·{" "}
+            {snapshot.fileName} · <span className="tabular">{formatInt(snapshot.rowCount)}</span> leads
+          </>
+        ) : undefined
+      }
+      actions={<UploadButton uploading={uploading} hasSnapshot={Boolean(snapshot)} onUpload={openUpload} />}
+    >
       <input
         ref={fileRef}
         type="file"
@@ -154,18 +176,16 @@ export function ComercialDashboard() {
         }}
       />
 
-      <Header
-        snapshot={snapshot}
-        uploading={uploading}
-        onUpload={() => fileRef.current?.click()}
-      />
-
       {loading ? (
-        <LoadingState />
+        <LoadingBlock label="Carregando o dashboard…" />
       ) : loadError ? (
         <ErrorState message={loadError} />
       ) : !snapshot || !data ? (
-        <EmptyState uploading={uploading} onUpload={() => fileRef.current?.click()} />
+        <EmptyBlock
+          title="Nenhuma planilha carregada"
+          description="Envie a exportação do CRM (.xlsx) para gerar o dashboard. A última versão enviada fica salva e disponível para toda a casa até a próxima atualização."
+          action={<UploadButton uploading={uploading} hasSnapshot={false} onUpload={openUpload} />}
+        />
       ) : (
         <>
           <PeriodSelector
@@ -191,43 +211,24 @@ export function ComercialDashboard() {
           <Block6 data={data} />
         </>
       )}
-    </div>
+    </PageShell>
   );
 }
 
-/* ------------------------------------------------------------------ header */
-
-function Header({
-  snapshot,
+function UploadButton({
   uploading,
+  hasSnapshot,
   onUpload,
 }: {
-  snapshot: CrmSnapshot | null;
   uploading: boolean;
+  hasSnapshot: boolean;
   onUpload: () => void;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-forest/10 pb-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p className="text-[13px] font-medium text-forest/50">Comercial</p>
-        <h1 className="page-title mt-1">Dashboard Comercial</h1>
-        {snapshot ? (
-          <p className="mt-2 text-xs text-forest/45">
-            Última atualização: {format(new Date(snapshot.uploadedAt), "dd/MM/yyyy 'às' HH:mm")} ·{" "}
-            {snapshot.fileName} · {formatInt(snapshot.rowCount)} leads
-          </p>
-        ) : null}
-      </div>
-      <button
-        type="button"
-        onClick={onUpload}
-        disabled={uploading}
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-forest px-5 text-sm font-medium text-cream transition-colors hover:bg-petrol disabled:opacity-60"
-      >
-        {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-        {uploading ? "Processando…" : snapshot ? "Atualizar planilha" : "Enviar planilha"}
-      </button>
-    </header>
+    <Button type="button" className="px-5" onClick={onUpload} disabled={uploading}>
+      {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+      {uploading ? "Processando…" : hasSnapshot ? "Atualizar planilha" : "Enviar planilha"}
+    </Button>
   );
 }
 
@@ -253,50 +254,44 @@ function PeriodSelector({
   onCustomEnd: (value: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-forest/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+    <UICard className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-lg bg-forest/5 p-1">
-          {PERIOD_TABS.map((tab) => (
-            <button
-              key={tab.mode}
-              type="button"
-              onClick={() => onMode(tab.mode)}
-              className={cn(
-                "rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors",
-                mode === tab.mode
-                  ? "bg-forest text-cream shadow-sm"
-                  : "text-forest/60 hover:text-forest",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl<PeriodMode>
+          ariaLabel="Período"
+          className="max-w-full overflow-x-auto"
+          value={mode}
+          onChange={onMode}
+          options={PERIOD_TABS.map((tab) => ({ value: tab.mode, label: tab.label }))}
+        />
         {mode === "custom" ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="date"
+              aria-label="Data inicial"
               value={customStart}
               onChange={(event) => onCustomStart(event.target.value)}
-              className="h-9 rounded-md border border-forest/15 bg-white px-2.5 text-sm text-forest outline-none focus-visible:border-forest"
+              className={cn(fieldControlClass, "tabular w-auto")}
             />
             <span className="text-forest/40">—</span>
             <input
               type="date"
+              aria-label="Data final"
               value={customEnd}
               onChange={(event) => onCustomEnd(event.target.value)}
-              className="h-9 rounded-md border border-forest/15 bg-white px-2.5 text-sm text-forest outline-none focus-visible:border-forest"
+              className={cn(fieldControlClass, "tabular w-auto")}
             />
           </div>
         ) : null}
       </div>
-      <div className="flex items-center gap-2 text-sm text-forest/70">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-forest/70">
         <CalendarDays className="size-4 text-forest/40" />
         <span className="font-medium text-forest">{label}</span>
         <span className="text-forest/40">·</span>
-        <span className="font-light">{formatInt(closedCount)} eventos decididos</span>
+        <span className="meta-text">
+          <span className="tabular">{formatInt(closedCount)}</span> eventos decididos
+        </span>
       </div>
-    </div>
+    </UICard>
   );
 }
 
@@ -314,14 +309,14 @@ function Block({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 w-4 shrink-0 text-[13px] font-semibold text-forest/40">
+        <span className="tabular mt-px w-4 shrink-0 text-[13px] font-semibold text-forest/40">
           {number}
         </span>
-        <div>
-          <h2 className="text-[15px] font-semibold text-forest">{title}</h2>
-          <p className="mt-1 max-w-3xl text-sm font-light leading-6 text-forest/55">{description}</p>
+        <div className="min-w-0">
+          <h2 className="section-title">{title}</h2>
+          <p className="meta-text mt-1 max-w-3xl">{description}</p>
         </div>
       </div>
       {children}
@@ -341,15 +336,15 @@ function Card({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-2xl border border-forest/10 bg-white p-5", className)}>
+    <UICard as="div" className={cn("min-w-0", className)}>
       {title ? (
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <h3 className="text-[13px] font-semibold text-forest/80">{title}</h3>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="section-title min-w-0">{title}</h3>
           {hint ? <InfoHint text={hint} /> : null}
         </div>
       ) : null}
       {children}
-    </div>
+    </UICard>
   );
 }
 
@@ -365,9 +360,9 @@ function MonthlyBreakdown({
   const rows = monthlySummaries(leads, period);
   const maxWon = Math.max(...rows.map((row) => row.summary.totalWon), 1);
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-      <h2 className="text-[15px] font-semibold text-forest">Indicadores mês a mês</h2>
-      <p className="mt-1 text-sm font-light text-forest/55">
+    <UICard>
+      <h2 className="section-title">Indicadores mês a mês</h2>
+      <p className="meta-text mt-1">
         O período personalizado cobre mais de um mês. Cada coluna mostra o resultado daquele mês.
       </p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -376,13 +371,13 @@ function MonthlyBreakdown({
             <p className="text-[13px] font-medium capitalize text-forest">
               {format(row.monthStart, "MMMM yyyy", { locale: ptBR })}
             </p>
-            <div className="h-16 overflow-hidden rounded-md bg-forest/8">
+            <div className="h-16 overflow-hidden rounded-md bg-forest/[0.06]">
               <div
                 className="h-full rounded-md bg-forest/75"
                 style={{ width: `${Math.max((row.summary.totalWon / maxWon) * 100, row.summary.totalWon > 0 ? 6 : 0)}%` }}
               />
             </div>
-            <dl className="space-y-0.5 text-[13px] text-forest/70">
+            <dl className="tabular space-y-0.5 text-[13px] text-forest/70">
               <div className="flex justify-between gap-2">
                 <dt>Total vendido</dt>
                 <dd className="font-medium text-forest">{formatBRLCompact(row.summary.totalWon)}</dd>
@@ -403,7 +398,7 @@ function MonthlyBreakdown({
           </div>
         ))}
       </div>
-    </section>
+    </UICard>
   );
 }
 
@@ -514,21 +509,21 @@ function Block3({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Conversão financeira (R$)" hint={D.convValue}>
           <ConversionBar wonPct={c.wonValuePct} lostPct={c.lostValuePct} />
-          <div className="mt-4 flex justify-between text-sm">
+          <div className="mt-4 flex flex-wrap justify-between gap-2 text-sm">
             <Legend color="bg-forest" label="Ganho" value={formatPercent(c.wonValuePct)} />
             <Legend color="bg-terracotta" label="Perdido" value={formatPercent(c.lostValuePct)} />
           </div>
-          <p className="mt-3 text-xs font-light text-forest/45">
+          <p className="meta-text tabular mt-3">
             Valor decidido no período: {formatBRL(c.decidedValue)}
           </p>
         </Card>
         <Card title="Conversão por quantidade" hint={D.convCount}>
           <ConversionBar wonPct={c.wonCountPct} lostPct={c.lostCountPct} />
-          <div className="mt-4 flex justify-between text-sm">
+          <div className="mt-4 flex flex-wrap justify-between gap-2 text-sm">
             <Legend color="bg-forest" label="Ganho" value={formatPercent(c.wonCountPct)} />
             <Legend color="bg-terracotta" label="Perdido" value={formatPercent(c.lostCountPct)} />
           </div>
-          <p className="mt-3 text-xs font-light text-forest/45">
+          <p className="meta-text tabular mt-3">
             Eventos decididos no período: {formatInt(c.decidedCount)}
           </p>
         </Card>
@@ -544,8 +539,8 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
   return (
     <span className="inline-flex items-center gap-2">
       <span className={cn("size-2.5 rounded-full", color)} />
-      <span className="font-light text-forest/60">{label}</span>
-      <span className="font-medium text-forest">{value}</span>
+      <span className="text-forest/60">{label}</span>
+      <span className="tabular font-medium text-forest">{value}</span>
     </span>
   );
 }
@@ -568,21 +563,21 @@ function Block4({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
     >
       <Card title="Valor perdido por motivo (e representatividade)" hint={D.lossByReason}>
         <BarList items={reasonItems} tone="terracotta" empty="Nenhuma perda no período." />
-        <p className="mt-3 text-xs font-light text-forest/45">
+        <p className="meta-text mt-3">
           Total perdido no período: {formatBRL(data.overall.totalLost)}. O percentual ao lado de
           cada motivo é a sua representatividade.
         </p>
       </Card>
       <Card title="Motivos de perda por tipo de evento" hint={D.lossByType}>
         {typesWithLoss.length === 0 ? (
-          <p className="py-4 text-sm font-light text-forest/45">Nenhuma perda no período.</p>
+          <p className="meta-text py-4">Nenhuma perda no período.</p>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {typesWithLoss.map((entry) => (
-              <div key={entry.type} className="rounded-xl border border-forest/8 bg-forest/[0.015] p-4">
-                <div className="mb-3 flex items-baseline justify-between">
-                  <h4 className="text-sm font-semibold text-forest">{entry.type}</h4>
-                  <span className="text-xs font-light text-terracotta">
+              <div key={entry.type} className="min-w-0 rounded-md border border-line bg-forest/[0.015] p-4">
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                  <h4 className="group-title">{entry.type}</h4>
+                  <span className="tabular text-xs text-danger">
                     {formatBRL(entry.totalLost)} perdidos
                   </span>
                 </div>
@@ -613,7 +608,7 @@ function Block5({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
     >
       {data.sellers.length === 0 ? (
         <Card>
-          <p className="py-4 text-sm font-light text-forest/45">
+          <p className="meta-text py-4">
             Nenhum evento decidido no período para comparar.
           </p>
         </Card>
@@ -636,7 +631,7 @@ function Block5({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
                   value={formatPercent(report.conversion.wonCountPct)}
                 />
               </div>
-              <div className="mt-3 border-t border-forest/8 pt-3">
+              <div className="mt-4 border-t border-line pt-3">
                 <p className="field-label mb-1">Conversão em R$</p>
                 <ConversionBar
                   wonPct={report.conversion.wonValuePct}
@@ -675,7 +670,7 @@ function MiniStat({
   return (
     <div>
       <p className="field-label leading-4">{label}</p>
-      <p className={cn("mt-1 text-lg font-semibold", negative ? "text-terracotta" : "text-forest")}>
+      <p className={cn("tabular mt-1 text-lg font-semibold", negative ? "text-danger" : "text-forest")}>
         {value}
       </p>
     </div>
@@ -705,9 +700,9 @@ function Block6({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
       </div>
 
       <Card title="Funil de conversão — pipeline atual" hint={D.pipeline}>
-        <p className="mb-4 text-xs font-light text-forest/50">
+        <p className="meta-text mb-4">
           Foto do momento presente, sem filtro de período. Aberto agora:{" "}
-          <span className="font-medium text-forest">
+          <span className="tabular font-medium text-forest">
             {formatInt(data.pipelineOpenTotal.count)} leads
           </span>{" "}
           · {formatBRL(data.pipelineOpenTotal.value)}
@@ -716,7 +711,7 @@ function Block6({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
           {data.pipeline.map((stage) => (
             <li
               key={stage.stage}
-              className="grid grid-cols-[1fr_auto] items-center gap-3 sm:grid-cols-[220px_1fr_auto]"
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[220px_minmax(0,1fr)_9rem]"
             >
               <span
                 className={cn(
@@ -724,28 +719,28 @@ function Block6({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
                   stage.stage === "Venda Ganha"
                     ? "font-semibold text-forest"
                     : stage.stage === "Venda Perdida"
-                      ? "font-semibold text-terracotta"
+                      ? "font-semibold text-danger"
                       : "text-forest/80",
                 )}
               >
                 {stage.stage}
               </span>
-              <div className="hidden h-2 overflow-hidden rounded-full bg-forest/8 sm:block">
+              <div className="hidden h-2 overflow-hidden rounded-full bg-forest/[0.06] sm:block">
                 <div
                   className={cn(
                     "h-full rounded-full",
                     stage.stage === "Venda Ganha"
                       ? "bg-forest"
                       : stage.stage === "Venda Perdida"
-                        ? "bg-terracotta/80"
+                        ? "bg-danger/80"
                         : "bg-petrol/60",
                   )}
                   style={{ width: `${(stage.count / maxCount) * 100}%` }}
                 />
               </div>
-              <span className="text-right text-sm text-forest">
+              <span className="tabular text-right text-sm text-forest">
                 {formatInt(stage.count)}
-                <span className="ml-2 text-xs font-light text-forest/45">
+                <span className="ml-2 text-xs text-forest/45">
                   {formatBRLCompact(stage.value)}
                 </span>
               </span>
@@ -759,40 +754,10 @@ function Block6({ data }: { data: NonNullable<ReturnType<typeof computeDashboard
 
 /* ------------------------------------------------------------ empty/load */
 
-function LoadingState() {
-  return (
-    <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-forest/50">
-      <Loader2 className="size-6 animate-spin" />
-      <p className="text-sm font-light">Carregando o dashboard…</p>
-    </div>
-  );
-}
-
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-terracotta/20 bg-terracotta/5 p-6 text-sm text-terracotta">
+    <div role="alert" className="rounded-lg border border-danger/20 bg-danger/5 p-5 text-sm text-danger">
       {message}
-    </div>
-  );
-}
-
-function EmptyState({ uploading, onUpload }: { uploading: boolean; onUpload: () => void }) {
-  return (
-    <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-lg border border-dashed border-forest/20 bg-white p-8 text-center">
-      <h2 className="text-[15px] font-semibold text-forest">Nenhuma planilha carregada</h2>
-      <p className="mt-3 max-w-md text-sm font-light leading-7 text-forest/60">
-        Envie a exportação do CRM (.xlsx) para gerar o dashboard. A última versão enviada
-        fica salva e disponível para toda a casa até a próxima atualização.
-      </p>
-      <button
-        type="button"
-        onClick={onUpload}
-        disabled={uploading}
-        className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-forest px-5 text-sm font-medium text-cream transition-colors hover:bg-petrol disabled:opacity-60"
-      >
-        {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-        {uploading ? "Processando…" : "Enviar planilha"}
-      </button>
     </div>
   );
 }

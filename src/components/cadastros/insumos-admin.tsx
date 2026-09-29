@@ -13,8 +13,11 @@ import {
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, Chip, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { SortableTh, compareSort, useColumnSort } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import type { InsumoRecord } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
@@ -25,14 +28,26 @@ export function InsumosAdmin() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [editing, setEditing] = useState<InsumoRecord | null>(null);
   const [open, setOpen] = useState(false);
+  const sort = useColumnSort<"name" | "category" | "unit" | "cost">("category");
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = search.trim().toLowerCase();
-    const list = [...data.insumos].sort(
-      (a, b) =>
-        a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
-    );
+    const list = [...data.insumos].sort((a, b) => {
+      const value = {
+        name: a.name,
+        category: a.category,
+        unit: a.unit || "",
+        cost: a.unitCost || 0,
+      }[sort.key];
+      const other = {
+        name: b.name,
+        category: b.category,
+        unit: b.unit || "",
+        cost: b.unitCost || 0,
+      }[sort.key];
+      return compareSort(value, other, sort.dir) || a.name.localeCompare(b.name, "pt-BR");
+    });
     return list.filter((item) => {
       if (categoryFilter && item.category !== categoryFilter) return false;
       if (!term) return true;
@@ -40,7 +55,7 @@ export function InsumosAdmin() {
         item.name.toLowerCase().includes(term) || item.category.toLowerCase().includes(term)
       );
     });
-  }, [data, search, categoryFilter]);
+  }, [data, search, categoryFilter, sort.key, sort.dir]);
 
   const selection = useItemSelection(filtered.map((item) => item.id));
 
@@ -64,13 +79,13 @@ export function InsumosAdmin() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <PageShell>
       <CadastrosHeader
         title="Insumos"
         action={
-          <div className="flex flex-nowrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ImportExport entity="insumos" />
-            <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
+            <Button className="h-10 px-5" onClick={startNew}>
               <Plus data-icon="inline-start" />
               Novo insumo
             </Button>
@@ -113,18 +128,18 @@ export function InsumosAdmin() {
               title="Nenhum insumo"
               description="Cadastre os insumos da cozinha ou importe de uma planilha."
               action={
-                <Button className="bg-forest text-cream hover:bg-petrol" onClick={startNew}>
+                <Button className="h-10" onClick={startNew}>
                   <Plus data-icon="inline-start" />
                   Novo insumo
                 </Button>
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-              <table className="w-full text-left text-sm">
+            <Card flush className="overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-forest/10">
-                    <th className="w-10 py-3 pl-5">
+                  <tr className="border-b border-line">
+                    <th className="w-10 py-3 pl-5 pr-3">
                       <ItemCheckbox
                         label="Selecionar todos"
                         checked={selection.allVisibleSelected}
@@ -132,37 +147,37 @@ export function InsumosAdmin() {
                         onChange={selection.toggleAllVisible}
                       />
                     </th>
-                    <th className="field-label py-3 font-normal">Insumo</th>
-                    <th className="field-label py-3 font-normal">Categoria</th>
-                    <th className="field-label py-3 text-center font-normal">Unidade</th>
-                    <th className="field-label py-3 text-center font-normal">Custo</th>
-                    <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
+                    <SortableTh label="Insumo" active={sort.key === "name"} dir={sort.dir} onClick={() => sort.toggle("name")} />
+                    <SortableTh label="Categoria" active={sort.key === "category"} dir={sort.dir} onClick={() => sort.toggle("category")} />
+                    <SortableTh label="Unidade" active={sort.key === "unit"} dir={sort.dir} onClick={() => sort.toggle("unit")} align="center" />
+                    <SortableTh label="Custo" active={sort.key === "cost"} dir={sort.dir} onClick={() => sort.toggle("cost")} align="right" />
+                    <th className="field-label py-3 pr-5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((item) => (
                     <tr
                       key={item.id}
-                      className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]"
+                      className="border-b border-line last:border-0 hover:bg-forest/[0.02]"
                     >
-                      <td className="py-3 pl-5">
+                      <td className="py-3 pl-5 pr-3">
                         <ItemCheckbox
                           label={`Selecionar ${item.name}`}
                           checked={selection.selected.has(item.id)}
                           onChange={() => selection.toggle(item.id)}
                         />
                       </td>
-                      <td className="py-3 font-medium text-forest">
+                      <td className="py-3 pr-3 font-medium text-forest">
                         {item.name}
                         {item.brand ? (
-                          <span className="block text-xs font-light text-forest/45">{item.brand}</span>
+                          <span className="meta-text block font-normal">{item.brand}</span>
                         ) : null}
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 pr-3">
                         <Chip className="bg-forest/6 text-forest/70">{item.category}</Chip>
                       </td>
-                      <td className="py-3 text-center text-forest/70">{item.unit || "—"}</td>
-                      <td className="py-3 text-center text-forest/70">
+                      <td className="py-3 pr-3 text-center text-forest/70">{item.unit || "—"}</td>
+                      <td className="py-3 pr-3 text-right text-forest/70 tabular">
                         {item.unitCost ? item.unitCost.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
                       </td>
                       <td className="py-3 pr-5">
@@ -185,7 +200,7 @@ export function InsumosAdmin() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Card>
           )}
         </>
       )}
@@ -205,7 +220,7 @@ export function InsumosAdmin() {
           />
         </Modal>
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 
@@ -303,11 +318,11 @@ function InsumoForm({
           onChange={(e) => setNotes(e.target.value)}
         />
       </Field>
-      <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={submit}>
+        <Button className="h-10 px-5" onClick={submit}>
           {initial ? "Salvar alterações" : "Cadastrar insumo"}
         </Button>
       </div>

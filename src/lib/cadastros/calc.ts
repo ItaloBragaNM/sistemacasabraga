@@ -173,6 +173,23 @@ export function materialOccurrences(
   return counts;
 }
 
+export function materialDishNames(
+  cadastros: CadastrosData,
+  selectedDishIds: string[],
+): Map<string, string[]> {
+  const selected = new Set(selectedDishIds);
+  const names = new Map<string, string[]>();
+  for (const dish of cadastros.dishes) {
+    if (!selected.has(dish.id)) continue;
+    for (const materialId of dish.materialIds) {
+      const list = names.get(materialId) ?? [];
+      list.push(dish.name);
+      names.set(materialId, list);
+    }
+  }
+  return names;
+}
+
 export type QuantityFactorStep = {
   baseLabel: string;
   source: string;
@@ -199,6 +216,7 @@ export interface SeparationComputedItem {
   explanation: QuantityExplanation;
   /** Included from the catalog without being linked to a dish. */
   manual?: boolean;
+  dishNames: string[];
 }
 
 /**
@@ -212,6 +230,7 @@ export function computeSeparationItems(
   extraMaterialIds: string[] = [],
 ): SeparationComputedItem[] {
   const occurrences = materialOccurrences(cadastros, ctx.selectedDishIds);
+  const dishNames = materialDishNames(cadastros, ctx.selectedDishIds);
   const extra = new Set(extraMaterialIds);
   const bases = basesMap(cadastros);
   const items: SeparationComputedItem[] = [];
@@ -231,6 +250,7 @@ export function computeSeparationItems(
       computedQty: materialQuantity(material, bases, ctx, occurrence),
       explanation: explainMaterialQuantity(material, bases, ctx, occurrence),
       manual,
+      dishNames: dishNames.get(material.id) ?? [],
     });
   }
 

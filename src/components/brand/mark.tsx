@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export function CasaBragaMark({
   compact = false,
   onLight = false,
@@ -6,12 +8,13 @@ export function CasaBragaMark({
   onLight?: boolean;
 }) {
   return (
-    <p
-      className={`font-semibold tracking-tight ${
-        compact ? "text-[18px] leading-none" : "text-[22px] leading-none"
-      } ${onLight ? "text-forest" : "text-cream"}`}
-    >
-      Casa Braga
-    </p>
+    <Image
+      src={onLight ? "/brand/zoraide-braga-forest.png" : "/brand/zoraide-braga.png"}
+      alt="Zoraide Braga"
+      width={666}
+      height={182}
+      priority
+      className={compact ? "h-auto w-36" : "h-auto w-[11rem]"}
+    />
   );
 }

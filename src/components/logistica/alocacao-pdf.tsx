@@ -1,71 +1,34 @@
 "use client";
 
-import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
+import { Document, Page, Text, View, pdf } from "@react-pdf/renderer";
 import { formatInt } from "@/lib/crm/format";
 import { formatShortDate } from "@/lib/dates";
+import { downloadBlob } from "@/lib/download";
 import type { MaterialWeekRow, OccupyingEvent } from "@/lib/logistica/alocacao";
-import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
+import {
+  PDF,
+  PdfFooter,
+  PdfHeader,
+  PdfTableHead,
+  columnStyle,
+  pdfStyles,
+  type PdfColumn,
+} from "@/lib/pdf/header";
 
-registerPdfFonts();
+const RUPTURE_COLUMNS: PdfColumn[] = [
+  { label: "Material", flex: 2.6 },
+  { label: "Estoque", width: 42, align: "right" },
+  { label: "Pico", width: 36, align: "right" },
+  { label: "Falta", width: 36, align: "right" },
+  { label: "Dias em ruptura (demanda / estoque)", flex: 3 },
+];
 
-const colors = {
-  forest: "#1E443E",
-  petrol: "#003F3C",
-  cream: "#FFFBFA",
-  terracotta: "#E13F3A",
-  muted: "#5D6F6C",
-  line: "#C9D5D1",
-};
+const EVENT_COLUMNS: PdfColumn[] = [
+  { label: "Evento", flex: 3 },
+  { label: "Entrega → recolhimento", flex: 2 },
+];
 
-const styles = StyleSheet.create({
-  page: {
-    backgroundColor: colors.cream,
-    paddingTop: 28,
-    paddingBottom: 36,
-    paddingHorizontal: 32,
-    fontFamily: PDF_FONT,
-    color: colors.forest,
-  },
-  header: { backgroundColor: colors.petrol, color: colors.cream, padding: 16, marginBottom: 14 },
-  brand: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 },
-  title: { fontSize: 20, fontFamily: PDF_FONT, fontWeight: 700 },
-  subtitle: { fontSize: 10, marginTop: 4, color: colors.cream },
-  summary: { fontSize: 10, marginBottom: 12, color: colors.muted },
-  empty: { fontSize: 11, color: colors.muted, marginTop: 8 },
-  sectionTitle: {
-    fontSize: 9,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    marginTop: 12,
-    marginBottom: 6,
-    fontFamily: PDF_FONT, fontWeight: 700,
-  },
-  row: {
-    flexDirection: "row",
-    borderBottomWidth: 0.6,
-    borderBottomColor: colors.line,
-    paddingVertical: 7,
-    alignItems: "flex-start",
-  },
-  name: { flex: 3, fontSize: 10 },
-  num: { width: 52, fontSize: 10, textAlign: "right" },
-  meta: { flex: 2.4, fontSize: 8, color: colors.muted, paddingLeft: 8 },
-  shortage: { width: 52, fontSize: 10, textAlign: "right", color: colors.terracotta, fontFamily: PDF_FONT, fontWeight: 700 },
-  eventTitle: { flex: 3, fontSize: 10 },
-  eventMeta: { flex: 2, fontSize: 8, color: colors.muted },
-  footer: {
-    position: "absolute",
-    bottom: 16,
-    left: 32,
-    right: 32,
-    fontSize: 8,
-    color: colors.muted,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-});
-
-function RuptureDocument({
+export function RuptureDocument({
   weekLabel,
   days,
   ruptures,
@@ -77,84 +40,74 @@ function RuptureDocument({
   events: OccupyingEvent[];
 }) {
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.brand}>Casa Braga · Logística</Text>
-          <Text style={styles.title}>Rupturas da semana</Text>
-          <Text style={styles.subtitle}>
-            {weekLabel} · material locado da entrega ao recolhimento
-          </Text>
-        </View>
-        <Text style={styles.summary}>
-          {ruptures.length === 0
-            ? "Nenhuma ruptura nesta semana: o estoque cobre o pico de eventos simultâneos."
-            : `${ruptures.length} material(is) com demanda maior que o estoque em pelo menos um dia.`}
-        </Text>
+    <Document title={`Rupturas · ${weekLabel}`}>
+      <Page size="A4" style={pdfStyles.page}>
+        <PdfHeader
+          title="Rupturas da semana"
+          meta={`${weekLabel} · material locado da entrega ao recolhimento`}
+          right={`${ruptures.length} ruptura(s) · ${events.length} evento(s)`}
+        />
 
+        <Text style={pdfStyles.sectionTitle}>Eventos na janela</Text>
+        {events.length === 0 ? (
+          <Text style={pdfStyles.hint}>Nenhum evento com material alocado nesta semana.</Text>
+        ) : (
+          <View>
+            <PdfTableHead columns={EVENT_COLUMNS} fixed={false} />
+            {events.map((event) => (
+              <View key={event.id} style={pdfStyles.row} wrap={false}>
+                <Text style={[pdfStyles.cell, columnStyle(EVENT_COLUMNS[0])]}>
+                  {event.title}
+                  {event.code ? <Text style={pdfStyles.cellMuted}> · {event.code}</Text> : null}
+                </Text>
+                <Text style={[pdfStyles.cellMuted, columnStyle(EVENT_COLUMNS[1])]}>
+                  {formatShortDate(event.start)} → {formatShortDate(event.end)}
+                  {event.assumedDelivery || event.assumedPickup ? " · data assumida" : ""}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Text style={pdfStyles.sectionTitle} minPresenceAhead={30}>
+          Materiais em ruptura
+        </Text>
         {ruptures.length === 0 ? (
-          <Text style={styles.empty}>Estoque suficiente para os eventos alocados nesta semana.</Text>
+          <Text style={pdfStyles.hint}>O estoque cobre o pico de eventos simultâneos desta semana.</Text>
         ) : (
           <>
-            <View style={styles.row}>
-              <Text style={[styles.name, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>MATERIAL</Text>
-              <Text style={[styles.num, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>ESTOQUE</Text>
-              <Text style={[styles.num, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>PICO</Text>
-              <Text style={[styles.shortage, { fontSize: 8 }]}>FALTA</Text>
-              <Text style={[styles.meta, { fontFamily: PDF_FONT, fontWeight: 700 }]}>DIAS EM RUPTURA</Text>
-            </View>
+            <PdfTableHead columns={RUPTURE_COLUMNS} />
             {ruptures.map((row) => {
               const ruptureDays = row.days
                 .map((cell, index) =>
                   cell.shortage > 0
-                    ? `${formatShortDate(days[index])}: ${formatInt(cell.demand)} / ${formatInt(cell.stock)}`
+                    ? `${formatShortDate(days[index])}: ${formatInt(cell.demand)}/${formatInt(cell.stock)}`
                     : "",
                 )
                 .filter(Boolean)
                 .join(" · ");
               return (
-                <View key={row.materialId} style={styles.row} wrap={false}>
-                  <Text style={styles.name}>
+                <View key={row.materialId} style={pdfStyles.row} wrap={false}>
+                  <Text style={[pdfStyles.cell, columnStyle(RUPTURE_COLUMNS[0])]}>
                     {row.name}
                     {row.unit ? ` (${row.unit})` : ""}
-                    {"\n"}
-                    <Text style={{ fontSize: 8, color: colors.muted }}>{row.category}</Text>
+                    <Text style={pdfStyles.cellMuted}> · {row.category}</Text>
                   </Text>
-                  <Text style={styles.num}>{formatInt(row.stock)}</Text>
-                  <Text style={styles.num}>{formatInt(row.peak)}</Text>
-                  <Text style={styles.shortage}>{formatInt(row.shortage)}</Text>
-                  <Text style={styles.meta}>{ruptureDays}</Text>
+                  <Text style={[pdfStyles.num, columnStyle(RUPTURE_COLUMNS[1])]}>{formatInt(row.stock)}</Text>
+                  <Text style={[pdfStyles.num, columnStyle(RUPTURE_COLUMNS[2])]}>{formatInt(row.peak)}</Text>
+                  <Text style={[pdfStyles.num, pdfStyles.strong, columnStyle(RUPTURE_COLUMNS[3]), { color: PDF.danger }]}>
+                    {formatInt(row.shortage)}
+                  </Text>
+                  <Text style={[pdfStyles.cellMuted, columnStyle(RUPTURE_COLUMNS[4]), { paddingLeft: 6 }]}>
+                    {ruptureDays}
+                  </Text>
                 </View>
               );
             })}
           </>
         )}
 
-        <Text style={styles.sectionTitle}>Eventos na janela</Text>
-        {events.length === 0 ? (
-          <Text style={styles.empty}>Nenhum evento com material alocado nesta semana.</Text>
-        ) : (
-          events.map((event) => (
-            <View key={event.id} style={styles.row} wrap={false}>
-              <Text style={styles.eventTitle}>
-                {event.title}
-                {event.code ? ` · ${event.code}` : ""}
-              </Text>
-              <Text style={styles.eventMeta}>
-                {formatShortDate(event.start)} → {formatShortDate(event.end)}
-                {event.assumedDelivery || event.assumedPickup ? " · data assumida" : ""}
-              </Text>
-            </View>
-          ))
-        )}
-
-        <View style={styles.footer}>
-          <Text>Uso interno — confronto estoque × eventos simultâneos</Text>
-          <Text>
-            Impresso em{" "}
-            {new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-          </Text>
-        </View>
+        <PdfFooter label="Alocação de materiais · estoque × eventos simultâneos" />
       </Page>
     </Document>
   );
@@ -168,19 +121,7 @@ export async function downloadRuptureWeekPdf(opts: {
   fileStamp: string;
 }) {
   const blob = await pdf(
-    <RuptureDocument
-      weekLabel={opts.weekLabel}
-      days={opts.days}
-      ruptures={opts.ruptures}
-      events={opts.events}
-    />,
+    <RuptureDocument weekLabel={opts.weekLabel} days={opts.days} ruptures={opts.ruptures} events={opts.events} />,
   ).toBlob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `rupturas-alocacao-${opts.fileStamp}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadBlob(blob, `rupturas-alocacao-${opts.fileStamp}.pdf`);
 }

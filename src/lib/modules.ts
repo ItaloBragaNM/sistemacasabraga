@@ -35,7 +35,9 @@ export const APP_MODULES: AppModule[] = [
       { href: "/cozinha/separacao-insumos", label: "Separação de Insumos" },
       { href: "/cozinha/fichas-tecnicas", label: "Fichas Técnicas" },
       { href: "/cozinha/estoque-insumos", label: "Estoque de Insumos" },
-      { href: "/cozinha/controle-perdas", label: "Controle de Perdas" },
+      { href: "/cozinha/movimentacoes-estoque", label: "Movimentações no Estoque" },
+      { href: "/cozinha/inventario-insumos", label: "Inventário de Insumos" },
+      { href: "/cozinha/controle-perdas", label: "Registro de Desperdícios" },
     ],
   },
   {
@@ -54,7 +56,6 @@ export const APP_MODULES: AppModule[] = [
         label: "Controle de Materiais em Eventos",
       },
       { href: "/logistica/inventario-materiais", label: "Inventário de Materiais" },
-      { href: "/logistica/planejamento-compras", label: "Planejamento de Compras" },
     ],
   },
   {
@@ -62,7 +63,8 @@ export const APP_MODULES: AppModule[] = [
     label: "Veículos",
     ready: true,
     pages: [
-      { href: "/veiculos/uso", label: "Controle de Uso dos Veículos" },
+      { href: "/veiculos/uso", label: "Agenda de Uso dos Veículos" },
+      { href: "/veiculos/registro-uso", label: "Registro de Uso" },
     ],
   },
   {
@@ -73,7 +75,7 @@ export const APP_MODULES: AppModule[] = [
       { href: "/financeiro/contas-a-receber", label: "Contas a Receber" },
       {
         href: "/financeiro/pagamento-mao-de-obra",
-        label: "Pagamento de Mão de Obra Externa",
+        label: "Pagamento de Mão de Obra",
       },
     ],
   },

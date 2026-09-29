@@ -35,7 +35,7 @@ function normalizeInventoryItem(input: Partial<InventoryItem> | null | undefined
     materialId: input.materialId,
     variant: normalizeVariant(input.variant),
     previous: Number(input.previous) || 0,
-    counted: Number(input.counted) || 0,
+    counted: Math.max(0, Number(input.counted) || 0),
   };
 }
 

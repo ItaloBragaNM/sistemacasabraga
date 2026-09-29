@@ -297,7 +297,7 @@ export function AppShell({
         <div
           className={cn(
             "flex border-b border-white/10",
-            collapsed ? "flex-col items-center px-2 py-4" : "items-start justify-between gap-2 px-5 py-6",
+            collapsed ? "flex-col items-center px-2 py-4" : "items-center justify-between gap-2 px-5 py-5",
           )}
         >
           {collapsed ? null : <CasaBragaMark />}
@@ -326,7 +326,7 @@ export function AppShell({
 
       <div className="min-w-0">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-forest/10 bg-cream px-4 py-3 lg:hidden">
-          <CasaBragaMark onLight />
+          <CasaBragaMark onLight compact />
           <div className="flex items-center gap-2">
             <NotificationsBell user={user} />
             <button
@@ -349,7 +349,7 @@ export function AppShell({
               onClick={() => setOpen(false)}
             />
             <aside className="relative flex h-full w-[300px] flex-col bg-petrol text-cream">
-              <div className="flex items-start justify-between border-b border-white/10 px-5 py-6">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-6">
                 <CasaBragaMark />
                 <button
                   type="button"

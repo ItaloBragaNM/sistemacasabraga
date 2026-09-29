@@ -2,6 +2,8 @@ import { readState, writeState } from "@/lib/store/kv.server";
 import {
   emptyCozinhaInsumos,
   type CozinhaInsumosData,
+  type InsumoInventoryItem,
+  type InsumoInventorySession,
   type InsumoLoss,
   type InsumoMeta,
   type InsumoMovement,
@@ -18,7 +20,11 @@ function num(value: unknown) {
 function normalizeMovement(input: Partial<InsumoMovement> | null | undefined): InsumoMovement | null {
   if (!input?.id || !input.insumoId) return null;
   const type =
-    input.type === "entrada" || input.type === "saida" || input.type === "ajuste" || input.type === "perda"
+    input.type === "entrada" ||
+    input.type === "saida" ||
+    input.type === "ajuste" ||
+    input.type === "perda" ||
+    input.type === "inventario"
       ? input.type
       : "ajuste";
   return {
@@ -34,7 +40,46 @@ function normalizeMovement(input: Partial<InsumoMovement> | null | undefined): I
 
 function normalizeMeta(input: Partial<InsumoMeta> | null | undefined): InsumoMeta | null {
   if (!input?.insumoId) return null;
-  return { insumoId: input.insumoId, min: num(input.min) };
+  const min = Math.max(0, num(input.min));
+  const minSource =
+    input.minSource === "manual" || input.minSource === "calculo"
+      ? input.minSource
+      : min > 0
+        ? "manual"
+        : "calculo";
+  return {
+    insumoId: input.insumoId,
+    min,
+    leadDays: Math.max(0, Math.round(num(input.leadDays))),
+    minSource,
+    perishable: input.perishable === true,
+  };
+}
+
+function normalizeInventoryItem(input: Partial<InsumoInventoryItem> | null | undefined): InsumoInventoryItem | null {
+  if (!input?.insumoId) return null;
+  return {
+    insumoId: input.insumoId,
+    previous: num(input.previous),
+    counted: Math.max(0, num(input.counted)),
+  };
+}
+
+function normalizeInventory(input: Partial<InsumoInventorySession> | null | undefined): InsumoInventorySession | null {
+  if (!input?.id) return null;
+  return {
+    id: input.id,
+    date: (input.date || new Date().toISOString()).slice(0, 10),
+    scope: input.scope === "semanal" ? "semanal" : "mensal",
+    responsible: typeof input.responsible === "string" ? input.responsible : "",
+    note: typeof input.note === "string" ? input.note : "",
+    items: Array.isArray(input.items)
+      ? input.items
+          .map((item) => normalizeInventoryItem(item))
+          .filter((item): item is InsumoInventoryItem => Boolean(item))
+      : [],
+    createdAt: input.createdAt || new Date().toISOString(),
+  };
 }
 
 function normalizeLoss(input: Partial<InsumoLoss> | null | undefined): InsumoLoss | null {
@@ -64,6 +109,11 @@ function normalize(input: Partial<CozinhaInsumosData> | null): CozinhaInsumosDat
     losses: Array.isArray(input.losses)
       ? input.losses.map((item) => normalizeLoss(item)).filter((item): item is InsumoLoss => Boolean(item))
       : base.losses,
+    inventories: Array.isArray(input.inventories)
+      ? input.inventories
+          .map((item) => normalizeInventory(item))
+          .filter((item): item is InsumoInventorySession => Boolean(item))
+      : base.inventories,
   };
 }
 

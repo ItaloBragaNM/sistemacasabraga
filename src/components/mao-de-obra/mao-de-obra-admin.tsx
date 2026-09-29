@@ -1,12 +1,17 @@
 "use client";
 
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
+import { SortableTh, compareSort, useColumnSort } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { SegmentedControl } from "@/components/ui/segmented";
+import { KpiCard, StatusPill } from "@/components/ui/status-pill";
 import { uid } from "@/lib/event-factory";
 import { UNIFORM_SIZE_LABELS } from "@/lib/labels";
 import {
@@ -30,9 +35,25 @@ export function MaoDeObraAdmin() {
   const [editing, setEditing] = useState<ExternalWorker | null>(null);
   const [open, setOpen] = useState(false);
   const [ratesOpen, setRatesOpen] = useState(false);
+  const sort = useColumnSort<"name" | "sex" | "uniforms" | "occurrences">("name");
 
   const workers = useMemo(() => {
-    const list = [...(data?.workers ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    const list = [...(data?.workers ?? [])].sort((a, b) => {
+      const occurrences = (worker: ExternalWorker) => worker.occurrences.length;
+      const value = {
+        name: a.name,
+        sex: a.sex ? WORKER_SEX_LABELS[a.sex] : "",
+        uniforms: uniformSummary(a.uniformSizes),
+        occurrences: occurrences(a),
+      }[sort.key];
+      const other = {
+        name: b.name,
+        sex: b.sex ? WORKER_SEX_LABELS[b.sex] : "",
+        uniforms: uniformSummary(b.uniformSizes),
+        occurrences: occurrences(b),
+      }[sort.key];
+      return compareSort(value, other, sort.dir) || a.name.localeCompare(b.name, "pt-BR");
+    });
     const term = search.trim().toLowerCase();
     if (!term) return list;
     return list.filter(
@@ -41,7 +62,7 @@ export function MaoDeObraAdmin() {
         item.cpf.toLowerCase().includes(term) ||
         item.pix.toLowerCase().includes(term),
     );
-  }, [data?.workers, search]);
+  }, [data?.workers, search, sort.key, sort.dir]);
 
   const stats = useMemo(() => {
     const list = data?.workers ?? [];
@@ -55,13 +76,13 @@ export function MaoDeObraAdmin() {
   const rates = data?.rates ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 pb-16">
+    <PageShell>
       <CadastrosHeader
         eyebrow="Cadastros"
         title="Cadastro de equipe externa"
         action={
           <Button
-            className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+            className="h-10 px-5"
             onClick={() => {
               setEditing(null);
               setOpen(true);
@@ -80,9 +101,9 @@ export function MaoDeObraAdmin() {
       ) : (
         <>
           <section className="grid gap-3 sm:grid-cols-3">
-            <StatCard label="Profissionais cadastrados" value={stats.total} />
-            <StatCard label="Homens" value={stats.men} />
-            <StatCard label="Mulheres" value={stats.women} />
+            <KpiCard label="Profissionais cadastrados" value={stats.total} />
+            <KpiCard label="Homens" value={stats.men} />
+            <KpiCard label="Mulheres" value={stats.women} />
           </section>
 
           <section className="space-y-4">
@@ -92,7 +113,7 @@ export function MaoDeObraAdmin() {
                 title="Nenhum prestador"
                 action={
                   <Button
-                    className="bg-forest text-cream hover:bg-petrol"
+                    className="h-10"
                     onClick={() => {
                       setEditing(null);
                       setOpen(true);
@@ -104,15 +125,15 @@ export function MaoDeObraAdmin() {
                 }
               />
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-                <table className="w-full text-left text-sm">
+              <Card flush className="overflow-x-auto">
+                <table className="w-full min-w-[40rem] text-left text-sm">
                   <thead>
-                    <tr className="border-b border-forest/10">
-                      <th className="field-label py-3 pl-5 font-normal">Nome</th>
-                      <th className="field-label py-3 font-normal">Sexo</th>
-                      <th className="field-label py-3 font-normal">Fardas</th>
-                      <th className="field-label py-3 font-normal">Ocorrências</th>
-                      <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
+                    <tr className="border-b border-line">
+                      <SortableTh label="Nome" active={sort.key === "name"} dir={sort.dir} onClick={() => sort.toggle("name")} className="pl-5" />
+                      <SortableTh label="Sexo" active={sort.key === "sex"} dir={sort.dir} onClick={() => sort.toggle("sex")} />
+                      <SortableTh label="Fardas" active={sort.key === "uniforms"} dir={sort.dir} onClick={() => sort.toggle("uniforms")} />
+                      <SortableTh label="Ocorrências" active={sort.key === "occurrences"} dir={sort.dir} onClick={() => sort.toggle("occurrences")} />
+                      <th className="field-label py-3 pr-5 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -120,73 +141,76 @@ export function MaoDeObraAdmin() {
                       const positives = item.occurrences.filter((row) => row.type === "positivo").length;
                       const negatives = item.occurrences.filter((row) => row.type === "negativo").length;
                       return (
-                        <tr key={item.id} className="border-b border-forest/5 last:border-0">
-                          <td className="py-3 pl-5 font-medium text-forest">
+                        <tr key={item.id} className="border-b border-line last:border-0 hover:bg-forest/[0.02]">
+                          <td className="py-3 pl-5 pr-3 font-medium text-forest">
                             {item.name}
-                            <p className="text-xs font-light text-forest/45">{item.cpf || "sem CPF"}</p>
+                            <p className="meta-text mt-0.5 font-normal tabular">{item.cpf || "sem CPF"}</p>
                           </td>
-                          <td className="py-3 text-forest/70">
+                          <td className="py-3 pr-3 text-forest/70">
                             {item.sex ? WORKER_SEX_LABELS[item.sex] : "—"}
                           </td>
-                          <td className="py-3 text-forest/70">{uniformSummary(item.uniformSizes)}</td>
-                          <td className="py-3 text-forest/70">
+                          <td className="py-3 pr-3 text-forest/70">{uniformSummary(item.uniformSizes)}</td>
+                          <td className="py-3 pr-3 text-forest/70 tabular">
                             {positives || negatives ? `${positives} + · ${negatives} −` : "—"}
                           </td>
-                          <td className="py-3 pr-5 text-right">
-                            <button
-                              type="button"
-                              className="text-sm text-forest/60 hover:text-forest"
-                              onClick={() => {
-                                setEditing(item);
-                                setOpen(true);
-                              }}
-                            >
-                              Editar
-                            </button>
-                            <span className="mx-2 text-forest/20">·</span>
-                            <button
-                              type="button"
-                              className="text-sm text-terracotta/80 hover:text-terracotta"
-                              onClick={() => {
-                                if (window.confirm(`Excluir "${item.name}"?`)) {
-                                  removeWorker(item.id);
-                                  toast.success("Prestador excluído.");
-                                }
-                              }}
-                            >
-                              Excluir
-                            </button>
+                          <td className="py-3 pr-5">
+                            <div className="flex justify-end gap-1">
+                              <button
+                                type="button"
+                                aria-label={`Editar ${item.name}`}
+                                className="flex size-8 items-center justify-center rounded-md text-forest/50 transition-colors hover:bg-forest/5 hover:text-forest"
+                                onClick={() => {
+                                  setEditing(item);
+                                  setOpen(true);
+                                }}
+                              >
+                                <Pencil className="size-4" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Excluir ${item.name}`}
+                                className="flex size-8 items-center justify-center rounded-md text-forest/40 transition-colors hover:bg-danger/10 hover:text-danger"
+                                onClick={() => {
+                                  if (window.confirm(`Excluir "${item.name}"?`)) {
+                                    removeWorker(item.id);
+                                    toast.success("Prestador excluído.");
+                                  }
+                                }}
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-              </div>
+              </Card>
             )}
           </section>
 
-          <section className="rounded-lg border border-forest/10 bg-white p-5 sm:p-6">
+          <Card>
             <button
               type="button"
               aria-expanded={ratesOpen}
               onClick={() => setRatesOpen((current) => !current)}
               className="flex w-full items-center justify-between gap-3 text-left"
             >
-              <h2 className="text-[15px] font-semibold text-forest">Tabela de valores</h2>
+              <h2 className="section-title">Tabela de valores</h2>
               <ChevronDown
                 className={cn("size-4 shrink-0 text-forest/40 transition-transform", ratesOpen && "rotate-180")}
               />
             </button>
             {ratesOpen ? (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[32rem] text-left text-sm">
                   <thead>
-                    <tr className="border-b border-forest/10">
-                      <th className="field-label py-2 font-normal">Função</th>
-                      <th className="field-label py-2 font-normal">Diária</th>
-                      <th className="field-label py-2 font-normal">Hora extra</th>
-                      <th className="field-label py-2 font-normal">Ajuda de custo</th>
+                    <tr className="border-b border-line">
+                      <th className="field-label py-3 pr-3">Função</th>
+                      <th className="field-label py-3 pr-3 text-right">Diária</th>
+                      <th className="field-label py-3 pr-3 text-right">Hora extra</th>
+                      <th className="field-label py-3 text-right">Ajuda de custo</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -204,13 +228,14 @@ export function MaoDeObraAdmin() {
                         setRates(next);
                       };
                       return (
-                        <tr key={role.key} className="border-b border-forest/5 last:border-0">
+                        <tr key={role.key} className="border-b border-line last:border-0">
                           <td className="py-2 pr-3 text-forest">{role.label}</td>
                           <td className="py-2 pr-3">
                             <input
                               type="number"
                               min={0}
-                              className={cn(fieldControlClass, "h-9")}
+                              aria-label={`Diária de ${role.label}`}
+                              className={cn(fieldControlClass, rateInputClass)}
                               value={rate.daily || ""}
                               onChange={(event) => update({ daily: Number(event.target.value) || 0 })}
                             />
@@ -219,7 +244,8 @@ export function MaoDeObraAdmin() {
                             <input
                               type="number"
                               min={0}
-                              className={cn(fieldControlClass, "h-9")}
+                              aria-label={`Hora extra de ${role.label}`}
+                              className={cn(fieldControlClass, rateInputClass)}
                               value={rate.overtimeHourly || ""}
                               onChange={(event) => update({ overtimeHourly: Number(event.target.value) || 0 })}
                             />
@@ -228,7 +254,8 @@ export function MaoDeObraAdmin() {
                             <input
                               type="number"
                               min={0}
-                              className={cn(fieldControlClass, "h-9")}
+                              aria-label={`Ajuda de custo de ${role.label}`}
+                              className={cn(fieldControlClass, rateInputClass)}
                               value={rate.allowance || ""}
                               onChange={(event) => update({ allowance: Number(event.target.value) || 0 })}
                             />
@@ -240,9 +267,9 @@ export function MaoDeObraAdmin() {
                 </table>
               </div>
             ) : (
-              <p className="mt-2 text-sm font-light text-forest/50">Minimizada. Abra para editar diárias e ajuda de custo.</p>
+              <p className="meta-text mt-2">Minimizada. Abra para editar diárias e ajuda de custo.</p>
             )}
-          </section>
+          </Card>
         </>
       )}
 
@@ -258,18 +285,11 @@ export function MaoDeObraAdmin() {
           }}
         />
       </Modal>
-    </div>
+    </PageShell>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-forest/10 bg-white px-4 py-3">
-      <p className="text-[12px] font-medium text-forest/50">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-forest">{value}</p>
-    </div>
-  );
-}
+const rateInputClass = "ml-auto block h-9 w-28 text-right tabular";
 
 function uniformSummary(sizes: WorkerUniformSizes) {
   const parts = UNIFORM_PIECES.map((piece) => {
@@ -352,23 +372,23 @@ function WorkerForm({
       <Field label="Observações">
         <textarea className={cn(fieldControlClass, "min-h-20 py-2")} value={notes} onChange={(event) => setNotes(event.target.value)} />
       </Field>
-      <div className="rounded-xl border border-forest/10 p-3">
-        <p className="mb-3 text-sm font-semibold text-forest">Ocorrências</p>
+      <div className="rounded-lg border border-line bg-white p-4">
+        <h3 className="section-title mb-3">Ocorrências</h3>
         {occurrences.length === 0 ? (
-          <p className="mb-3 text-sm font-light text-forest/50">Nenhuma ocorrência registrada.</p>
+          <p className="meta-text mb-3">Nenhuma ocorrência registrada.</p>
         ) : (
           <ul className="mb-3 space-y-2">
             {occurrences.map((item) => (
-              <li key={item.id} className="flex items-start justify-between gap-2 rounded-lg bg-cream/70 px-3 py-2">
-                <div>
-                  <p className={cn("text-xs font-medium", item.type === "positivo" ? "text-forest" : "text-terracotta")}>
+              <li key={item.id} className="flex items-start justify-between gap-2 rounded-md bg-cream px-3 py-2">
+                <div className="min-w-0 space-y-1">
+                  <StatusPill tone={item.type === "positivo" ? "ok" : "danger"}>
                     {item.type === "positivo" ? "Positiva" : "Negativa"}
-                  </p>
+                  </StatusPill>
                   <p className="text-sm text-forest/80">{item.note}</p>
                 </div>
                 <button
                   type="button"
-                  className="text-xs text-forest/40 hover:text-terracotta"
+                  className="meta-text shrink-0 hover:text-danger"
                   onClick={() => setOccurrences((current) => current.filter((row) => row.id !== item.id))}
                 >
                   Remover
@@ -377,15 +397,16 @@ function WorkerForm({
             ))}
           </ul>
         )}
-        <div className="grid gap-2 sm:grid-cols-[8rem_1fr_auto]">
-          <select
-            className={fieldControlClass}
+        <div className="grid gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+          <SegmentedControl
+            ariaLabel="Tipo de ocorrência"
             value={occType}
-            onChange={(event) => setOccType(event.target.value as WorkerOccurrenceType)}
-          >
-            <option value="positivo">Positiva</option>
-            <option value="negativo">Negativa</option>
-          </select>
+            onChange={setOccType}
+            options={[
+              { value: "positivo", label: "Positiva" },
+              { value: "negativo", label: "Negativa" },
+            ]}
+          />
           <input
             className={fieldControlClass}
             value={occNote}
@@ -417,12 +438,12 @@ function WorkerForm({
           </Button>
         </div>
       </div>
-      <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
           Cancelar
         </Button>
         <Button
-          className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+          className="h-10 px-5"
           onClick={() => {
             if (!name.trim()) {
               toast.error("Informe o nome.");

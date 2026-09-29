@@ -94,26 +94,22 @@ export function BulkBar({
 }) {
   if (count === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-forest/10 bg-white px-3 py-2">
-      <p className="text-sm font-light text-forest/70">
+    <div className="surface-card flex flex-wrap items-center gap-2 px-4 py-2">
+      <p className="text-sm text-forest/70 tabular">
         {count} {noun}
         {count === 1 ? "" : "s"} selecionado{count === 1 ? "" : "s"}
       </p>
-      <Button variant="outline" className="h-9 px-3" onClick={onDuplicate}>
+      <Button variant="outline" size="sm" onClick={onDuplicate}>
         <Copy data-icon="inline-start" />
         Duplicar
       </Button>
-      <Button
-        variant="outline"
-        className="h-9 px-3 text-terracotta hover:bg-terracotta/10"
-        onClick={onDelete}
-      >
+      <Button variant="destructive" size="sm" onClick={onDelete}>
         <Trash2 data-icon="inline-start" />
         Excluir
       </Button>
       <button
         type="button"
-        className="text-xs font-light text-forest/45 hover:text-forest"
+        className="meta-text hover:text-forest"
         onClick={onClear}
       >
         Limpar seleção
@@ -165,9 +161,9 @@ function IconAction({
       aria-label={label}
       onClick={onClick}
       className={cn(
-        "flex size-8 items-center justify-center rounded-lg transition-colors",
+        "flex size-8 items-center justify-center rounded-md transition-colors",
         danger
-          ? "text-forest/40 hover:bg-terracotta/10 hover:text-terracotta"
+          ? "text-forest/40 hover:bg-danger/10 hover:text-danger"
           : "text-forest/50 hover:bg-forest/5 hover:text-forest",
       )}
     >

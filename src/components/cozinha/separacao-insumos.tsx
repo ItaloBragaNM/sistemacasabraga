@@ -4,11 +4,13 @@ import { FileDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
 import { downloadCatalogSeparationPdf } from "@/components/cozinha/insumos-separacao-pdf";
 import { useEvents } from "@/components/events/events-provider";
-import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
+import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import { insumoListGroupedByDish } from "@/lib/cozinha/calc";
 import { formatLongDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -28,7 +30,7 @@ export function SeparacaoInsumos() {
   );
 
   const event = useMemo(() => events.find((item) => item.id === eventId) ?? null, [events, eventId]);
-  const selectedDishIds = event?.selectedDishIds ?? [];
+  const selectedDishIds = useMemo(() => event?.selectedDishIds ?? [], [event]);
 
   const catalogGroups = useMemo(() => {
     if (!event || !cadastros) return [];
@@ -62,14 +64,13 @@ export function SeparacaoInsumos() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <CadastrosHeader eyebrow="Cozinha" title="Separação de Insumos" />
+    <PageShell eyebrow="Cozinha" title="Separação de Insumos">
 
       {!ready ? (
         <LoadingBlock />
       ) : (
         <>
-          <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+          <Card>
             <Field label="Evento">
               <select className={fieldControlClass} value={eventId} onChange={(e) => selectEvent(e.target.value)}>
                 <option value="">Selecione o evento…</option>
@@ -80,7 +81,7 @@ export function SeparacaoInsumos() {
                 ))}
               </select>
             </Field>
-          </section>
+          </Card>
 
           {!event ? null : selectedDishIds.length === 0 ? (
             <EmptyBlock
@@ -97,41 +98,40 @@ export function SeparacaoInsumos() {
               }
             />
           ) : (
-            <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <SectionTitle title="Insumos a separar" />
-                <Button
-                  className="h-9 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
-                  disabled={working}
-                  onClick={() => void exportPdf()}
-                >
-                  <FileDown data-icon="inline-start" />
-                  Exportar PDF
-                </Button>
-              </div>
+            <Card>
+              <CardHeader
+                className="mb-4 border-b border-line pb-3"
+                title="Insumos a separar"
+                actions={
+                  <Button className="px-4" disabled={working} onClick={() => void exportPdf()}>
+                    <FileDown data-icon="inline-start" />
+                    Exportar PDF
+                  </Button>
+                }
+              />
               {dishesWithoutInsumos.length > 0 ? (
-                <p className="mb-4 rounded-xl border border-forest/10 bg-cream px-4 py-3 text-sm text-forest/60">
+                <p className="mb-4 rounded-lg border border-warn/20 bg-warn-soft px-4 py-3 text-sm text-warn">
                   Pratos sem insumos no cadastro: {dishesWithoutInsumos.join(", ")}.
                 </p>
               ) : null}
               <div className="space-y-5">
                 {catalogGroups.map((group) => (
-                  <div key={group.dishId} className="overflow-hidden rounded-xl border border-forest/10">
-                    <p className="border-b border-forest/10 bg-forest/[0.03] px-4 py-2 text-sm font-medium text-forest">
+                  <div key={group.dishId} className="overflow-hidden rounded-lg border border-line">
+                    <p className="group-title border-b border-line bg-forest/[0.03] px-4 py-2">
                       {group.dishName}
                     </p>
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="border-b border-forest/10">
+                        <tr className="border-b border-line">
                           <th className="field-label py-2 pl-4 font-normal">Insumo</th>
-                          <th className="field-label py-2 pr-4 font-normal">Unidade</th>
+                          <th className="field-label w-28 py-2 pr-4 text-right font-normal">Unidade</th>
                         </tr>
                       </thead>
                       <tbody>
                         {group.items.map((line) => (
-                          <tr key={line.insumoId} className="border-b border-forest/5 last:border-0">
+                          <tr key={line.insumoId} className="border-b border-line last:border-0">
                             <td className="py-2 pl-4 text-forest">{line.name}</td>
-                            <td className="py-2 pr-4 text-forest/60">{line.unit}</td>
+                            <td className="py-2 pr-4 text-right text-forest/60">{line.unit}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -147,10 +147,10 @@ export function SeparacaoInsumos() {
                   placeholder="Notas que entram no PDF de separação."
                 />
               </Field>
-            </section>
+            </Card>
           )}
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

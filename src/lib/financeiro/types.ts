@@ -26,7 +26,33 @@ export interface ReceivableReceipt {
   amount: number;
   method: ReceivableMethod;
   note: string;
+  attachmentName: string;
+  attachmentDataUrl: string;
   createdAt: string;
+}
+
+export const RECEIVABLE_CHARGE_KINDS = [
+  { key: "evento", label: "Evento" },
+  { key: "extra", label: "Extra" },
+] as const;
+
+export type ReceivableChargeKind = (typeof RECEIVABLE_CHARGE_KINDS)[number]["key"];
+
+export interface ReceivableCharge {
+  id: string;
+  kind: ReceivableChargeKind;
+  date: string;
+  description: string;
+  amount: number;
+  createdAt: string;
+}
+
+export interface ReceivableChange {
+  id: string;
+  at: string;
+  userId: string;
+  userName: string;
+  summary: string;
 }
 
 export interface ReceivableRecord {
@@ -38,10 +64,12 @@ export interface ReceivableRecord {
   eventTitle: string;
   description: string;
   amount: number;
-  dueDate: string;
+  competence: string;
   canceled: boolean;
   notes: string;
+  charges: ReceivableCharge[];
   receipts: ReceivableReceipt[];
+  changeLog: ReceivableChange[];
   createdAt: string;
   updatedAt: string;
 }

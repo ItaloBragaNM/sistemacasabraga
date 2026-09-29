@@ -287,6 +287,11 @@ function actorName(actor: ChangeActor | null | undefined) {
   return name || "Alguém";
 }
 
+export function eventChangeLabels(previous: EventRecord | null, next: EventRecord) {
+  if (!previous) return ["Ficha criada"];
+  return diffEvent(previous, next).map((change) => change.label);
+}
+
 export function withChangeLog(
   previous: EventRecord | null,
   next: EventRecord,

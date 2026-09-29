@@ -1,6 +1,7 @@
 "use client";
 
 import { Font } from "@react-pdf/renderer";
+import { pdfAsset } from "@/lib/pdf/assets";
 
 export const PDF_FONT = "Poppins";
 
@@ -13,10 +14,10 @@ export function registerPdfFonts() {
   Font.register({
     family: PDF_FONT,
     fonts: [
-      { src: "/fonts/Poppins-Regular.ttf", fontWeight: 400 },
-      { src: "/fonts/Poppins-Medium.ttf", fontWeight: 500 },
-      { src: "/fonts/Poppins-SemiBold.ttf", fontWeight: 600 },
-      { src: "/fonts/Poppins-Bold.ttf", fontWeight: 700 },
+      { src: pdfAsset("/fonts/Poppins-Regular.ttf"), fontWeight: 400 },
+      { src: pdfAsset("/fonts/Poppins-Medium.ttf"), fontWeight: 500 },
+      { src: pdfAsset("/fonts/Poppins-SemiBold.ttf"), fontWeight: 600 },
+      { src: pdfAsset("/fonts/Poppins-Bold.ttf"), fontWeight: 700 },
     ],
   });
   Font.registerHyphenationCallback((word) => [word]);

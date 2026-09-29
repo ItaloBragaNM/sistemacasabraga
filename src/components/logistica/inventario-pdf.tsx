@@ -1,71 +1,19 @@
 "use client";
 
-import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
+import { Document, Page, Text, View, pdf } from "@react-pdf/renderer";
 import { formatInt } from "@/lib/crm/format";
 import { formatLongDate } from "@/lib/dates";
-import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
-
-registerPdfFonts();
-
-const colors = {
-  forest: "#1E443E",
-  petrol: "#003F3C",
-  cream: "#FFFBFA",
-  muted: "#5D6F6C",
-  line: "#C9D5D1",
-};
-
-const styles = StyleSheet.create({
-  page: {
-    backgroundColor: colors.cream,
-    paddingTop: 28,
-    paddingBottom: 36,
-    paddingHorizontal: 32,
-    fontFamily: PDF_FONT,
-    color: colors.forest,
-  },
-  header: { backgroundColor: colors.petrol, color: colors.cream, padding: 16, marginBottom: 14 },
-  brand: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 },
-  title: { fontSize: 20, fontFamily: PDF_FONT, fontWeight: 700 },
-  subtitle: { fontSize: 10, marginTop: 4, color: colors.cream },
-  hint: { fontSize: 9, color: colors.muted, marginBottom: 10 },
-  sectionTitle: {
-    fontSize: 9,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    marginTop: 10,
-    marginBottom: 4,
-    fontFamily: PDF_FONT, fontWeight: 700,
-  },
-  row: {
-    flexDirection: "row",
-    borderBottomWidth: 0.6,
-    borderBottomColor: colors.line,
-    paddingVertical: 7,
-    alignItems: "center",
-  },
-  check: { width: 16, fontSize: 11, color: colors.muted },
-  name: { flex: 3, fontSize: 10 },
-  meta: { flex: 2, fontSize: 8, color: colors.muted },
-  qtyBox: {
-    width: 56,
-    height: 16,
-    borderWidth: 0.8,
-    borderColor: colors.line,
-    marginLeft: 8,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 16,
-    left: 32,
-    right: 32,
-    fontSize: 8,
-    color: colors.muted,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  sign: { fontSize: 9, marginTop: 18, color: colors.muted },
-});
+import { downloadBlob } from "@/lib/download";
+import {
+  PDF,
+  PdfFooter,
+  PdfGroupRow,
+  PdfHeader,
+  PdfTableHead,
+  columnStyle,
+  pdfStyles,
+  type PdfColumn,
+} from "@/lib/pdf/header";
 
 export interface CountSheetRow {
   name: string;
@@ -74,7 +22,37 @@ export interface CountSheetRow {
   unit: string;
 }
 
-function CountSheetDocument({
+export interface InventoryPrintRow {
+  name: string;
+  category: string;
+  previous: number;
+  counted: number;
+}
+
+const COUNT_COLUMNS: PdfColumn[] = [
+  { label: "Material", flex: 3 },
+  { label: "Local", flex: 1.6 },
+  { label: "Contagem", width: 60, align: "center" },
+];
+
+const SESSION_COLUMNS: PdfColumn[] = [
+  { label: "Material", flex: 3 },
+  { label: "Anterior", width: 52, align: "right" },
+  { label: "Contado", width: 52, align: "right" },
+  { label: "Diferença", width: 56, align: "right" },
+];
+
+function byCategory<T extends { category: string }>(rows: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const list = groups.get(row.category) ?? [];
+    list.push(row);
+    groups.set(row.category, list);
+  }
+  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+}
+
+export function CountSheetDocument({
   date,
   responsible,
   rows,
@@ -85,97 +63,45 @@ function CountSheetDocument({
   rows: CountSheetRow[];
   filters: string;
 }) {
-  const categories = Array.from(new Set(rows.map((row) => row.category))).sort((a, b) =>
-    a.localeCompare(b, "pt-BR"),
-  );
-
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.brand}>Casa Braga · Inventário</Text>
-          <Text style={styles.title}>Folha de contagem</Text>
-          <Text style={styles.subtitle}>
-            {date ? formatLongDate(date) : "Data a preencher"}
-            {responsible.trim() ? ` · Responsável: ${responsible.trim()}` : ""}
-            {" · uma linha por variação · anote a quantidade e lance depois no sistema"}
-          </Text>
-        </View>
-        <Text style={styles.hint}>{filters}</Text>
-        <View style={styles.row}>
-          <Text style={[styles.check, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]} />
-          <Text style={[styles.name, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>MATERIAL</Text>
-          <Text style={[styles.meta, { fontFamily: PDF_FONT, fontWeight: 700 }]}>LOCAL</Text>
-          <Text style={{ width: 56, fontSize: 8, textAlign: "center", fontFamily: PDF_FONT, fontWeight: 700 }}>
-            QTD
-          </Text>
-        </View>
-        {categories.map((category) => (
+    <Document title="Folha de contagem de materiais">
+      <Page size="A4" style={pdfStyles.page}>
+        <PdfHeader
+          title="Folha de contagem · Materiais"
+          meta={[date ? formatLongDate(date) : "Data a preencher", `Responsável: ${responsible.trim() || "________________"}`].join(
+            " · ",
+          )}
+          right={`${rows.length} linha(s)`}
+        />
+        {filters ? <Text style={pdfStyles.hint}>{filters} · uma linha por variação</Text> : null}
+        <PdfTableHead columns={COUNT_COLUMNS} />
+        {byCategory(rows).map(([category, items]) => (
           <View key={category}>
-            <Text style={styles.sectionTitle}>{category}</Text>
-            {rows
-              .filter((row) => row.category === category)
-              .map((row, index) => (
-                <View key={`${row.name}-${index}`} style={styles.row}>
-                  <Text style={styles.check}>{"\u2610"}</Text>
-                  <Text style={styles.name}>
-                    {row.name}
-                    {row.unit ? ` (${row.unit})` : ""}
-                  </Text>
-                  <Text style={styles.meta}>{row.location || "—"}</Text>
-                  <View style={styles.qtyBox} />
+            <PdfGroupRow label={category} />
+            {items.map((row, index) => (
+              <View key={`${row.name}-${index}`} style={pdfStyles.row} wrap={false}>
+                <Text style={[pdfStyles.cell, columnStyle(COUNT_COLUMNS[0])]}>
+                  {row.name}
+                  {row.unit ? <Text style={pdfStyles.cellMuted}> ({row.unit})</Text> : null}
+                </Text>
+                <Text style={[pdfStyles.cellMuted, columnStyle(COUNT_COLUMNS[1])]}>{row.location || "—"}</Text>
+                <View style={{ width: 60, alignItems: "center" }}>
+                  <View style={[pdfStyles.box, { width: 44 }]} />
                 </View>
-              ))}
+              </View>
+            ))}
           </View>
         ))}
-        <Text style={styles.sign}>
-          Responsável: {responsible.trim() || "________________________"}    Participantes: ________________________
+        <Text style={[pdfStyles.hint, { marginTop: 10 }]} wrap={false}>
+          Participantes: ______________________________________________
         </Text>
-        <View style={styles.footer}>
-          <Text>Uso interno — sem valores financeiros</Text>
-          <Text>
-            Impresso em{" "}
-            {new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-          </Text>
-        </View>
+        <PdfFooter label="Inventário de materiais · sem valores financeiros" />
       </Page>
     </Document>
   );
 }
 
-export async function downloadCountSheetPdf(opts: {
-  date: string;
-  responsible: string;
-  rows: CountSheetRow[];
-  filters: string;
-}) {
-  const blob = await pdf(
-    <CountSheetDocument
-      date={opts.date}
-      responsible={opts.responsible}
-      rows={opts.rows}
-      filters={opts.filters}
-    />,
-  ).toBlob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  const day = opts.date || new Date().toISOString().slice(0, 10);
-  link.href = url;
-  link.download = `contagem-inventario-${day}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-export interface InventoryPrintRow {
-  name: string;
-  category: string;
-  previous: number;
-  counted: number;
-}
-
-function InventorySessionDocument({
+export function InventorySessionDocument({
   date,
   responsible,
   participants,
@@ -190,83 +116,68 @@ function InventorySessionDocument({
   rows: InventoryPrintRow[];
   skipped: number;
 }) {
-  const categories = Array.from(new Set(rows.map((row) => row.category))).sort((a, b) =>
-    a.localeCompare(b, "pt-BR"),
-  );
   const changed = rows.filter((row) => row.counted !== row.previous).length;
   const people = [responsible, ...participants].filter(Boolean).join(" · ");
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.brand}>Casa Braga · Inventário</Text>
-          <Text style={styles.title}>Inventário realizado</Text>
-          <Text style={styles.subtitle}>
-            {date ? formatLongDate(date) : "—"}
-            {people ? ` · ${people}` : ""}
-          </Text>
-        </View>
-        {note ? <Text style={styles.hint}>{note}</Text> : null}
-        <Text style={styles.hint}>
-          {rows.length} item(ns) contado(s)
-          {changed > 0 ? ` · ${changed} com diferença` : " · sem diferenças"}
-          {skipped > 0 ? ` · ${skipped} oculto(s)` : ""}
-        </Text>
-        <View style={styles.row}>
-          <Text style={[styles.name, { fontFamily: PDF_FONT, fontWeight: 700, fontSize: 8 }]}>MATERIAL</Text>
-          <Text style={{ width: 54, fontSize: 8, textAlign: "right", fontFamily: PDF_FONT, fontWeight: 700 }}>
-            ANT.
-          </Text>
-          <Text style={{ width: 54, fontSize: 8, textAlign: "right", fontFamily: PDF_FONT, fontWeight: 700 }}>
-            CONTADO
-          </Text>
-          <Text style={{ width: 54, fontSize: 8, textAlign: "right", fontFamily: PDF_FONT, fontWeight: 700 }}>
-            DIFF.
-          </Text>
-        </View>
-        {categories.map((category) => (
+    <Document title="Inventário de materiais">
+      <Page size="A4" style={pdfStyles.page}>
+        <PdfHeader
+          title="Inventário realizado · Materiais"
+          meta={[date ? formatLongDate(date) : "", people].filter(Boolean).join(" · ")}
+          right={[
+            `${rows.length} item(ns)`,
+            changed > 0 ? `${changed} com diferença` : "sem diferenças",
+            skipped > 0 ? `${skipped} oculto(s)` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        />
+        {note ? <Text style={pdfStyles.hint}>{note}</Text> : null}
+        <PdfTableHead columns={SESSION_COLUMNS} />
+        {byCategory(rows).map(([category, items]) => (
           <View key={category}>
-            <Text style={styles.sectionTitle}>{category}</Text>
-            {rows
-              .filter((row) => row.category === category)
-              .map((row, index) => {
-                const diff = row.counted - row.previous;
-                return (
-                  <View key={`${row.name}-${index}`} style={styles.row} wrap={false}>
-                    <Text style={styles.name}>{row.name}</Text>
-                    <Text style={{ width: 54, fontSize: 10, textAlign: "right", color: colors.muted }}>
-                      {formatInt(row.previous)}
-                    </Text>
-                    <Text style={{ width: 54, fontSize: 10, textAlign: "right" }}>
-                      {formatInt(row.counted)}
-                    </Text>
-                    <Text
-                      style={{
-                        width: 54,
-                        fontSize: 10,
-                        textAlign: "right",
-                        color: diff === 0 ? colors.muted : diff > 0 ? colors.forest : "#C45C4A",
-                      }}
-                    >
-                      {diff > 0 ? "+" : ""}
-                      {formatInt(diff)}
-                    </Text>
-                  </View>
-                );
-              })}
+            <PdfGroupRow label={category} />
+            {items.map((row, index) => {
+              const diff = row.counted - row.previous;
+              return (
+                <View key={`${row.name}-${index}`} style={pdfStyles.row} wrap={false}>
+                  <Text style={[pdfStyles.cell, columnStyle(SESSION_COLUMNS[0])]}>{row.name}</Text>
+                  <Text style={[pdfStyles.num, columnStyle(SESSION_COLUMNS[1]), { color: PDF.muted }]}>
+                    {formatInt(row.previous)}
+                  </Text>
+                  <Text style={[pdfStyles.num, columnStyle(SESSION_COLUMNS[2])]}>{formatInt(row.counted)}</Text>
+                  <Text
+                    style={[
+                      pdfStyles.num,
+                      columnStyle(SESSION_COLUMNS[3]),
+                      diff < 0 ? { color: PDF.danger, fontWeight: 700 } : diff > 0 ? pdfStyles.strong : { color: PDF.muted },
+                    ]}
+                  >
+                    {diff > 0 ? "+" : ""}
+                    {formatInt(diff)}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ))}
-        <View style={styles.footer}>
-          <Text>Uso interno — sem valores financeiros</Text>
-          <Text>
-            Impresso em{" "}
-            {new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-          </Text>
-        </View>
+        <PdfFooter label="Inventário de materiais · sem valores financeiros" />
       </Page>
     </Document>
   );
+}
+
+export async function downloadCountSheetPdf(opts: {
+  date: string;
+  responsible: string;
+  rows: CountSheetRow[];
+  filters: string;
+}) {
+  const blob = await pdf(
+    <CountSheetDocument date={opts.date} responsible={opts.responsible} rows={opts.rows} filters={opts.filters} />,
+  ).toBlob();
+  downloadBlob(blob, `contagem-inventario-${opts.date || new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 export async function downloadInventorySessionPdf(opts: {
@@ -287,13 +198,5 @@ export async function downloadInventorySessionPdf(opts: {
       skipped={opts.skipped}
     />,
   ).toBlob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  const day = opts.date || new Date().toISOString().slice(0, 10);
-  link.href = url;
-  link.download = `inventario-${day}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadBlob(blob, `inventario-${opts.date || new Date().toISOString().slice(0, 10)}.pdf`);
 }

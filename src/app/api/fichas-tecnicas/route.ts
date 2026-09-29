@@ -34,7 +34,7 @@ export async function PUT(request: Request) {
     const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(
       user,
-      tagged(diffRecords(previous.sheets, data.sheets, (item) => item.name), "cozinha", "ficha técnica"),
+      tagged(diffRecords(previous.sheets, data.sheets, (item) => item.name), "cozinha", "ficha técnica", "Cozinha · Fichas Técnicas"),
     );
     return NextResponse.json({ data });
   } catch (error) {

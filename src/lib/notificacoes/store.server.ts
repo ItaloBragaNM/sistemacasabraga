@@ -69,8 +69,7 @@ async function writeNotificacoes(data: NotificacoesData) {
 }
 
 function snapshot(event: EventRecord) {
-  const { changeLog: _changeLog, updatedAt: _updatedAt, ...rest } = event;
-  return JSON.stringify(rest);
+  return JSON.stringify({ ...event, changeLog: undefined, updatedAt: undefined });
 }
 
 function inWindow(event: Pick<EventRecord, "date">) {

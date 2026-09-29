@@ -36,19 +36,19 @@ export async function PUT(request: Request) {
     const data = await writeCadastros(payload);
     const { appendAudit, diffRecords, scalarChange, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(user, [
-      ...tagged(diffRecords(previous.dishes, data.dishes, (item) => item.name), "cadastros", "prato"),
-      ...tagged(diffRecords(previous.materials, data.materials, (item) => item.name), "cadastros", "material"),
-      ...tagged(diffRecords(previous.insumos, data.insumos, (item) => item.name), "cadastros", "insumo"),
-      ...tagged(diffRecords(previous.clientes, data.clientes, (item) => item.name), "cadastros", "cliente"),
-      ...tagged(diffRecords(previous.veiculos, data.veiculos, (item) => item.name), "cadastros", "veículo"),
-      ...tagged(diffRecords(previous.kits, data.kits, (item) => item.name), "cadastros", "kit"),
-      ...tagged(diffRecords(previous.extras, data.extras, (item) => item.name), "cadastros", "extra"),
-      ...tagged(diffRecords(previous.stockLocations, data.stockLocations, (item) => item.name), "cadastros", "local de estoque"),
-      ...tagged(diffRecords(previous.bases, data.bases, (item) => item.label), "cadastros", "base de cálculo"),
-      ...scalarChange("cadastros", "categorias do cardápio", previous.dishCategories, data.dishCategories),
-      ...scalarChange("cadastros", "categorias de materiais", previous.materialCategories, data.materialCategories),
-      ...scalarChange("cadastros", "categorias de insumos", previous.insumoCategories, data.insumoCategories),
-      ...scalarChange("cadastros", "premissas de bebidas", previous.drinkPremises, data.drinkPremises),
+      ...tagged(diffRecords(previous.dishes, data.dishes, (item) => item.name), "cadastros", "prato", "Cadastros · Cardápio"),
+      ...tagged(diffRecords(previous.materials, data.materials, (item) => item.name), "cadastros", "material", "Cadastros · Materiais"),
+      ...tagged(diffRecords(previous.insumos, data.insumos, (item) => item.name), "cadastros", "insumo", "Cadastros · Insumos"),
+      ...tagged(diffRecords(previous.clientes, data.clientes, (item) => item.name), "cadastros", "cliente", "Cadastros · Clientes"),
+      ...tagged(diffRecords(previous.veiculos, data.veiculos, (item) => item.name), "cadastros", "veículo", "Cadastros · Veículos"),
+      ...tagged(diffRecords(previous.kits, data.kits, (item) => item.name), "cadastros", "kit", "Cadastros · Kits de Materiais"),
+      ...tagged(diffRecords(previous.extras, data.extras, (item) => item.name), "cadastros", "extra", "Cadastros · Kits de Materiais"),
+      ...tagged(diffRecords(previous.stockLocations, data.stockLocations, (item) => item.name), "cadastros", "local de estoque", "Configurações · Módulo de Cadastros"),
+      ...tagged(diffRecords(previous.bases, data.bases, (item) => item.label), "cadastros", "base de cálculo", "Configurações · Módulo de Cadastros"),
+      ...scalarChange("cadastros", "categorias do cardápio", previous.dishCategories, data.dishCategories, "Configurações · Módulo de Cadastros"),
+      ...scalarChange("cadastros", "categorias de materiais", previous.materialCategories, data.materialCategories, "Configurações · Módulo de Cadastros"),
+      ...scalarChange("cadastros", "categorias de insumos", previous.insumoCategories, data.insumoCategories, "Configurações · Módulo de Cadastros"),
+      ...scalarChange("cadastros", "premissas de bebidas", previous.drinkPremises, data.drinkPremises, "Configurações · Módulo de Cadastros"),
     ]);
     return NextResponse.json({ data });
   } catch (error) {

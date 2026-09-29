@@ -13,13 +13,20 @@ import {
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, Chip, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { SortableTh } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { FilterChip } from "@/components/ui/filter-chip";
+import { PageShell } from "@/components/ui/page-shell";
+import { QtyInput } from "@/components/ui/qty-input";
 import { basesMap, describeProportion } from "@/lib/cadastros/calc";
 import { MAX_FACTORS, MATERIAL_KIND_LABELS, MATERIAL_KINDS, type MaterialKind, type MaterialRecord, type ProportionFactor } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { compressImageToDataUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
+
+type MaterialSortKey = "photo" | "name" | "kind" | "proportion" | "category" | "unit";
 
 export function MateriaisAdmin() {
   const { data, ready, upsertMaterial, removeMaterial, removeMany, duplicateMany } = useCadastros();
@@ -27,6 +34,8 @@ export function MateriaisAdmin() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
   const [proportionFilter, setProportionFilter] = useState("");
+  const [sortKey, setSortKey] = useState<MaterialSortKey>("category");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [editing, setEditing] = useState<MaterialRecord | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -35,10 +44,19 @@ export function MateriaisAdmin() {
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = search.trim().toLowerCase();
-    const list = [...data.materials].sort(
-      (a, b) =>
-        a.category.localeCompare(b.category, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"),
-    );
+    const direction = sortDir === "asc" ? 1 : -1;
+    const list = [...data.materials].sort((a, b) => {
+      let compared = 0;
+      if (sortKey === "photo") compared = Number(Boolean(a.photoDataUrl)) - Number(Boolean(b.photoDataUrl));
+      else if (sortKey === "name") compared = a.name.localeCompare(b.name, "pt-BR");
+      else if (sortKey === "kind") {
+        compared = MATERIAL_KIND_LABELS[a.kind].localeCompare(MATERIAL_KIND_LABELS[b.kind], "pt-BR");
+      } else if (sortKey === "proportion") {
+        compared = describeProportion(a, bases).localeCompare(describeProportion(b, bases), "pt-BR");
+      } else if (sortKey === "unit") compared = (a.unit || "").localeCompare(b.unit || "", "pt-BR");
+      else compared = a.category.localeCompare(b.category, "pt-BR");
+      return compared * direction || a.name.localeCompare(b.name, "pt-BR");
+    });
     return list.filter((item) => {
       if (categoryFilter && item.category !== categoryFilter) return false;
       if (kindFilter && item.kind !== kindFilter) return false;
@@ -51,7 +69,7 @@ export function MateriaisAdmin() {
         MATERIAL_KIND_LABELS[item.kind].toLowerCase().includes(term)
       );
     });
-  }, [data, search, categoryFilter, kindFilter, proportionFilter]);
+  }, [data, bases, search, categoryFilter, kindFilter, proportionFilter, sortKey, sortDir]);
 
   const startNew = () => {
     setEditing(null);
@@ -63,6 +81,14 @@ export function MateriaisAdmin() {
   };
 
   const selection = useItemSelection(filtered.map((item) => item.id));
+
+  const toggleSort = (key: MaterialSortKey) => {
+    if (sortKey === key) setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
 
   const duplicate = (ids: string[]) => {
     if (ids.length === 0) return;
@@ -79,13 +105,13 @@ export function MateriaisAdmin() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <PageShell>
       <CadastrosHeader
         title="Materiais"
         action={
-          <div className="flex flex-nowrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ImportExport entity="materials" />
-            <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
+            <Button className="h-10 px-5" onClick={startNew}>
               <Plus data-icon="inline-start" />
               Novo material
             </Button>
@@ -126,18 +152,13 @@ export function MateriaisAdmin() {
               },
             ]}
             extra={
-              <button
-                type="button"
+              <FilterChip
+                active={proportionFilter === "missing"}
                 onClick={() => setProportionFilter((current) => (current === "missing" ? "" : "missing"))}
-                className={cn(
-                  "h-10 shrink-0 rounded-md border px-3 text-sm",
-                  proportionFilter === "missing"
-                    ? "border-forest bg-forest text-cream"
-                    : "border-forest/15 text-forest/70 hover:text-forest",
-                )}
+                className="h-10 shrink-0"
               >
                 Sem proporção
-              </button>
+              </FilterChip>
             }
           />
           <BulkBar
@@ -152,54 +173,54 @@ export function MateriaisAdmin() {
               title="Nenhum material"
               description="Cadastre os materiais da casa para alimentar a separação por evento."
               action={
-                <Button className="bg-forest text-cream hover:bg-petrol" onClick={startNew}>
+                <Button className="h-10" onClick={startNew}>
                   <Plus data-icon="inline-start" />
                   Novo material
                 </Button>
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-              <table className="w-full text-left text-sm">
+            <Card flush className="overflow-x-auto">
+              <table className="w-full min-w-[48rem] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-forest/10">
-                    <Th className="w-10 pl-5">
+                  <tr className="border-b border-line">
+                    <th className="w-10 py-3 pl-5 pr-3">
                       <ItemCheckbox
                         label="Selecionar todos"
                         checked={selection.allVisibleSelected}
                         indeterminate={selection.someVisibleSelected}
                         onChange={selection.toggleAllVisible}
                       />
-                    </Th>
-                    <Th className="w-14">Foto</Th>
-                    <Th>Material</Th>
-                    <Th>Tipo</Th>
-                    <Th>Proporção</Th>
-                    <Th>Categoria</Th>
-                    <Th align="center">Unid.</Th>
-                    <Th align="right" className="pr-5">Ações</Th>
+                    </th>
+                    <SortableTh label="Foto" active={sortKey === "photo"} dir={sortDir} onClick={() => toggleSort("photo")} className="w-14" />
+                    <SortableTh label="Material" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
+                    <SortableTh label="Tipo" active={sortKey === "kind"} dir={sortDir} onClick={() => toggleSort("kind")} />
+                    <SortableTh label="Proporção" active={sortKey === "proportion"} dir={sortDir} onClick={() => toggleSort("proportion")} />
+                    <SortableTh label="Categoria" active={sortKey === "category"} dir={sortDir} onClick={() => toggleSort("category")} />
+                    <SortableTh label="Unid." active={sortKey === "unit"} dir={sortDir} onClick={() => toggleSort("unit")} align="center" />
+                    <th className="field-label py-3 pr-5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((material) => (
                     <tr
                       key={material.id}
-                      className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]"
+                      className="border-b border-line last:border-0 hover:bg-forest/[0.02]"
                     >
-                      <td className="py-3 pl-5">
+                      <td className="py-3 pl-5 pr-3">
                         <ItemCheckbox
                           label={`Selecionar ${material.name}`}
                           checked={selection.selected.has(material.id)}
                           onChange={() => selection.toggle(material.id)}
                         />
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 pr-3">
                         {material.photoDataUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={material.photoDataUrl}
                             alt=""
-                            className="size-10 rounded-md object-cover ring-1 ring-forest/10"
+                            className="size-10 rounded-md object-cover ring-1 ring-line"
                           />
                         ) : (
                           <span className="flex size-10 items-center justify-center rounded-md bg-forest/[0.04] text-forest/25">
@@ -207,10 +228,10 @@ export function MateriaisAdmin() {
                           </span>
                         )}
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 pr-3">
                         <p className="font-medium text-forest">{material.name}</p>
                         {material.variants.length > 0 ? (
-                          <p className="mt-0.5 text-xs font-light text-forest/45">
+                          <p className="meta-text mt-0.5">
                             {material.variants.join(" · ")}
                           </p>
                         ) : null}
@@ -219,7 +240,7 @@ export function MateriaisAdmin() {
                         <Chip
                           className={cn(
                             material.kind === "descartavel"
-                              ? "bg-terracotta/10 text-terracotta"
+                              ? "border border-line bg-white text-forest/70"
                               : material.kind === "misto"
                                 ? "bg-forest/8 text-forest/70"
                                 : "bg-petrol/10 text-petrol",
@@ -228,9 +249,9 @@ export function MateriaisAdmin() {
                           {MATERIAL_KIND_LABELS[material.kind]}
                         </Chip>
                       </td>
-                      <td className="py-3 pr-3 text-[13px] font-light text-forest/60">
+                      <td className="py-3 pr-3 text-[13px] text-forest/60">
                         {material.factors.length === 0 ? (
-                          <Chip className="bg-terracotta/10 text-terracotta">
+                          <Chip className="bg-danger/10 text-danger">
                             Sem proporção cadastrada
                           </Chip>
                         ) : (
@@ -240,7 +261,7 @@ export function MateriaisAdmin() {
                       <td className="py-3 pr-3">
                         <Chip className="bg-forest/6 text-forest/70">{material.category}</Chip>
                       </td>
-                      <td className="py-3 text-center text-forest/70">{material.unit || "—"}</td>
+                      <td className="py-3 pr-3 text-center text-forest/70">{material.unit || "—"}</td>
                       <td className="py-3 pr-5">
                         <RecordRowActions
                           label={material.name}
@@ -258,7 +279,7 @@ export function MateriaisAdmin() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Card>
           )}
         </>
       )}
@@ -285,29 +306,7 @@ export function MateriaisAdmin() {
           />
         </Modal>
       ) : null}
-    </div>
-  );
-}
-
-function Th({
-  children,
-  align = "left",
-  className,
-}: {
-  children: React.ReactNode;
-  align?: "left" | "center" | "right";
-  className?: string;
-}) {
-  return (
-    <th
-      className={cn(
-        "field-label py-3 pr-3 font-normal",
-        align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left",
-        className,
-      )}
-    >
-      {children}
-    </th>
+    </PageShell>
   );
 }
 
@@ -434,7 +433,7 @@ function MaterialForm({
           </select>
         </Field>
       </div>
-      <p className="-mt-2 text-xs font-light text-forest/45">
+      <p className="meta-text -mt-2">
         Permanente volta do evento. Descartável consome-se. Misto é para kits que misturam os dois.
       </p>
 
@@ -446,10 +445,10 @@ function MaterialForm({
             <img
               src={photoDataUrl}
               alt={name || "Material"}
-              className="size-20 rounded-xl object-cover ring-1 ring-forest/10"
+              className="size-20 rounded-lg object-cover ring-1 ring-line"
             />
           ) : (
-            <span className="flex size-20 items-center justify-center rounded-xl bg-forest/[0.04] text-forest/25">
+            <span className="flex size-20 items-center justify-center rounded-lg bg-forest/[0.04] text-forest/25">
               <ImagePlus className="size-6" />
             </span>
           )}
@@ -484,13 +483,13 @@ function MaterialForm({
             {photoDataUrl ? (
               <button
                 type="button"
-                className="block text-xs text-forest/50 hover:text-terracotta"
+                className="meta-text block hover:text-danger"
                 onClick={() => setPhotoDataUrl("")}
               >
                 Remover foto
               </button>
             ) : (
-              <p className="text-xs font-light text-forest/45">JPEG compactado, só para identificação.</p>
+              <p className="meta-text">JPEG compactado, só para identificação.</p>
             )}
           </div>
         </div>
@@ -498,7 +497,7 @@ function MaterialForm({
 
       <div>
         <p className="field-label mb-2">Variantes (marca, tipo, cor, tamanho)</p>
-        <p className="mb-2 text-xs font-light text-forest/45">
+        <p className="meta-text mb-2">
           Cada variação é um item no inventário. O estoque mostra a quantidade de cada uma e o total do material.
         </p>
         {variants.length > 0 ? (
@@ -510,7 +509,7 @@ function MaterialForm({
                   type="button"
                   aria-label={`Remover ${variant}`}
                   onClick={() => setVariants(variants.filter((item) => item !== variant))}
-                  className="flex size-6 shrink-0 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full text-forest/40 hover:text-danger"
                 >
                   <Trash2 className="size-3" />
                 </button>
@@ -520,7 +519,7 @@ function MaterialForm({
         ) : null}
         <div className="flex gap-2">
           <input
-            className={cn(fieldControlClass, "max-w-xs")}
+            className={cn(fieldControlClass, "min-w-0 flex-1 sm:max-w-xs")}
             value={newVariant}
             onChange={(event) => setNewVariant(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), addVariant())}
@@ -536,7 +535,7 @@ function MaterialForm({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <p className="field-label">Proporção (base × multiplicador)</p>
-          <span className="text-xs font-light text-forest/45">até {MAX_FACTORS} fatores</span>
+          <span className="meta-text">até {MAX_FACTORS} fatores</span>
         </div>
         <div className="space-y-2">
           {factors.map((factor, index) => (
@@ -557,15 +556,13 @@ function MaterialForm({
                 ))}
               </select>
               <span className="text-forest/40">×</span>
-              <input
-                type="number"
-                step="0.01"
-                min={0}
-                className={cn(fieldControlClass, "w-28")}
+              <QtyInput
+                step={0.01}
+                ariaLabel="Multiplicador"
                 value={factor.mult}
-                onChange={(event) => {
+                onChange={(mult) => {
                   const next = [...factors];
-                  next[index] = { ...factor, mult: Number(event.target.value) };
+                  next[index] = { ...factor, mult };
                   setFactors(next);
                 }}
               />
@@ -573,7 +570,7 @@ function MaterialForm({
                 type="button"
                 aria-label="Remover fator"
                 onClick={() => setFactors(factors.filter((_, i) => i !== index))}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-forest/40 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
+                className="flex size-9 shrink-0 items-center justify-center rounded-md text-forest/40 transition-colors hover:bg-danger/10 hover:text-danger"
               >
                 <Trash2 className="size-4" />
               </button>
@@ -591,12 +588,12 @@ function MaterialForm({
           </Button>
         ) : null}
         {factors.length === 0 ? (
-          <p className="mt-2 rounded-lg bg-terracotta/10 px-3 py-2 text-xs text-terracotta">
+          <p className="mt-2 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
             Sem proporção cadastrada — este material não entra no cálculo automático até você
             definir um fator.
           </p>
         ) : (
-          <p className="mt-2 text-xs font-light text-forest/45">
+          <p className="meta-text mt-2 tabular">
             {factors
               .map((factor) => `${basesById.get(factor.baseId)?.label ?? "?"} × ${factor.mult}`)
               .join("  ×  ")}
@@ -604,11 +601,11 @@ function MaterialForm({
         )}
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={submit}>
+        <Button className="h-10 px-5" onClick={submit}>
           {initial ? "Salvar alterações" : "Cadastrar material"}
         </Button>
       </div>

@@ -3,16 +3,17 @@
 import { FileDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CadastrosHeader, EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
+import { EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import { formatBRL } from "@/lib/crm/format";
 import { formatLongDate } from "@/lib/dates";
 import { slugify } from "@/lib/download";
 import { groupLaborPaymentsByEvent } from "@/lib/mao-de-obra/calc";
 import { downloadContaAzulSheet } from "@/lib/mao-de-obra/conta-azul";
 import type { LaborPayment } from "@/lib/mao-de-obra/types";
-import { cn } from "@/lib/utils";
 
 export function PagamentoMaoDeObraPage() {
   const { data, ready } = useMaoDeObra();
@@ -76,13 +77,12 @@ export function PagamentoMaoDeObraPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <CadastrosHeader
-        eyebrow="Financeiro"
-        title="Pagamento de mão de obra"
-        action={
+    <PageShell
+      eyebrow="Financeiro"
+      title="Pagamento de mão de obra"
+      actions={
           <Button
-            className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+            className="px-5"
             disabled={working || (selectedVisible.length === 0 && filtered.length === 0)}
             onClick={() => {
               const ids = selectedVisible.length ? selectedVisible : visibleIds;
@@ -99,8 +99,8 @@ export function PagamentoMaoDeObraPage() {
               ? `Baixar ${selectedVisible.length} evento${selectedVisible.length === 1 ? "" : "s"}`
               : "Baixar planilha"}
           </Button>
-        }
-      />
+      }
+    >
 
       {!ready ? (
         <LoadingBlock />
@@ -117,10 +117,11 @@ export function PagamentoMaoDeObraPage() {
           {filtered.length === 0 ? (
             <EmptyBlock title="Nenhum evento encontrado" description="Ajuste a busca." />
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-forest/10 bg-white">
+            <Card flush>
+              <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-forest/10">
+                  <tr className="border-b border-line">
                     <th className="w-10 py-3 pl-4">
                       <input
                         type="checkbox"
@@ -131,10 +132,10 @@ export function PagamentoMaoDeObraPage() {
                       />
                     </th>
                     <th className="field-label py-3 font-normal">Evento</th>
-                    <th className="field-label py-3 font-normal">Equipe</th>
-                    <th className="field-label py-3 font-normal">Hora extra</th>
-                    <th className="field-label py-3 font-normal">Ajuda de custo</th>
-                    <th className="field-label py-3 font-normal">Total do evento</th>
+                    <th className="field-label py-3 pr-3 text-right font-normal">Equipe</th>
+                    <th className="field-label py-3 pr-3 text-right font-normal">Hora extra</th>
+                    <th className="field-label py-3 pr-3 text-right font-normal">Ajuda de custo</th>
+                    <th className="field-label py-3 pr-3 text-right font-normal">Total do evento</th>
                     <th className="w-12 py-3 pr-4" />
                   </tr>
                 </thead>
@@ -142,8 +143,8 @@ export function PagamentoMaoDeObraPage() {
                   {filtered.map((group) => {
                     const checked = selected.includes(group.eventId);
                     return (
-                      <tr key={group.eventId} className="border-b border-forest/5 last:border-0">
-                        <td className="py-3 pl-4 align-top">
+                      <tr key={group.eventId} className="border-b border-line align-middle last:border-0">
+                        <td className="py-3 pl-4">
                           <input
                             type="checkbox"
                             className="size-4 accent-forest"
@@ -154,22 +155,20 @@ export function PagamentoMaoDeObraPage() {
                         </td>
                         <td className="py-3 pr-3">
                           <p className="font-medium text-forest">{group.eventTitle || group.eventCode}</p>
-                          <p className="text-xs font-light text-forest/45">
+                          <p className="meta-text">
                             {group.eventCode}
                             {group.eventDate ? ` · ${formatLongDate(group.eventDate)}` : ""}
                             {` · ${group.payments.length} prestador${group.payments.length === 1 ? "" : "es"}`}
                           </p>
                         </td>
-                        <td className="py-3 pr-3 text-forest">{formatBRL(group.teamAmount)}</td>
-                        <td className="py-3 pr-3 text-forest">{formatBRL(group.overtimeAmount)}</td>
-                        <td className="py-3 pr-3 text-forest">{formatBRL(group.allowanceAmount)}</td>
-                        <td className="py-3 pr-3 font-medium text-forest">{formatBRL(group.total)}</td>
+                        <td className="py-3 pr-3 text-right tabular text-forest">{formatBRL(group.teamAmount)}</td>
+                        <td className="py-3 pr-3 text-right tabular text-forest">{formatBRL(group.overtimeAmount)}</td>
+                        <td className="py-3 pr-3 text-right tabular text-forest">{formatBRL(group.allowanceAmount)}</td>
+                        <td className="py-3 pr-3 text-right font-medium tabular text-forest">{formatBRL(group.total)}</td>
                         <td className="py-3 pr-4">
                           <button
                             type="button"
-                            className={cn(
-                              "flex size-8 items-center justify-center rounded-lg text-forest/50 hover:bg-forest/8 hover:text-forest",
-                            )}
+                            className="ml-auto flex size-8 items-center justify-center rounded-md text-forest/50 hover:bg-forest/[0.06] hover:text-forest"
                             aria-label={`Baixar planilha de ${group.eventTitle || group.eventCode}`}
                             disabled={working}
                             onClick={() =>
@@ -187,10 +186,11 @@ export function PagamentoMaoDeObraPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </Card>
           )}
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

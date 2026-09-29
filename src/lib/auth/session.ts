@@ -5,11 +5,10 @@ export const SESSION_COOKIE = "cb_session";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 function sessionSecret() {
-  return (
-    process.env.AUTH_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "casabraga-dev-session-secret"
-  );
+  const secret = process.env.AUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (secret) return secret;
+  if (process.env.VERCEL) throw new Error("AUTH_SECRET não configurado neste deploy.");
+  return "casabraga-dev-session-secret";
 }
 
 function toBase64Url(bytes: Uint8Array) {

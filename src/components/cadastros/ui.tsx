@@ -3,36 +3,35 @@
 import { ChevronDown, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { fieldControlClass } from "@/components/events/field";
+import { PageHeader } from "@/components/ui/page-shell";
 import { cn } from "@/lib/utils";
 
 export function CadastrosHeader({
   eyebrow = "Cadastros",
   title,
+  description,
   action,
 }: {
   eyebrow?: string;
   title: string;
+  description?: React.ReactNode;
   action?: React.ReactNode;
 }) {
-  return (
-    <header className="flex flex-col gap-3 border-b border-forest/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <p className="text-[13px] font-medium text-forest/50">{eyebrow}</p>
-        <h1 className="page-title mt-1">{title}</h1>
-      </div>
-      {action ? <div className="flex shrink-0 flex-nowrap items-center gap-2">{action}</div> : null}
-    </header>
-  );
+  return <PageHeader eyebrow={eyebrow} title={title} description={description} actions={action} />;
 }
 
 export function SearchInput({
   value,
   onChange,
   placeholder = "Buscar…",
+  onFocus,
+  onBlur,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
   return (
     <div className="relative">
@@ -41,6 +40,8 @@ export function SearchInput({
         className={cn(fieldControlClass, "pl-9")}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder={placeholder}
       />
     </div>
@@ -299,7 +300,9 @@ export function Modal({
 
 export function LoadingBlock({ label = "Carregando…" }: { label?: string }) {
   return (
-    <p className="py-16 text-center text-sm text-forest/50">{label}</p>
+    <p role="status" aria-live="polite" className="meta-text py-16 text-center">
+      {label}
+    </p>
   );
 }
 
@@ -313,9 +316,9 @@ export function EmptyBlock({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-forest/20 bg-white p-8 text-center">
-      <h3 className="text-[15px] font-semibold text-forest">{title}</h3>
-      {description ? <p className="mt-2 max-w-sm text-sm text-forest/55">{description}</p> : null}
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-forest/20 bg-white px-6 py-10 text-center">
+      <h3 className="section-title">{title}</h3>
+      {description ? <p className="meta-text mt-1.5 max-w-sm">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );

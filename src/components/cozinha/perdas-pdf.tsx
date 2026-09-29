@@ -1,161 +1,138 @@
 "use client";
 
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
-import { formatLongDate } from "@/lib/dates";
-import { downloadBlob } from "@/lib/download";
 import { LOSS_REASONS } from "@/lib/cozinha/types";
-import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
+import { formatShortDate } from "@/lib/dates";
+import { downloadBlob } from "@/lib/download";
+import { PDF_FONT } from "@/lib/pdf/fonts";
+import { PDF, PdfFooter, PdfHeader, pdfStyles } from "@/lib/pdf/header";
 
-registerPdfFonts();
-
-const colors = {
-  forest: "#1E443E",
-  petrol: "#003F3C",
-  cream: "#FFFBFA",
-  muted: "#5D6F6C",
-  line: "#C9D5D1",
-};
+const ink = PDF.ink;
+/** Preenche a folha A4 inteira sem passar para uma segunda página. */
+const BLANK_ROWS = 22;
 
 const styles = StyleSheet.create({
-  page: {
-    backgroundColor: colors.cream,
-    paddingTop: 24,
-    paddingBottom: 32,
-    paddingHorizontal: 28,
-    fontFamily: PDF_FONT,
-    color: colors.forest,
+  grid: {
+    borderTopWidth: 0.9,
+    borderLeftWidth: 0.9,
+    borderColor: ink,
   },
-  header: { backgroundColor: colors.petrol, color: colors.cream, padding: 14, marginBottom: 12 },
-  brand: { fontSize: 8, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 },
-  title: { fontSize: 18, fontFamily: PDF_FONT, fontWeight: 700 },
-  subtitle: { fontSize: 9, marginTop: 3, color: colors.cream },
-  meta: { flexDirection: "row", gap: 10, marginBottom: 10 },
-  metaBox: {
+  row: { flexDirection: "row" },
+  metaCell: {
     flex: 1,
-    borderWidth: 0.7,
-    borderColor: colors.line,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  metaLabel: { fontSize: 7, letterSpacing: 0.8, textTransform: "uppercase", color: colors.muted, marginBottom: 10 },
-  hint: { fontSize: 8, color: colors.muted, marginBottom: 8 },
-  legend: { fontSize: 8, color: colors.muted, marginBottom: 8 },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: colors.forest,
-    color: colors.cream,
-    paddingVertical: 5,
+    borderRightWidth: 0.9,
+    borderBottomWidth: 0.9,
+    borderColor: ink,
+    minHeight: 36,
     paddingHorizontal: 6,
+    paddingVertical: 4,
   },
-  th: { fontSize: 7, letterSpacing: 0.5, textTransform: "uppercase" },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 0.6,
-    borderBottomColor: colors.line,
-    paddingVertical: 9,
+  label: { fontSize: 7, fontFamily: PDF_FONT, fontWeight: 700, marginBottom: 8 },
+  headCell: {
+    borderRightWidth: 0.9,
+    borderBottomWidth: 0.9,
+    borderColor: ink,
+    minHeight: 22,
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+  },
+  headText: { fontSize: 7, fontFamily: PDF_FONT, fontWeight: 700 },
+  dataCell: {
+    borderRightWidth: 0.9,
+    borderBottomWidth: 0.9,
+    borderColor: ink,
+    minHeight: 24,
+  },
+  legend: { fontSize: 8, marginTop: 8, marginBottom: 8, lineHeight: 1.35 },
+  notes: {
+    marginTop: 10,
+    borderWidth: 0.9,
+    borderColor: ink,
+    minHeight: 48,
     paddingHorizontal: 6,
+    paddingVertical: 4,
   },
-  cellLine: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.line,
-    height: 10,
+  notesLabel: { fontSize: 8, fontFamily: PDF_FONT, fontWeight: 700 },
+  signRow: { flexDirection: "row", marginTop: 10 },
+  signCell: {
+    flex: 1,
+    borderWidth: 0.9,
+    borderColor: ink,
+    minHeight: 42,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    marginRight: 8,
   },
-  signRow: { flexDirection: "row", gap: 16, marginTop: 16 },
-  signBox: { flex: 1, borderTopWidth: 0.7, borderTopColor: colors.line, paddingTop: 6 },
-  footer: {
-    position: "absolute",
-    bottom: 14,
-    left: 28,
-    right: 28,
-    fontSize: 7,
-    color: colors.muted,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
+  signCellLast: { marginRight: 0 },
 });
 
-const BLANK_ROWS = 12;
+const COLUMNS = [
+  { label: "Insumo", width: "32%" },
+  { label: "Un.", width: "8%" },
+  { label: "Quantidade", width: "14%" },
+  { label: "Motivo", width: "22%" },
+  { label: "Observação", width: "24%" },
+];
 
-function LossFormDocument({ dateLabel }: { dateLabel: string }) {
+export function LossFormDocument({ dateLabel }: { dateLabel: string }) {
   return (
-    <Document>
-      <Page size="A4" style={styles.page} wrap={false}>
-        <View style={styles.header}>
-          <Text style={styles.brand}>Casa Braga · Cozinha</Text>
-          <Text style={styles.title}>Registro de perdas</Text>
-          <Text style={styles.subtitle}>Ficha de 1 página para preenchimento à mão</Text>
-        </View>
+    <Document title="Registro de Desperdícios">
+      <Page size="A4" style={pdfStyles.page} wrap={false}>
+        <PdfHeader title="Registro de Desperdícios" meta="Cozinha · preencha à mão e lance no sistema" right={`Impresso em ${dateLabel}`} />
 
-        <View style={styles.meta}>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Data</Text>
-            <View style={styles.cellLine} />
-          </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Evento / local</Text>
-            <View style={styles.cellLine} />
-          </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Responsável</Text>
-            <View style={styles.cellLine} />
+        <View style={styles.grid}>
+          <View style={styles.row}>
+            {["Data", "Evento / local", "Responsável"].map((label) => (
+              <View key={label} style={styles.metaCell}>
+                <Text style={styles.label}>{label}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        <Text style={styles.hint}>
-          Preencha os itens perdidos na cozinha e lance depois em Cozinha → Controle de Perdas.
-        </Text>
         <Text style={styles.legend}>
-          Motivos: {LOSS_REASONS.map((item) => item.label).join(" · ")}
+          Motivos: {LOSS_REASONS.map((item) => item.label).join("  ·  ")}
         </Text>
 
-        <View style={styles.tableHeader}>
-          <Text style={[styles.th, { flex: 2.6 }]}>Insumo</Text>
-          <Text style={[styles.th, { width: 36 }]}>Un.</Text>
-          <Text style={[styles.th, { width: 48, textAlign: "right" }]}>Quantidade</Text>
-          <Text style={[styles.th, { flex: 1.6 }]}>Motivo</Text>
-          <Text style={[styles.th, { flex: 1.8 }]}>Observação</Text>
-        </View>
-        {Array.from({ length: BLANK_ROWS }).map((_, index) => (
-          <View key={index} style={styles.row}>
-            <View style={{ flex: 2.6, paddingRight: 6 }}>
-              <View style={styles.cellLine} />
-            </View>
-            <View style={{ width: 36, paddingRight: 6 }}>
-              <View style={styles.cellLine} />
-            </View>
-            <View style={{ width: 48, paddingRight: 6 }}>
-              <View style={styles.cellLine} />
-            </View>
-            <View style={{ flex: 1.6, paddingRight: 6 }}>
-              <View style={styles.cellLine} />
-            </View>
-            <View style={{ flex: 1.8 }}>
-              <View style={styles.cellLine} />
-            </View>
+        <View style={styles.grid}>
+          <View style={styles.row}>
+            {COLUMNS.map((column) => (
+              <View key={column.label} style={[styles.headCell, { width: column.width }]}>
+                <Text style={styles.headText}>{column.label}</Text>
+              </View>
+            ))}
           </View>
-        ))}
+          {Array.from({ length: BLANK_ROWS }).map((_, index) => (
+            <View key={index} style={styles.row} wrap={false}>
+              {COLUMNS.map((column) => (
+                <View key={column.label} style={[styles.dataCell, { width: column.width }]} />
+              ))}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.notes}>
+          <Text style={styles.notesLabel}>Observações</Text>
+        </View>
 
         <View style={styles.signRow}>
-          <View style={styles.signBox}>
-            <Text style={{ fontSize: 8, color: colors.muted }}>Assinatura da cozinha</Text>
+          <View style={styles.signCell}>
+            <Text style={styles.notesLabel}>Assinatura da cozinha</Text>
           </View>
-          <View style={styles.signBox}>
-            <Text style={{ fontSize: 8, color: colors.muted }}>Conferido por</Text>
+          <View style={[styles.signCell, styles.signCellLast]}>
+            <Text style={styles.notesLabel}>Conferido por</Text>
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text>Casa Braga · Controle de perdas</Text>
-          <Text>Impresso em {dateLabel}</Text>
-        </View>
+        <PdfFooter label="Cozinha · Registro de Desperdícios" />
       </Page>
     </Document>
   );
 }
 
 export async function downloadLossRegisterPdf() {
-  const dateLabel = formatLongDate(new Date().toISOString().slice(0, 10));
+  const dateLabel = formatShortDate(new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
   const blob = await pdf(<LossFormDocument dateLabel={dateLabel} />).toBlob();
-  downloadBlob(blob, "registro-perdas.pdf");
+  downloadBlob(blob, "registro-desperdicios.pdf");
 }

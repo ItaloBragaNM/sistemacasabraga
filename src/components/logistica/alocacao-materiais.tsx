@@ -2,16 +2,20 @@
 
 import { addWeeks, format, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, FileDown } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, FileDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { CatalogFilters, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
 import { useEvents } from "@/components/events/events-provider";
 import { downloadRuptureWeekPdf } from "@/components/logistica/alocacao-pdf";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { SegmentedControl } from "@/components/ui/segmented";
+import { KpiCard } from "@/components/ui/status-pill";
 import { formatInt } from "@/lib/crm/format";
 import { formatShortDate, formatWeekRange, toIsoDate, weekDaysMonday } from "@/lib/dates";
 import {
@@ -79,89 +83,79 @@ export function AlocacaoMateriais() {
     }
   };
 
+  const header = { eyebrow: "Logística", title: "Alocação de Materiais", width: "wide" as const };
+
   if (!ready) {
     return (
-      <div className="mx-auto max-w-6xl space-y-6 pb-16">
-        <CadastrosHeader
-          eyebrow="Logística"
-          title="Alocação de Materiais"
-        />
+      <PageShell {...header}>
         <LoadingBlock />
-      </div>
+      </PageShell>
     );
   }
 
   if (!cadastros) {
     return (
-      <div className="mx-auto max-w-6xl space-y-6 pb-16">
-        <CadastrosHeader
-          eyebrow="Logística"
-          title="Alocação de Materiais"
-        />
+      <PageShell {...header}>
         <EmptyBlock title="Indisponível" description="Recarregue a página." />
-      </div>
+      </PageShell>
     );
   }
 
+  const missing = week.missingDates.length;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16">
-      <CadastrosHeader
-        eyebrow="Logística"
-        title="Alocação de Materiais"
-        action={
+    <PageShell
+      {...header}
+      actions={
+        <>
+          <div className="flex items-center rounded-md border border-line bg-white">
+            <Button variant="ghost" size="icon" aria-label="Semana anterior" onClick={() => setCursor((d) => addWeeks(d, -1))}>
+              <ChevronLeft />
+            </Button>
+            <p className="min-w-[9.5rem] text-center text-[13px] font-semibold text-forest tabular">{weekLabel}</p>
+            <Button variant="ghost" size="icon" aria-label="Próxima semana" onClick={() => setCursor((d) => addWeeks(d, 1))}>
+              <ChevronRight />
+            </Button>
+          </div>
+          <button
+            type="button"
+            className="h-10 px-2 text-sm text-forest/55 hover:text-forest"
+            onClick={() => setCursor(new Date())}
+          >
+            Esta semana
+          </button>
           <Button variant="outline" className="h-10 px-4" onClick={exportPdf}>
             <FileDown data-icon="inline-start" />
             Relatório
           </Button>
-        }
-      />
-
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-forest/10 bg-white px-3 py-2">
-        <Button variant="ghost" size="icon" aria-label="Semana anterior" onClick={() => setCursor((d) => addWeeks(d, -1))}>
-          <ChevronLeft />
-        </Button>
-        <div className="text-center">
-          <p className="text-[13px] font-semibold text-forest">{weekLabel}</p>
-          <button
-            type="button"
-            className="text-xs font-light text-forest/50 hover:text-forest"
-            onClick={() => setCursor(new Date())}
-          >
-            Ir para esta semana
-          </button>
-        </div>
-        <Button variant="ghost" size="icon" aria-label="Próxima semana" onClick={() => setCursor((d) => addWeeks(d, 1))}>
-          <ChevronRight />
-        </Button>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Kpi label="Eventos" value={String(week.events.length)} />
-        <Kpi
+        </>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-3">
+        <KpiCard label="Eventos na semana" value={String(week.events.length)} />
+        <KpiCard
           label="Rupturas"
           value={String(week.ruptures.length)}
-          hint={worst ? `maior falta: ${worst.name}` : undefined}
-          warn={week.ruptures.length > 0}
+          hint={worst ? `Maior falta: ${worst.name}` : "O estoque cobre a semana"}
+          tone={week.ruptures.length > 0 ? "danger" : "neutral"}
+        />
+        <KpiCard
+          label="Sem data de entrega ou recolhimento"
+          value={String(missing)}
+          hint={missing > 0 ? "Não entram na alocação da semana" : "Todas as datas estão preenchidas"}
+          tone={missing > 0 ? "warn" : "neutral"}
         />
       </div>
 
-      {week.missingDates.length > 0 ? (
-        <p className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-forest/75">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
-          <span>
-            {week.missingDates.length} evento(s) sem data de entrega ou recolhimento.
-          </span>
-        </p>
-      ) : null}
-
-      <section className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-        <header className="border-b border-forest/10 px-4 py-3">
-          <h2 className="text-[15px] font-semibold text-forest">Eventos da semana</h2>
-        </header>
+      <Card flush>
+        <CardHeader title="Eventos da semana" className="border-b border-line px-4 py-3" />
         {week.events.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm font-light text-forest/50">
-            Nenhum evento com material alocado nesta semana.
-          </p>
+          <div className="p-4">
+            <EmptyBlock
+              title="Nenhum evento nesta semana"
+              description="Nenhum evento com material alocado nesta semana."
+            />
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <div className="min-w-[720px] p-3">
@@ -170,14 +164,14 @@ export function AlocacaoMateriais() {
                   <div
                     key={toIsoDate(day)}
                     className={cn(
-                      "rounded-lg px-2 py-1.5 text-center",
+                      "rounded-md px-2 py-1.5 text-center",
                       isToday(day) ? "bg-forest text-cream" : "bg-forest/[0.04] text-forest/70",
                     )}
                   >
                     <p className="text-[13px] font-medium">
                       {format(day, "EEE", { locale: ptBR })}
                     </p>
-                    <p className="text-sm">{format(day, "d")}</p>
+                    <p className="text-sm tabular">{format(day, "d")}</p>
                   </div>
                 ))}
               </div>
@@ -194,9 +188,9 @@ export function AlocacaoMateriais() {
                         href={`/eventos/${event.id}`}
                         title={`${event.title} · ${formatShortDate(event.start)} → ${formatShortDate(event.end)}`}
                         className={cn(
-                          "flex min-h-9 items-center overflow-hidden rounded-lg px-2.5 text-xs font-medium",
+                          "flex min-h-9 items-center overflow-hidden rounded-md px-2.5 text-xs font-medium",
                           contributesToRupture
-                            ? "bg-terracotta/15 text-terracotta hover:bg-terracotta/25"
+                            ? "bg-danger/15 text-danger hover:bg-danger/25"
                             : "bg-forest text-cream hover:bg-petrol",
                         )}
                         style={{ gridColumn: `${bar.col} / span ${bar.span}` }}
@@ -213,59 +207,50 @@ export function AlocacaoMateriais() {
             </div>
           </div>
         )}
-      </section>
+      </Card>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setView("ruptura")}
-          className={cn(
-            "h-10 rounded-lg px-4 text-sm",
-            view === "ruptura" ? "bg-forest text-cream" : "border border-forest/15 bg-white text-forest/70 hover:text-forest",
-          )}
-        >
-          Só rupturas
-        </button>
-        <button
-          type="button"
-          onClick={() => setView("todos")}
-          className={cn(
-            "h-10 rounded-lg px-4 text-sm",
-            view === "todos" ? "bg-forest text-cream" : "border border-forest/15 bg-white text-forest/70 hover:text-forest",
-          )}
-        >
-          Todos os alocados
-        </button>
-      </div>
-
-      <CatalogFilters
-        compact
-        search={search}
-        onSearch={setSearch}
-        searchPlaceholder="Buscar material…"
-        facets={[
-          {
-            id: "category",
-            label: "Categoria",
-            value: category,
-            onChange: setCategory,
-            options: categories.map((item) => ({ value: item, label: item })),
-          },
-        ]}
-      />
-
-      <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+      <Card flush>
+        <div className="flex flex-col gap-3 border-b border-line px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <SegmentedControl
+            ariaLabel="Visão"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "ruptura", label: "Só rupturas" },
+              { value: "todos", label: "Todos" },
+            ]}
+            className="self-start"
+          />
+          <CatalogFilters
+            compact
+            search={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar material…"
+            facets={[
+              {
+                id: "category",
+                label: "Categoria",
+                value: category,
+                onChange: setCategory,
+                options: categories.map((item) => ({ value: item, label: item })),
+              },
+            ]}
+          />
+        </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[680px] text-left text-sm">
             <thead>
-              <tr className="border-b border-forest/10">
+              <tr className="border-b border-line">
                 <th className="field-label py-3 pl-4 font-normal">Material</th>
-                <th className="field-label py-3 text-right font-normal">Estoque</th>
-                <th className="field-label py-3 text-right font-normal">Pico</th>
-                <th className="field-label py-3 text-right font-normal">Falta</th>
+                <th className="field-label w-14 py-3 text-right font-normal">Est.</th>
+                <th className="field-label w-14 py-3 text-right font-normal">Pico</th>
+                <th className="field-label w-14 py-3 pr-2 text-right font-normal">Falta</th>
                 {days.map((day) => (
-                  <th key={toIsoDate(day)} className="field-label py-3 text-center font-normal">
-                    {format(day, "EEE d", { locale: ptBR })}
+                  <th key={toIsoDate(day)} className="field-label w-11 py-2 text-center font-normal">
+                    <span className="block capitalize">{format(day, "EEE", { locale: ptBR }).replace(".", "")}</span>
+                    <span className={cn("block text-[13px]", isToday(day) && "font-semibold text-forest")}>
+                      {format(day, "d")}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -273,7 +258,7 @@ export function AlocacaoMateriais() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={4 + days.length} className="px-4 py-10 text-center text-sm font-light text-forest/50">
+                  <td colSpan={4 + days.length} className="meta-text px-4 py-10 text-center">
                     {view === "ruptura" && week.materials.length > 0
                       ? "Nenhuma ruptura nesta semana. O estoque cobre os eventos simultâneos."
                       : "Nenhum material alocado com esses filtros."}
@@ -293,28 +278,8 @@ export function AlocacaoMateriais() {
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Kpi({
-  label,
-  value,
-  hint,
-  warn,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  warn?: boolean;
-}) {
-  return (
-    <div className="rounded-2xl border border-forest/10 bg-white px-4 py-3">
-      <p className={cn("text-[15px] font-semibold", warn ? "text-terracotta" : "text-forest")}>{value}</p>
-      <p className="field-label mt-1">{label}</p>
-      {hint ? <p className="mt-0.5 truncate text-xs font-light text-forest/50">{hint}</p> : null}
-    </div>
+      </Card>
+    </PageShell>
   );
 }
 
@@ -333,8 +298,8 @@ function MaterialRows({
     <>
       <tr
         className={cn(
-          "border-b border-forest/5 last:border-0",
-          row.shortage > 0 && "bg-terracotta/[0.04]",
+          "border-b border-line last:border-0",
+          row.shortage > 0 && "bg-danger/[0.04]",
         )}
       >
         <td className="py-2 pl-2">
@@ -344,30 +309,30 @@ function MaterialRows({
             className="flex w-full items-center gap-2 px-2 text-left"
           >
             <ChevronDown className={cn("size-4 shrink-0 text-forest/35 transition", open && "rotate-180")} />
-            <span>
+            <span className="min-w-0">
               <span className="font-medium text-forest">{row.name}</span>
-              <span className="block text-xs font-light text-forest/45">
+              <span className="meta-text block">
                 {row.category}
                 {row.unit ? ` · ${row.unit}` : ""}
               </span>
             </span>
           </button>
         </td>
-        <td className="py-2 text-right text-forest/70">{formatInt(row.stock)}</td>
-        <td className="py-2 text-right text-forest">{formatInt(row.peak)}</td>
-        <td className={cn("py-2 text-right font-medium", row.shortage > 0 ? "text-terracotta" : "text-forest/35")}>
+        <td className="py-2 text-right text-forest/70 tabular">{formatInt(row.stock)}</td>
+        <td className="py-2 text-right text-forest tabular">{formatInt(row.peak)}</td>
+        <td className={cn("py-2 pr-2 text-right font-medium tabular", row.shortage > 0 ? "text-danger" : "text-forest/35")}>
           {row.shortage > 0 ? formatInt(row.shortage) : "—"}
         </td>
         {row.days.map((cell, index) => (
-          <td key={days[index]} className="px-1 py-2">
+          <td key={days[index]} className="px-0.5 py-2">
             <DayCell cell={cell} />
           </td>
         ))}
       </tr>
       {open ? (
-        <tr className="border-b border-forest/5 bg-forest/[0.02]">
+        <tr className="border-b border-line bg-forest/[0.02]">
           <td colSpan={4 + days.length} className="px-6 py-3">
-            <p className="mb-2 text-xs font-light text-forest/50">
+            <p className="meta-text mb-2">
               Quem leva este material nesta semana
             </p>
             <EventBreakdown row={row} days={days} />
@@ -397,7 +362,7 @@ function EventBreakdown({ row, days }: { row: MaterialWeekRow; days: string[] })
   });
   const list = [...byEvent.values()];
   if (list.length === 0) {
-    return <p className="text-sm font-light text-forest/50">Nenhum evento neste material.</p>;
+    return <p className="meta-text">Nenhum evento neste material.</p>;
   }
   return (
     <ul className="space-y-3 text-sm">
@@ -410,12 +375,12 @@ function EventBreakdown({ row, days }: { row: MaterialWeekRow; days: string[] })
             </Link>
             <Link
               href={`/logistica/separacao-materiais/${event.id}`}
-              className="text-xs text-forest/45 hover:text-forest hover:underline"
+              className="meta-text hover:text-forest hover:underline"
             >
               Separação
             </Link>
           </div>
-          <p className="mt-0.5 text-xs font-light text-forest/55">
+          <p className="meta-text mt-0.5 tabular">
             {event.lines
               .map((line) => {
                 const shortage =
@@ -432,15 +397,15 @@ function EventBreakdown({ row, days }: { row: MaterialWeekRow; days: string[] })
 
 function DayCell({ cell }: { cell: MaterialWeekRow["days"][number] }) {
   if (cell.demand <= 0) {
-    return <div className="mx-auto h-8 w-full max-w-[3.25rem] rounded-md bg-forest/[0.03]" />;
+    return <div className="mx-auto h-7 w-full rounded-md bg-forest/[0.03]" />;
   }
   const rupture = cell.shortage > 0;
   return (
     <div
       title={`${formatInt(cell.demand)} alocados · estoque ${formatInt(cell.stock)}${rupture ? ` · falta ${formatInt(cell.shortage)}` : ""}`}
       className={cn(
-        "mx-auto flex h-8 w-full max-w-[3.25rem] items-center justify-center rounded-md text-xs font-medium",
-        rupture ? "bg-terracotta text-cream" : "bg-forest/10 text-forest",
+        "mx-auto flex h-7 w-full items-center justify-center rounded-md text-[11px] font-medium tabular",
+        rupture ? "bg-danger text-cream" : "bg-forest/10 text-forest",
       )}
     >
       {formatInt(cell.demand)}

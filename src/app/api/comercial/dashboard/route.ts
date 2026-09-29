@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       {
         module: "comercial",
         entity: "CRM",
+        page: "Comercial · Dashboard Comercial",
         action: "editar",
         summary: `Importou planilha ${snapshot.fileName} (${snapshot.rowCount} leads)`,
       },

@@ -1,12 +1,15 @@
 "use client";
 
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, Chip, ChipRow, LoadingBlock } from "@/components/cadastros/ui";
+import { ChipRow, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { StatusPill } from "@/components/ui/status-pill";
 import type { BaseKind, CalcBase } from "@/lib/cadastros/types";
 import { drinkPremisesHint, DEFAULT_DRINK_PREMISES, type DrinkPremises } from "@/lib/types";
 import { uid } from "@/lib/event-factory";
@@ -46,28 +49,67 @@ function describeKind(kind: BaseKind): string {
   }
 }
 
+function SettingsCard({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card flush className="flex h-full flex-col">
+      <CardHeader
+        title={title}
+        description={description}
+        actions={action}
+        className="flex-nowrap items-start border-b border-line px-5 py-4"
+      />
+      <div className="flex-1 p-5">{children}</div>
+    </Card>
+  );
+}
+
+function PremiseGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3 rounded-lg bg-cream p-4">
+      <p className="group-title">{title}</p>
+      {children}
+    </div>
+  );
+}
+
 export function ConfiguracoesAdmin() {
   const { data, ready } = useCadastros();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 pb-16">
-      <CadastrosHeader
-        eyebrow="Configurações do Sistema"
-        title="Configurações do Módulo de Cadastros"
-      />
+    <PageShell
+      eyebrow="Configurações do Sistema"
+      title="Configurações do Módulo de Cadastros"
+      description="Estas regras valem para o cálculo de bebidas, para as categorias dos catálogos e para as bases usadas nos materiais."
+    >
       {!ready ? (
         <LoadingBlock />
-      ) : !data ? null : (
+      ) : !data ? (
+        <EmptyBlock title="Cadastros indisponíveis" description="Recarregue a página." />
+      ) : (
         <>
           <DrinkPremisesSection />
-          <DishCategoriesSection />
-          <MaterialCategoriesSection />
-          <InsumoCategoriesSection />
-          <StockLocationsSection />
-          <BasesSection />
+          <div className="grid gap-4 lg:grid-cols-3">
+            <DishCategoriesSection />
+            <MaterialCategoriesSection />
+            <InsumoCategoriesSection />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <StockLocationsSection />
+            <BasesSection />
+          </div>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -79,57 +121,67 @@ function DrinkPremisesSection() {
     setDrinkPremises({ ...premises, [key]: value > 0 ? value : premises[key] });
   };
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-      <h2 className="text-[15px] font-semibold text-forest">Premissas de bebidas</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field label="Água — convidados por garrafão">
-          <input
-            type="number"
-            min={1}
-            className={fieldControlClass}
-            value={premises.aguaGuestsPerCarboy}
-            onChange={(event) => patch("aguaGuestsPerCarboy", Number(event.target.value))}
-          />
-        </Field>
-        <Field label="Água — litros do garrafão">
-          <input
-            type="number"
-            min={1}
-            className={fieldControlClass}
-            value={premises.aguaCarboyLiters}
-            onChange={(event) => patch("aguaCarboyLiters", Number(event.target.value))}
-          />
-        </Field>
-        <Field label="Refrigerante — ml por pessoa">
-          <input
-            type="number"
-            min={1}
-            className={fieldControlClass}
-            value={premises.refrigeranteMlPerPerson}
-            onChange={(event) => patch("refrigeranteMlPerPerson", Number(event.target.value))}
-          />
-        </Field>
-        <Field label="Refrigerante — ml da garrafa">
-          <input
-            type="number"
-            min={1}
-            className={fieldControlClass}
-            value={premises.refrigeranteBottleMl}
-            onChange={(event) => patch("refrigeranteBottleMl", Number(event.target.value))}
-          />
-        </Field>
-        <Field label="Suco — ml por pessoa" className="sm:col-span-2">
-          <input
-            type="number"
-            min={1}
-            className={fieldControlClass}
-            value={premises.sucoMlPerPerson}
-            onChange={(event) => patch("sucoMlPerPerson", Number(event.target.value))}
-          />
-        </Field>
+    <SettingsCard
+      title="Premissas de bebidas"
+      description="O sistema usa estes números ao calcular água, refrigerante e suco a partir dos convidados."
+    >
+      <div className="grid gap-4 lg:grid-cols-3">
+        <PremiseGroup title="Água">
+          <Field label="Convidados por garrafão">
+            <input
+              type="number"
+              min={1}
+              className={fieldControlClass}
+              value={premises.aguaGuestsPerCarboy}
+              onChange={(event) => patch("aguaGuestsPerCarboy", Number(event.target.value))}
+            />
+          </Field>
+          <Field label="Litros do garrafão">
+            <input
+              type="number"
+              min={1}
+              className={fieldControlClass}
+              value={premises.aguaCarboyLiters}
+              onChange={(event) => patch("aguaCarboyLiters", Number(event.target.value))}
+            />
+          </Field>
+        </PremiseGroup>
+        <PremiseGroup title="Refrigerante">
+          <Field label="Mililitros por pessoa">
+            <input
+              type="number"
+              min={1}
+              className={fieldControlClass}
+              value={premises.refrigeranteMlPerPerson}
+              onChange={(event) => patch("refrigeranteMlPerPerson", Number(event.target.value))}
+            />
+          </Field>
+          <Field label="Mililitros da garrafa">
+            <input
+              type="number"
+              min={1}
+              className={fieldControlClass}
+              value={premises.refrigeranteBottleMl}
+              onChange={(event) => patch("refrigeranteBottleMl", Number(event.target.value))}
+            />
+          </Field>
+        </PremiseGroup>
+        <PremiseGroup title="Suco">
+          <Field label="Mililitros por pessoa">
+            <input
+              type="number"
+              min={1}
+              className={fieldControlClass}
+              value={premises.sucoMlPerPerson}
+              onChange={(event) => patch("sucoMlPerPerson", Number(event.target.value))}
+            />
+          </Field>
+        </PremiseGroup>
       </div>
-      <p className="mt-3 text-xs font-light text-forest/50">{drinkPremisesHint(premises)}</p>
-    </section>
+      <p className="mt-4 rounded-lg bg-cream px-4 py-3 text-sm leading-relaxed text-forest/70 tabular">
+        {drinkPremisesHint(premises)}
+      </p>
+    </SettingsCard>
   );
 }
 
@@ -139,6 +191,7 @@ function DishCategoriesSection() {
   return (
     <CategoriesEditor
       title="Categorias do cardápio"
+      description="Usadas no cadastro de pratos."
       categories={data.dishCategories}
       onSetCategories={setDishCategories}
       usageCount={(name) => data.dishes.filter((dish) => dish.category === name).length}
@@ -159,6 +212,7 @@ function MaterialCategoriesSection() {
   return (
     <CategoriesEditor
       title="Categorias de materiais"
+      description="Usadas no cadastro de materiais."
       categories={data.materialCategories}
       onSetCategories={setCategories}
       usageCount={(name) => data.materials.filter((m) => m.category === name).length}
@@ -179,6 +233,7 @@ function InsumoCategoriesSection() {
   return (
     <CategoriesEditor
       title="Categorias de insumos"
+      description="Usadas no cadastro de insumos."
       categories={data.insumoCategories}
       onSetCategories={setInsumoCategories}
       usageCount={(name) => data.insumos.filter((i) => i.category === name).length}
@@ -221,11 +276,13 @@ function StockLocationsSection() {
   };
 
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5">
-      <h2 className="text-[15px] font-semibold text-forest">Locais do estoque</h2>
-      <div className="mt-4 flex flex-wrap gap-2">
+    <SettingsCard
+      title="Locais do estoque"
+      description="Onde cada material fica guardado na casa."
+    >
+      <div className="flex flex-wrap gap-2">
         <input
-          className={cn(fieldControlClass, "max-w-xs")}
+          className={cn(fieldControlClass, "min-w-0 flex-1 sm:max-w-xs")}
           placeholder={editing ? "Nome do local" : "Novo local…"}
           value={editing ? editing.name : name}
           onChange={(event) => {
@@ -249,17 +306,17 @@ function StockLocationsSection() {
         ) : null}
       </div>
       {locations.length === 0 ? (
-        <p className="mt-3 text-sm font-light text-forest/50">Nenhum local cadastrado ainda.</p>
+        <p className="meta-text mt-4">Nenhum local cadastrado ainda.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-forest/8">
+        <ul className="mt-4 divide-y divide-line">
           {locations.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 py-2.5">
+            <li key={item.id} className="flex items-center justify-between gap-3 py-2">
               <span className="text-sm text-forest">{item.name}</span>
               <div className="flex gap-1">
                 <button
                   type="button"
                   aria-label={`Editar ${item.name}`}
-                  className="flex size-8 items-center justify-center rounded-lg text-forest/40 hover:bg-forest/5 hover:text-forest"
+                  className="flex size-8 items-center justify-center rounded-md text-forest/40 hover:bg-forest/5 hover:text-forest"
                   onClick={() => setEditing({ id: item.id, name: item.name })}
                 >
                   <Pencil className="size-4" />
@@ -267,7 +324,7 @@ function StockLocationsSection() {
                 <button
                   type="button"
                   aria-label={`Excluir ${item.name}`}
-                  className="flex size-8 items-center justify-center rounded-lg text-forest/40 hover:bg-terracotta/10 hover:text-terracotta"
+                  className="flex size-8 items-center justify-center rounded-md text-forest/40 hover:bg-danger/10 hover:text-danger"
                   onClick={() => {
                     const used = data.materials.filter((material) => material.locationId === item.id).length;
                     if (
@@ -290,18 +347,19 @@ function StockLocationsSection() {
           ))}
         </ul>
       )}
-    </section>
+    </SettingsCard>
   );
 }
-
 function CategoriesEditor({
   title,
+  description,
   categories,
   onSetCategories,
   usageCount,
   onRename,
 }: {
   title: string;
+  description: string;
   categories: string[];
   onSetCategories: (categories: string[]) => void;
   usageCount: (name: string) => number;
@@ -359,10 +417,8 @@ function CategoriesEditor({
   };
 
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5">
-      <h2 className="text-[15px] font-semibold text-forest">{title}</h2>
-
-      <div className="mt-4 flex flex-wrap gap-2">
+    <SettingsCard title={title} description={description}>
+      <div className="flex flex-wrap gap-2">
         {categories.map((category) => (
           <ChipRow key={category} className="gap-1.5">
             {editing === category ? (
@@ -386,14 +442,17 @@ function CategoriesEditor({
                   type="button"
                   aria-label="Cancelar"
                   onClick={() => setEditing(null)}
-                  className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
+                  className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-danger"
                 >
                   <X className="size-3.5" />
                 </button>
               </>
             ) : (
               <>
-                <span className="min-w-0 break-words text-sm text-forest/80">{category}</span>
+                <span className="min-w-0 break-words text-sm text-forest/80">
+                  {category}
+                  <span className="ml-1.5 text-xs text-forest/40 tabular">{usageCount(category)}</span>
+                </span>
                 <button
                   type="button"
                   aria-label="Renomear"
@@ -409,7 +468,7 @@ function CategoriesEditor({
                   type="button"
                   aria-label="Excluir"
                   onClick={() => remove(category)}
-                  className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
+                  className="flex size-6 items-center justify-center rounded-full text-forest/40 hover:text-danger"
                 >
                   <Trash2 className="size-3" />
                 </button>
@@ -421,7 +480,7 @@ function CategoriesEditor({
 
       <div className="mt-4 flex gap-2">
         <input
-          className={cn(fieldControlClass, "max-w-xs")}
+          className={cn(fieldControlClass, "min-w-0 flex-1 sm:max-w-xs")}
           value={newCategory}
           onChange={(event) => setNewCategory(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && add()}
@@ -432,7 +491,7 @@ function CategoriesEditor({
           Adicionar
         </Button>
       </div>
-    </section>
+    </SettingsCard>
   );
 }
 
@@ -443,17 +502,16 @@ function BasesSection() {
   if (!data) return null;
 
   return (
-    <section className="rounded-2xl border border-forest/10 bg-white p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-[15px] font-semibold text-forest">Bases de cálculo</h2>
-        </div>
-        <Button variant="outline" className="h-10 px-4" onClick={() => setAdding((v) => !v)}>
+    <SettingsCard
+      title="Bases de cálculo"
+      description="Definem como a quantidade de cada material acompanha a ficha do evento."
+      action={
+        <Button variant="outline" size="sm" onClick={() => setAdding((value) => !value)}>
           <Plus data-icon="inline-start" />
           Nova base
         </Button>
-      </div>
-
+      }
+    >
       {adding ? (
         <NewBaseForm
           onCancel={() => setAdding(false)}
@@ -465,19 +523,15 @@ function BasesSection() {
         />
       ) : null}
 
-      <ul className="mt-4 divide-y divide-forest/8">
+      <ul className={cn("divide-y divide-line", adding && "mt-4")}>
         {data.bases.map((base) => (
-          <li key={base.id} className="flex items-start justify-between gap-3 py-3">
-            <div>
-              <p className="font-medium text-forest">
+          <li key={base.id} className="flex items-center justify-between gap-3 py-3 first:pt-0">
+            <div className="min-w-0">
+              <p className="flex flex-wrap items-center gap-2 font-medium text-forest">
                 {base.label}
-                {base.builtIn ? (
-                  <Chip size="sm" className="ml-2 bg-forest/6 text-forest/45">
-                    nativa
-                  </Chip>
-                ) : null}
+                {base.builtIn ? <StatusPill>nativa</StatusPill> : null}
               </p>
-              <p className="mt-0.5 text-xs font-light text-forest/55">
+              <p className="meta-text mt-0.5">
                 {base.description} · {describeKind(base.kind)}
               </p>
             </div>
@@ -495,7 +549,7 @@ function BasesSection() {
                   removeBase(base.id);
                   toast.success("Base excluída.");
                 }}
-                className="flex size-8 shrink-0 items-center justify-center rounded-lg text-forest/40 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
+                className="flex size-8 shrink-0 items-center justify-center rounded-md text-forest/40 transition-colors hover:bg-danger/10 hover:text-danger"
               >
                 <Trash2 className="size-4" />
               </button>
@@ -503,7 +557,7 @@ function BasesSection() {
           </li>
         ))}
       </ul>
-    </section>
+    </SettingsCard>
   );
 }
 
@@ -542,7 +596,7 @@ function NewBaseForm({
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-forest/12 bg-forest/[0.02] p-4">
+    <div className="rounded-lg border border-line bg-forest/[0.02] p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Nome da base">
           <input
@@ -589,10 +643,10 @@ function NewBaseForm({
         )}
       </div>
       <div className="mt-3 flex justify-end gap-2">
-        <Button variant="outline" className="h-9 px-4" onClick={onCancel}>
+        <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button className="h-9 bg-forest px-4 text-cream hover:bg-petrol" onClick={submit}>
+        <Button className="h-10 px-4" onClick={submit}>
           Adicionar base
         </Button>
       </div>

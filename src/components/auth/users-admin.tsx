@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import { ROLE_MODULES, USER_ROLE_LABELS } from "@/lib/auth/roles";
 import { USER_ROLES, type PublicUser, type UserRole } from "@/lib/auth/types";
 import { APP_MODULES } from "@/lib/modules";
@@ -71,12 +73,12 @@ export function UsersAdmin() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <PageShell>
       <CadastrosHeader
         eyebrow="Configurações do Sistema"
         title="Cadastro de Usuários"
         action={
-          <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
+          <Button className="h-10 px-5" onClick={startNew}>
             <Plus data-icon="inline-start" />
             Novo usuário
           </Button>
@@ -90,31 +92,31 @@ export function UsersAdmin() {
           title="Nenhum usuário"
           description="Cadastre o time para cada pessoa entrar com usuário e senha."
           action={
-            <Button className="bg-forest text-cream hover:bg-petrol" onClick={startNew}>
+            <Button className="h-10" onClick={startNew}>
               <Plus data-icon="inline-start" />
               Novo usuário
             </Button>
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-          <table className="w-full text-left text-sm">
+        <Card flush className="overflow-x-auto">
+          <table className="w-full min-w-[40rem] text-left text-sm">
             <thead>
-              <tr className="border-b border-forest/10">
-                <th className="field-label py-3 pl-5 font-normal">Nome</th>
-                <th className="field-label py-3 font-normal">Usuário</th>
-                <th className="field-label py-3 font-normal">Tipo</th>
-                <th className="field-label py-3 font-normal">Módulos</th>
-                <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
+              <tr className="border-b border-line">
+                <th className="field-label py-3 pl-5 pr-3">Nome</th>
+                <th className="field-label py-3 pr-3">Usuário</th>
+                <th className="field-label py-3 pr-3">Tipo</th>
+                <th className="field-label py-3 pr-3">Módulos</th>
+                <th className="field-label py-3 pr-5 text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((user) => (
-                <tr key={user.id} className="border-b border-forest/8 last:border-0">
-                  <td className="py-3 pl-5 font-medium">{user.name}</td>
-                  <td className="py-3 text-forest/70">{user.username}</td>
-                  <td className="py-3">{USER_ROLE_LABELS[user.role]}</td>
-                  <td className="max-w-sm py-3 text-xs font-light text-forest/60">
+                <tr key={user.id} className="border-b border-line last:border-0 hover:bg-forest/[0.02]">
+                  <td className="py-3 pl-5 pr-3 font-medium text-forest">{user.name}</td>
+                  <td className="py-3 pr-3 text-forest/70">{user.username}</td>
+                  <td className="py-3 pr-3 text-forest/70">{USER_ROLE_LABELS[user.role]}</td>
+                  <td className="meta-text max-w-sm py-3 pr-3">
                     {roleModulesLabel(user.role)}
                   </td>
                   <td className="py-3 pr-5">
@@ -122,7 +124,7 @@ export function UsersAdmin() {
                       <button
                         type="button"
                         aria-label={`Editar ${user.name}`}
-                        className="flex size-8 items-center justify-center rounded-lg text-forest/50 hover:bg-forest/5 hover:text-forest"
+                        className="flex size-8 items-center justify-center rounded-md text-forest/50 hover:bg-forest/5 hover:text-forest"
                         onClick={() => {
                           setEditing(user);
                           setOpen(true);
@@ -133,7 +135,7 @@ export function UsersAdmin() {
                       <button
                         type="button"
                         aria-label={`Excluir ${user.name}`}
-                        className="flex size-8 items-center justify-center rounded-lg text-forest/40 hover:bg-terracotta/10 hover:text-terracotta"
+                        className="flex size-8 items-center justify-center rounded-md text-forest/40 hover:bg-danger/10 hover:text-danger"
                         onClick={() => remove(user)}
                       >
                         <Trash2 className="size-4" />
@@ -144,7 +146,7 @@ export function UsersAdmin() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
 
       <UserForm
@@ -157,7 +159,7 @@ export function UsersAdmin() {
           await load();
         }}
       />
-    </div>
+    </PageShell>
   );
 }
 
@@ -247,7 +249,7 @@ function UserForm({
             ))}
           </select>
         </Field>
-        <p className="text-xs font-light text-forest/55">{roleModulesLabel(role)}</p>
+        <p className="meta-text">{roleModulesLabel(role)}</p>
         <Field label={user ? "Nova senha (opcional)" : "Senha"}>
           <input
             className={fieldControlClass}
@@ -269,11 +271,11 @@ function UserForm({
             required={!user || Boolean(password)}
           />
         </Field>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" className="h-10" onClick={onClose}>
+        <div className="flex justify-end gap-2 border-t border-line pt-4">
+          <Button type="button" variant="outline" className="h-10 px-4" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={working} className="h-10 bg-forest text-cream hover:bg-petrol">
+          <Button type="submit" disabled={working} className="h-10 px-5">
             {working ? "Salvando…" : "Salvar"}
           </Button>
         </div>

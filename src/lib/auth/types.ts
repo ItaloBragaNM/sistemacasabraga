@@ -1,6 +1,7 @@
 export const USER_ROLES = [
   "gestao",
   "comercial",
+  "cozinha",
   "logistica",
   "gerencia",
   "financeiro",

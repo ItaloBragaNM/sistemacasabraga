@@ -4,11 +4,14 @@ import { FileDown, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
 import { downloadTechnicalSheetPdf } from "@/components/cozinha/ficha-tecnica-pdf";
 import { useFichasTecnicas } from "@/components/cozinha/fichas-tecnicas-provider";
 import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { KpiCard } from "@/components/ui/status-pill";
 import { formatBRL, formatDecimal } from "@/lib/crm/format";
 import { uid } from "@/lib/event-factory";
 import {
@@ -49,13 +52,12 @@ export function FichasTecnicasAdmin() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <CadastrosHeader
-        eyebrow="Cozinha"
-        title="Fichas técnicas"
-        action={
+    <PageShell
+      eyebrow="Cozinha"
+      title="Fichas técnicas"
+      actions={
           <Button
-            className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+            className="px-5"
             onClick={() => {
               const sheet = blankTechnicalSheet(uid());
               sheet.name = "Nova receita";
@@ -66,8 +68,8 @@ export function FichasTecnicasAdmin() {
             <Plus data-icon="inline-start" />
             Nova ficha
           </Button>
-        }
-      />
+      }
+    >
 
       {!ready ? (
         <LoadingBlock />
@@ -77,28 +79,29 @@ export function FichasTecnicasAdmin() {
           description="Crie a receita no modelo da ficha de papel: ingredientes, rendimento, custo e modo de preparo."
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-          <table className="w-full text-left text-sm">
+        <Card flush>
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
-              <tr className="border-b border-forest/10">
+              <tr className="border-b border-line">
                 <th className="field-label py-3 pl-5 font-normal">Item</th>
                 <th className="field-label py-3 font-normal">Classificação</th>
-                <th className="field-label py-3 font-normal">Custo</th>
-                <th className="field-label py-3 font-normal">CMV</th>
+                <th className="field-label py-3 text-right font-normal">Custo</th>
+                <th className="field-label py-3 pl-6 text-right font-normal">CMV</th>
                 <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
               </tr>
             </thead>
             <tbody>
               {sheets.map((sheet) => (
-                <tr key={sheet.id} className="border-b border-forest/5 last:border-0">
+                <tr key={sheet.id} className="border-b border-line align-middle last:border-0">
                   <td className="py-3 pl-5">
                     <p className="font-medium text-forest">{sheet.name}</p>
-                    <p className="text-xs font-light text-forest/45">{sheet.sector}</p>
+                    {sheet.sector ? <p className="meta-text">{sheet.sector}</p> : null}
                   </td>
                   <td className="py-3 text-forest/70">{sheet.classification || "—"}</td>
-                  <td className="py-3 text-forest/70">{formatBRL(recipeCost(sheet))}</td>
-                  <td className="py-3 text-forest/70">{formatDecimal(projectedCmv(sheet), 1)}%</td>
-                  <td className="py-3 pr-5 text-right">
+                  <td className="py-3 text-right tabular text-forest/70">{formatBRL(recipeCost(sheet))}</td>
+                  <td className="py-3 pl-6 text-right tabular text-forest/70">{formatDecimal(projectedCmv(sheet), 1)}%</td>
+                  <td className="whitespace-nowrap py-3 pr-5 pl-4 text-right">
                     <button type="button" className="text-sm text-forest/60 hover:text-forest" onClick={() => setEditingId(sheet.id)}>
                       Abrir
                     </button>
@@ -129,7 +132,7 @@ export function FichasTecnicasAdmin() {
                     <span className="mx-2 text-forest/20">·</span>
                     <button
                       type="button"
-                      className="text-sm text-terracotta/80 hover:text-terracotta"
+                      className="text-sm text-danger/80 hover:text-danger"
                       onClick={() => {
                         if (window.confirm(`Excluir "${sheet.name}"?`)) {
                           removeSheet(sheet.id);
@@ -144,9 +147,10 @@ export function FichasTecnicasAdmin() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </Card>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -196,21 +200,19 @@ function FichaEditor({
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <button type="button" className="text-sm font-light text-forest/60 hover:text-forest" onClick={onBack}>
-            ← Voltar às fichas
-          </button>
-          <CadastrosHeader
-            eyebrow="Cozinha"
-            title={draft.name || "Ficha técnica"}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <PageShell
+      width="wide"
+      eyebrow="Cozinha"
+      title={draft.name || "Ficha técnica"}
+      back={
+        <button type="button" className="text-sm text-forest/60 hover:text-forest" onClick={onBack}>
+          ← Voltar às fichas
+        </button>
+      }
+      actions={
+        <>
           <Button
             variant="outline"
-            className="h-10"
             disabled={pdfState === "working"}
             onClick={async () => {
               try {
@@ -229,7 +231,7 @@ function FichaEditor({
             Exportar PDF
           </Button>
           <Button
-            className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+            className="px-5"
             onClick={() => {
               if (!draft.name.trim()) {
                 toast.error("Informe o nome do prato.");
@@ -240,10 +242,10 @@ function FichaEditor({
           >
             Salvar ficha
           </Button>
-        </div>
-      </div>
-
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+        </>
+      }
+    >
+      <Card>
         <SectionTitle title="Cabeçalho da receita" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Item (nome do prato)" className="sm:col-span-2">
@@ -348,12 +350,12 @@ function FichaEditor({
             />
           </Field>
           <Field label="Preço de custo (calculado)">
-            <input className={fieldControlClass} value={formatBRL(cost)} readOnly />
+            <input className={cn(fieldControlClass, "tabular bg-forest/[0.03]")} value={formatBRL(cost)} readOnly />
           </Field>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+      <Card>
         <SectionTitle
           title="Ingredientes"
           hint="Quantidade ajustada = quantidade líquida ÷ (% de aproveitamento / 100)."
@@ -361,20 +363,20 @@ function FichaEditor({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead>
-              <tr className="border-b border-forest/10">
-                <th className="field-label py-2 font-normal">Ingrediente / marca</th>
-                <th className="field-label py-2 font-normal">Quantidade líquida</th>
-                <th className="field-label py-2 font-normal">Un.</th>
-                <th className="field-label py-2 font-normal">% aprov.</th>
-                <th className="field-label py-2 font-normal">Quantidade ajustada</th>
-                <th className="field-label py-2 font-normal">Custo un.</th>
-                <th className="field-label py-2 font-normal">Custo total</th>
+              <tr className="border-b border-line">
+                <th className="field-label py-2 pr-2 font-normal">Ingrediente / marca</th>
+                <th className="field-label py-2 pr-2 text-right font-normal">Qtd. líquida</th>
+                <th className="field-label py-2 pr-2 font-normal">Un.</th>
+                <th className="field-label py-2 pr-2 text-right font-normal">% aprov.</th>
+                <th className="field-label py-2 pr-2 text-right font-normal">Qtd. ajustada</th>
+                <th className="field-label py-2 pr-2 text-right font-normal">Custo un.</th>
+                <th className="field-label py-2 pr-2 text-right font-normal">Custo total</th>
                 <th className="w-10" />
               </tr>
             </thead>
             <tbody>
               {draft.ingredients.map((item) => (
-                <tr key={item.id} className="border-b border-forest/5 align-top">
+                <tr key={item.id} className="border-b border-line align-top">
                   <td className="py-2 pr-2">
                     <select
                       className={cn(fieldControlClass, "mb-1 h-9")}
@@ -406,14 +408,14 @@ function FichaEditor({
                       type="number"
                       min={0}
                       step="0.01"
-                      className={cn(fieldControlClass, "h-9 w-24")}
+                      className={cn(fieldControlClass, "ml-auto block h-9 w-24 px-2 text-right tabular")}
                       value={item.netQuantity || ""}
                       onChange={(event) => setIngredient(item.id, { netQuantity: Number(event.target.value) || 0 })}
                     />
                   </td>
                   <td className="py-2 pr-2">
                     <input
-                      className={cn(fieldControlClass, "h-9 w-16")}
+                      className={cn(fieldControlClass, "h-9 w-16 px-2")}
                       value={item.unit}
                       onChange={(event) => setIngredient(item.id, { unit: event.target.value })}
                     />
@@ -423,28 +425,28 @@ function FichaEditor({
                       type="number"
                       min={1}
                       max={100}
-                      className={cn(fieldControlClass, "h-9 w-20")}
+                      className={cn(fieldControlClass, "ml-auto block h-9 w-20 px-2 text-right tabular")}
                       value={item.yieldPercent || ""}
                       onChange={(event) => setIngredient(item.id, { yieldPercent: Number(event.target.value) || 100 })}
                     />
                   </td>
-                  <td className="py-2 pr-2 text-forest/70">{formatDecimal(adjustedQuantity(item), 2)}</td>
+                  <td className="py-2 pr-2 text-right leading-9 tabular text-forest/70">{formatDecimal(adjustedQuantity(item), 2)}</td>
                   <td className="py-2 pr-2">
                     <input
                       type="number"
                       min={0}
                       step="0.01"
-                      className={cn(fieldControlClass, "h-9 w-24")}
+                      className={cn(fieldControlClass, "ml-auto block h-9 w-24 px-2 text-right tabular")}
                       value={item.unitCost || ""}
                       onChange={(event) => setIngredient(item.id, { unitCost: Number(event.target.value) || 0 })}
                     />
                   </td>
-                  <td className="py-2 pr-2 text-forest/80">{formatBRL(ingredientTotal(item))}</td>
+                  <td className="py-2 pr-2 text-right leading-9 tabular text-forest/80">{formatBRL(ingredientTotal(item))}</td>
                   <td className="py-2">
                     <button
                       type="button"
                       aria-label="Remover ingrediente"
-                      className="flex size-9 items-center justify-center text-forest/35 hover:text-terracotta"
+                      className="flex size-9 items-center justify-center rounded-md text-forest/35 hover:text-danger"
                       onClick={() => update("ingredients", draft.ingredients.filter((row) => row.id !== item.id))}
                     >
                       <Trash2 className="size-4" />
@@ -457,29 +459,21 @@ function FichaEditor({
         </div>
         <Button
           variant="outline"
-          className="mt-4 h-9"
+          size="sm"
+          className="mt-4"
           onClick={() => update("ingredients", [...draft.ingredients, blankRecipeIngredient(uid())])}
         >
           <Plus data-icon="inline-start" />
           Ingrediente
         </Button>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-forest/10 px-4 py-3">
-            <p className="field-label">Custo total</p>
-            <p className="mt-1 text-lg font-semibold text-forest">{formatBRL(cost)}</p>
-          </div>
-          <div className="rounded-xl border border-forest/10 px-4 py-3">
-            <p className="field-label">Custo por porção</p>
-            <p className="mt-1 text-lg font-semibold text-forest">{perPortion ? formatBRL(perPortion) : "—"}</p>
-          </div>
-          <div className="rounded-xl border border-forest/10 px-4 py-3">
-            <p className="field-label">CMV projetado</p>
-            <p className="mt-1 text-lg font-semibold text-forest">{formatDecimal(cmv, 1)}%</p>
-          </div>
+          <KpiCard label="Custo total" value={formatBRL(cost)} />
+          <KpiCard label="Custo por porção" value={perPortion ? formatBRL(perPortion) : "—"} />
+          <KpiCard label="CMV projetado" value={`${formatDecimal(cmv, 1)}%`} />
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
+      <Card>
         <SectionTitle title="Modo de preparo" />
         <textarea
           className={cn(fieldControlClass, "min-h-40 py-3")}
@@ -487,7 +481,7 @@ function FichaEditor({
           onChange={(event) => update("method", event.target.value)}
           placeholder="Passo a passo da receita."
         />
-      </section>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

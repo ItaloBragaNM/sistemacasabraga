@@ -44,5 +44,9 @@ next-env.d.ts
 # local agent scratch
 /agent-tools/
 
+# PDFs gerados pela verificação
+/scripts/out/
+/scripts/tmp/
+
 # runtime data (uploaded CRM snapshot for the commercial dashboard)
 /.data/

@@ -2,23 +2,26 @@
 
 import { Check, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, Chip, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
+import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
 import { StatusBadge } from "@/components/events/status-badge";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { useEvents } from "@/components/events/events-provider";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { FilterChip } from "@/components/ui/filter-chip";
+import { PageHeader, PageShell } from "@/components/ui/page-shell";
+import { QtyInput } from "@/components/ui/qty-input";
+import { SegmentedControl } from "@/components/ui/segmented";
+import { KpiCard, StatusPill } from "@/components/ui/status-pill";
 import { MATERIAL_KIND_LABELS } from "@/lib/cadastros/types";
 import { formatInt } from "@/lib/crm/format";
 import { formatShortDate } from "@/lib/dates";
-import {
-  controlLossQty,
-  controlSnapshot,
-  suggestedLossReason,
-} from "@/lib/logistica/event-control";
+import { controlLossQty, controlSnapshot, suggestedLossReason } from "@/lib/logistica/event-control";
 import {
   MATERIAL_LOSS_REASONS,
   materialLossReasonLabel,
@@ -28,12 +31,15 @@ import {
 } from "@/lib/logistica/types";
 import { cn } from "@/lib/utils";
 
+type Tab = "eventos" | "perdas";
+
 export function ControleMateriaisEventos() {
   const { events, ready: eventsReady } = useEvents();
   const { data: cadastros, ready: cadReady } = useCadastros();
   const { data: logistica, ready: logReady } = useLogistica();
-  const [tab, setTab] = useState<"eventos" | "perdas">("eventos");
+  const [tab, setTab] = useState<Tab>("eventos");
   const [search, setSearch] = useState("");
+  const [dateSort, setDateSort] = useState<DateSort>("desc");
   const ready = eventsReady && cadReady && logReady;
 
   const controls = useMemo(
@@ -44,7 +50,7 @@ export function ControleMateriaisEventos() {
   const filteredEvents = useMemo(() => {
     const term = search.trim().toLowerCase();
     return [...events]
-      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.title.localeCompare(b.title, "pt-BR"))
+      .sort((a, b) => compareDateSort(a.date, b.date, dateSort) || a.title.localeCompare(b.title, "pt-BR"))
       .filter((event) => {
         if (event.status === "cancelado") return false;
         if (!term) return true;
@@ -55,7 +61,7 @@ export function ControleMateriaisEventos() {
           (control?.status === "conferido" && "conferido".includes(term))
         );
       });
-  }, [events, search, controls]);
+  }, [events, search, controls, dateSort]);
 
   const losses = useMemo(() => {
     const rows: {
@@ -84,40 +90,26 @@ export function ControleMateriaisEventos() {
         });
       }
     }
-    return rows.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  }, [cadastros, logistica]);
+    return rows.sort((a, b) => compareDateSort(a.date, b.date, dateSort));
+  }, [cadastros, logistica, dateSort]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <CadastrosHeader
-        eyebrow="Logística"
-        title="Controle de materiais em eventos"
-        action={
-          <div className="flex rounded-lg border border-forest/15 p-1">
-            <button
-              type="button"
-              className={cn(
-                "h-8 rounded-md px-3 text-sm",
-                tab === "eventos" ? "bg-forest text-cream" : "text-forest/70",
-              )}
-              onClick={() => setTab("eventos")}
-            >
-              Eventos
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "h-8 rounded-md px-3 text-sm",
-                tab === "perdas" ? "bg-forest text-cream" : "text-forest/70",
-              )}
-              onClick={() => setTab("perdas")}
-            >
-              Perdas
-            </button>
-          </div>
-        }
-      />
-
+    <PageShell
+      eyebrow="Logística"
+      title="Controle de Materiais em Eventos"
+      description="Confira o que saiu e o que voltou de cada evento. A diferença vira perda e baixa do estoque."
+      actions={
+        <SegmentedControl<Tab>
+          ariaLabel="Visão"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "eventos", label: "Eventos" },
+            { value: "perdas", label: "Perdas" },
+          ]}
+        />
+      }
+    >
       {!ready ? (
         <LoadingBlock />
       ) : tab === "perdas" ? (
@@ -127,55 +119,58 @@ export function ControleMateriaisEventos() {
             description="A diferença entre o que saiu e o que voltou aparece aqui depois da conferência."
           />
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-forest/10">
-                  <th className="field-label py-3 pl-5 font-normal">Data</th>
-                  <th className="field-label py-3 font-normal">Evento</th>
-                  <th className="field-label py-3 font-normal">Material</th>
-                  <th className="field-label py-3 font-normal">Motivo</th>
-                  <th className="field-label py-3 pr-5 text-right font-normal">Qtd</th>
-                </tr>
-              </thead>
-              <tbody>
-                {losses.map((row) => (
-                  <tr key={row.id} className="border-b border-forest/5 last:border-0">
-                    <td className="py-3 pl-5 text-forest/60">
-                      {row.date ? formatShortDate(row.date) : "—"}
-                    </td>
-                    <td className="py-3">
-                      <p className="text-forest">{row.eventTitle}</p>
-                      <p className="text-xs font-light text-forest/45">{row.eventCode}</p>
-                    </td>
-                    <td className="py-3 text-forest">{row.material}</td>
-                    <td className="py-3">
-                      <Chip className="bg-terracotta/10 text-terracotta">{row.reason}</Chip>
-                    </td>
-                    <td className="py-3 pr-5 text-right tabular-nums text-terracotta">
-                      {formatInt(row.qty)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <DateSortSelect value={dateSort} onChange={setDateSort} />
+            </div>
+            <Card flush>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="field-label py-3 pl-4 font-medium">Data</th>
+                      <th className="field-label py-3 font-medium">Evento</th>
+                      <th className="field-label py-3 font-medium">Material</th>
+                      <th className="field-label py-3 font-medium">Motivo</th>
+                      <th className="field-label py-3 pr-4 text-right font-medium">Qtd</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {losses.map((row) => (
+                      <tr key={row.id} className="border-b border-line last:border-0">
+                        <td className="py-3 pl-4 tabular text-forest/70">{row.date ? formatShortDate(row.date) : "—"}</td>
+                        <td className="py-3">
+                          <p className="text-forest">{row.eventTitle}</p>
+                          <p className="meta-text">{row.eventCode}</p>
+                        </td>
+                        <td className="py-3 text-forest">{row.material}</td>
+                        <td className="py-3">
+                          <StatusPill tone="danger">{row.reason}</StatusPill>
+                        </td>
+                        <td className="py-3 pr-4 text-right font-medium tabular text-danger">{formatInt(row.qty)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </div>
         )
       ) : (
-        <>
-          <input
-            className={cn(fieldControlClass, "max-w-md")}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar evento…"
-          />
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-[12rem] max-w-md flex-1">
+              <SearchInput value={search} onChange={setSearch} placeholder="Buscar evento…" />
+            </div>
+            <DateSortSelect value={dateSort} onChange={setDateSort} />
+          </div>
           {filteredEvents.length === 0 ? (
             <EmptyBlock
               title="Nenhum evento"
               description="A conferência usa a lista da separação de materiais de cada ficha."
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+            <Card flush>
               {filteredEvents.map((event, index) => {
                 const control = controls.get(event.id);
                 const loss = (control?.items ?? []).reduce((sum, item) => sum + controlLossQty(item), 0);
@@ -184,38 +179,36 @@ export function ControleMateriaisEventos() {
                     key={event.id}
                     href={`/logistica/controle-materiais/${event.id}`}
                     className={cn(
-                      "grid gap-2 px-5 py-3 transition-colors hover:bg-cream md:grid-cols-[110px_1fr_auto] md:items-center",
-                      index > 0 && "border-t border-forest/8",
+                      "grid grid-cols-[88px_minmax(0,1fr)] items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-cream sm:grid-cols-[96px_minmax(0,1fr)_auto]",
+                      index > 0 && "border-t border-line",
                     )}
                   >
-                    <p className="text-sm text-forest/60">
-                      {event.date ? formatShortDate(event.date) : "Sem data"}
-                    </p>
-                    <div>
-                      <p className="text-forest">{event.title || "Evento sem nome"}</p>
-                      <p className="mt-0.5 text-xs font-light text-forest/50">
+                    <p className="text-sm tabular text-forest/70">{event.date ? formatShortDate(event.date) : "Sem data"}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-forest">{event.title || "Evento sem nome"}</p>
+                      <p className="meta-text">
                         {event.code}
                         {control?.status === "conferido" && loss > 0 ? ` · ${formatInt(loss)} de perda` : ""}
                       </p>
                     </div>
-                    <div className="flex flex-col items-start gap-1 md:items-end">
+                    <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1 sm:justify-end">
                       {control?.status === "conferido" ? (
-                        <Chip className="bg-forest/8 text-forest">Conferido</Chip>
+                        <StatusPill tone="ok">Conferido</StatusPill>
                       ) : control ? (
-                        <Chip className="bg-forest/6 text-forest/60">Rascunho</Chip>
+                        <StatusPill tone="warn">Rascunho</StatusPill>
                       ) : (
-                        <Chip className="bg-forest/[0.04] text-forest/45">A conferir</Chip>
+                        <StatusPill>A conferir</StatusPill>
                       )}
                       <StatusBadge status={event.status} />
                     </div>
                   </Link>
                 );
               })}
-            </div>
+            </Card>
           )}
-        </>
+        </div>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -234,15 +227,17 @@ export function ControleMateriaisEvento({ eventId }: { eventId: string }) {
   if (!ready) return <LoadingBlock />;
   if (!event || !cadastros) {
     return (
-      <div className="mx-auto max-w-5xl py-20 text-center">
-        <h1 className="page-title">Evento não encontrado</h1>
-        <Link
-          href="/logistica/controle-materiais"
-          className={cn(buttonVariants({ variant: "outline" }), "mt-6 h-10 px-4")}
-        >
-          Voltar
-        </Link>
-      </div>
+      <PageShell title="Controle de Materiais">
+        <EmptyBlock
+          title="Evento não encontrado"
+          description="Ele pode ter sido excluído ou o link está incompleto."
+          action={
+            <Link href="/logistica/controle-materiais" className={cn(buttonVariants({ variant: "outline" }), "px-4")}>
+              Voltar para a lista
+            </Link>
+          }
+        />
+      </PageShell>
     );
   }
 
@@ -256,6 +251,10 @@ export function ControleMateriaisEvento({ eventId }: { eventId: string }) {
     />
   );
 }
+
+/** Mesmas colunas no cabeçalho e em todas as linhas, em todas as categorias. */
+const ROW_GRID =
+  "grid grid-cols-[minmax(0,1fr)_80px_80px_56px] items-center gap-x-3 sm:grid-cols-[minmax(0,1fr)_72px_80px_80px_64px]";
 
 function ControleEditor({
   snapshot,
@@ -271,14 +270,38 @@ function ControleEditor({
   const { data: cadastros } = useCadastros();
   const [items, setItems] = useState<EventMaterialControlItem[]>(snapshot.items);
   const [note, setNote] = useState(snapshot.note);
+  const [query, setQuery] = useState("");
+  const [onlyLoss, setOnlyLoss] = useState(false);
   const materialById = useMemo(
     () => new Map((cadastros?.materials ?? []).map((item) => [item.id, item])),
     [cadastros],
   );
 
+  const groups = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    const visible = items.filter((item) => {
+      const material = materialById.get(item.materialId);
+      if (onlyLoss && controlLossQty(item) <= 0) return false;
+      if (!term) return true;
+      return (
+        (material?.name ?? "").toLowerCase().includes(term) ||
+        (material?.category ?? "").toLowerCase().includes(term)
+      );
+    });
+    const map = new Map<string, EventMaterialControlItem[]>();
+    for (const item of visible) {
+      const category = materialById.get(item.materialId)?.category || "Outros";
+      const list = map.get(category) ?? [];
+      list.push(item);
+      map.set(category, list);
+    }
+    return [...map.entries()];
+  }, [items, query, onlyLoss, materialById]);
+
   const sentTotal = items.reduce((sum, item) => sum + (Number(item.sent) || 0), 0);
   const returnedTotal = items.reduce((sum, item) => sum + (Number(item.returned) || 0), 0);
   const lossTotal = items.reduce((sum, item) => sum + controlLossQty(item), 0);
+  const lossCount = items.filter((item) => controlLossQty(item) > 0).length;
   const conferido = saved?.status === "conferido";
 
   const patch = (materialId: string, next: Partial<EventMaterialControlItem>) => {
@@ -288,9 +311,7 @@ function ControleEditor({
         const merged = { ...item, ...next };
         const loss = controlLossQty(merged);
         const kind = materialById.get(materialId)?.kind;
-        if (loss > 0 && !merged.reason) {
-          merged.reason = suggestedLossReason(kind, loss);
-        }
+        if (loss > 0 && !merged.reason) merged.reason = suggestedLossReason(kind, loss);
         if (loss <= 0) merged.reason = "";
         return merged;
       }),
@@ -316,64 +337,63 @@ function ControleEditor({
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <header className="flex flex-col gap-4 border-b border-forest/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Link
-            href="/logistica/controle-materiais"
-            className="text-sm font-light text-forest/55 hover:text-forest"
-          >
-            ← Eventos
-          </Link>
-          <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-forest/45">
-            Logística · controle
-          </p>
-          <h1 className="page-title mt-1">{snapshot.eventTitle}</h1>
-          <p className="mt-1 text-sm font-light text-forest/55">
-            {snapshot.eventCode}
-            {snapshot.eventDate ? ` · ${formatShortDate(snapshot.eventDate)}` : ""}
-            {conferido ? " · conferido" : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {saved ? (
-            <Button
-              variant="outline"
-              className="h-10 text-terracotta hover:text-terracotta"
-              onClick={() => {
-                if (!window.confirm("Excluir esta conferência? Os movimentos de estoque serão estornados.")) {
-                  return;
-                }
-                onDelete(saved.id);
-                toast.success("Conferência excluída.");
-              }}
-            >
-              Excluir
-            </Button>
-          ) : null}
-          {conferido ? (
-            <Button variant="outline" className="h-10" onClick={() => persist("rascunho")}>
-              <RotateCcw data-icon="inline-start" />
-              Reabrir
-            </Button>
-          ) : (
+    <PageShell>
+      <div className="sticky top-16 z-10 -mx-4 bg-cream/95 px-4 pt-1 backdrop-blur sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-10 lg:px-10">
+        <PageHeader
+          back={
+            <Link href="/logistica/controle-materiais" className="text-sm text-forest/55 hover:text-forest">
+              ← Eventos
+            </Link>
+          }
+          eyebrow={[snapshot.eventCode, snapshot.eventDate ? formatShortDate(snapshot.eventDate) : ""]
+            .filter(Boolean)
+            .join(" · ")}
+          title={snapshot.eventTitle}
+          actions={
             <>
-              <Button variant="outline" className="h-10" onClick={() => persist("rascunho")}>
-                Salvar rascunho
-              </Button>
-              <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={() => persist("conferido")}>
-                <Check data-icon="inline-start" />
-                Conferir e lançar estoque
-              </Button>
+              {conferido ? <StatusPill tone="ok">Conferido</StatusPill> : null}
+              {saved ? (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (!window.confirm("Excluir esta conferência? Os movimentos de estoque serão estornados.")) return;
+                    onDelete(saved.id);
+                    toast.success("Conferência excluída.");
+                  }}
+                >
+                  Excluir
+                </Button>
+              ) : null}
+              {conferido ? (
+                <Button variant="outline" onClick={() => persist("rascunho")}>
+                  <RotateCcw data-icon="inline-start" />
+                  Reabrir
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => persist("rascunho")}>
+                    Salvar rascunho
+                  </Button>
+                  <Button onClick={() => persist("conferido")}>
+                    <Check data-icon="inline-start" />
+                    Conferir e lançar estoque
+                  </Button>
+                </>
+              )}
             </>
-          )}
-        </div>
-      </header>
+          }
+        />
+      </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Summary label="Saiu" value={formatInt(sentTotal)} />
-        <Summary label="Voltou" value={formatInt(returnedTotal)} />
-        <Summary label="Perda" value={formatInt(lossTotal)} warn={lossTotal > 0} />
+      <div className="grid grid-cols-3 gap-3">
+        <KpiCard label="Saiu" value={formatInt(sentTotal)} />
+        <KpiCard label="Voltou" value={formatInt(returnedTotal)} />
+        <KpiCard
+          label="Perda"
+          value={formatInt(lossTotal)}
+          hint={lossCount > 0 ? `${lossCount} ${lossCount === 1 ? "item" : "itens"}` : "Nada faltando"}
+          tone={lossTotal > 0 ? "danger" : "neutral"}
+        />
       </div>
 
       {items.length === 0 ? (
@@ -382,118 +402,124 @@ function ControleEditor({
           description="Vincule materiais aos pratos ou complete a separação deste evento."
         />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-forest/10 bg-white">
-          <table className="w-full min-w-[52rem] text-left text-sm">
-            <thead>
-              <tr className="border-b border-forest/10">
-                <th className="field-label py-3 pl-5 font-normal">Material</th>
-                <th className="field-label py-3 text-right font-normal">Previsto</th>
-                <th className="field-label py-3 text-right font-normal">Saiu</th>
-                <th className="field-label py-3 text-right font-normal">Voltou</th>
-                <th className="field-label py-3 text-right font-normal">Perda</th>
-                <th className="field-label py-3 font-normal">Motivo</th>
-                <th className="field-label py-3 pr-5 font-normal">Obs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => {
-                const material = materialById.get(item.materialId);
-                const loss = controlLossQty(item);
-                return (
-                  <tr key={item.materialId} className="border-b border-forest/5 last:border-0">
-                    <td className="py-2.5 pl-5">
-                      <p className="text-forest">{material?.name ?? "Material removido"}</p>
-                      <p className="text-xs font-light text-forest/45">
-                        {material ? MATERIAL_KIND_LABELS[material.kind] : ""}
-                        {material?.unit ? ` · ${material.unit}` : ""}
-                      </p>
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums text-forest/55">
-                      {formatInt(item.planned)}
-                    </td>
-                    <td className="py-2.5 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        className={cn(fieldControlClass, "ml-auto h-9 w-20 text-right")}
-                        value={item.sent}
-                        disabled={conferido}
-                        onChange={(event) => patch(item.materialId, { sent: Number(event.target.value) })}
-                      />
-                    </td>
-                    <td className="py-2.5 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        className={cn(fieldControlClass, "ml-auto h-9 w-20 text-right")}
-                        value={item.returned}
-                        disabled={conferido}
-                        onChange={(event) =>
-                          patch(item.materialId, { returned: Number(event.target.value) })
-                        }
-                      />
-                    </td>
-                    <td
-                      className={cn(
-                        "py-2.5 text-right tabular-nums",
-                        loss > 0 ? "font-medium text-terracotta" : "text-forest/40",
-                      )}
+        <Card flush>
+          <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+            <div className="min-w-[12rem] flex-1 sm:max-w-xs">
+              <SearchInput value={query} onChange={setQuery} placeholder="Buscar material…" />
+            </div>
+            <FilterChip tone="danger" active={onlyLoss} onClick={() => setOnlyLoss((current) => !current)}>
+              Só com perda{lossCount > 0 ? ` · ${lossCount}` : ""}
+            </FilterChip>
+          </div>
+
+          <div className={cn(ROW_GRID, "border-b border-line px-4 py-2")}>
+            <span className="field-label">Material</span>
+            <span className="field-label hidden text-right sm:block">Previsto</span>
+            <span className="field-label text-right">Saiu</span>
+            <span className="field-label text-right">Voltou</span>
+            <span className="field-label text-right">Perda</span>
+          </div>
+
+          {groups.length === 0 ? (
+            <p className="meta-text px-4 py-10 text-center">Nenhum material nesse filtro.</p>
+          ) : (
+            groups.map(([category, group]) => (
+              <Fragment key={category}>
+                <div className="flex items-baseline gap-2 border-b border-line bg-forest/[0.025] px-4 py-2">
+                  <span className="group-title">{category}</span>
+                  <span className="meta-text">{group.length}</span>
+                </div>
+                {group.map((item) => {
+                  const material = materialById.get(item.materialId);
+                  const loss = controlLossQty(item);
+                  return (
+                    <div
+                      key={item.materialId}
+                      className={cn("border-b border-line last:border-0", loss > 0 && "bg-danger/[0.035]")}
                     >
-                      {formatInt(loss)}
-                    </td>
-                    <td className="py-2.5">
-                      <select
-                        className={cn(fieldControlClass, "h-9 min-w-[9rem]")}
-                        value={item.reason}
-                        disabled={conferido || loss <= 0}
-                        onChange={(event) =>
-                          patch(item.materialId, {
-                            reason: event.target.value as MaterialLossReason | "",
-                          })
-                        }
-                      >
-                        <option value="">{loss > 0 ? "Motivo…" : "—"}</option>
-                        {MATERIAL_LOSS_REASONS.map((reason) => (
-                          <option key={reason.key} value={reason.key}>
-                            {reason.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2.5 pr-5">
-                      <input
-                        className={cn(fieldControlClass, "h-9")}
-                        value={item.note}
-                        disabled={conferido}
-                        onChange={(event) => patch(item.materialId, { note: event.target.value })}
-                        placeholder="Opcional"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <div className={cn(ROW_GRID, "gap-y-2 px-4 py-2.5")}>
+                        <div className="col-span-4 min-w-0 sm:col-span-1">
+                          <p className="truncate text-sm font-medium text-forest">
+                            {material?.name ?? "Material removido"}
+                          </p>
+                          <p className="meta-text truncate">
+                            {[material ? MATERIAL_KIND_LABELS[material.kind] : "", material?.unit ?? ""]
+                              .filter(Boolean)
+                              .join(" · ")}
+                            <span className="sm:hidden"> · previsto {formatInt(item.planned)}</span>
+                          </p>
+                        </div>
+                        <span className="hidden text-right text-sm tabular text-forest/60 sm:block">
+                          {formatInt(item.planned)}
+                        </span>
+                        <span className="sm:hidden" />
+                        <QtyInput
+                          ariaLabel={`Saiu · ${material?.name ?? ""}`}
+                          value={item.sent}
+                          disabled={conferido}
+                          onChange={(sent) => patch(item.materialId, { sent })}
+                          className="justify-self-end"
+                        />
+                        <QtyInput
+                          ariaLabel={`Voltou · ${material?.name ?? ""}`}
+                          value={item.returned}
+                          disabled={conferido}
+                          onChange={(returned) => patch(item.materialId, { returned })}
+                          className="justify-self-end"
+                        />
+                        <span
+                          className={cn(
+                            "text-right text-sm tabular",
+                            loss > 0 ? "font-semibold text-danger" : "text-forest/30",
+                          )}
+                        >
+                          {loss > 0 ? `−${formatInt(loss)}` : "—"}
+                        </span>
+                      </div>
+                      {loss > 0 ? (
+                        <div className="space-y-2 px-4 pb-3">
+                          <div className="flex flex-wrap gap-2">
+                            {MATERIAL_LOSS_REASONS.map((reason) => (
+                              <FilterChip
+                                key={reason.key}
+                                tone="danger"
+                                active={item.reason === reason.key}
+                                disabled={conferido}
+                                onClick={() => patch(item.materialId, { reason: reason.key as MaterialLossReason })}
+                              >
+                                {reason.label}
+                              </FilterChip>
+                            ))}
+                          </div>
+                          <input
+                            className={cn(fieldControlClass, "h-9 max-w-md")}
+                            value={item.note}
+                            disabled={conferido}
+                            onChange={(event) => patch(item.materialId, { note: event.target.value })}
+                            placeholder="Observação da perda (opcional)"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </Fragment>
+            ))
+          )}
+        </Card>
       )}
 
-      <Field label="Observação da conferência">
-        <textarea
-          className={cn(fieldControlClass, "min-h-[5rem]")}
-          value={note}
-          disabled={conferido}
-          onChange={(event) => setNote(event.target.value)}
-        />
-      </Field>
-    </div>
-  );
-}
-
-function Summary({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-forest/10 bg-white px-5 py-4">
-      <p className="field-label">{label}</p>
-      <p className={cn("mt-1 text-2xl tabular-nums", warn ? "text-terracotta" : "text-forest")}>{value}</p>
-    </div>
+      <Card>
+        <Field label="Observação da conferência">
+          <textarea
+            className={cn(fieldControlClass, "min-h-20 py-2")}
+            value={note}
+            disabled={conferido}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Algo que vale para a conferência inteira"
+          />
+        </Field>
+      </Card>
+    </PageShell>
   );
 }

@@ -434,6 +434,64 @@ export function suggestedDrinkQuantities(
   };
 }
 
+export interface DrinkSeparationLine {
+  label: string;
+  unit: string;
+  calc: string;
+  qty: string;
+}
+
+/** Linhas da separação: unidade, conta e quantidade, na ordem do relatório operacional. */
+export function drinkSeparationLines(
+  guests: number,
+  premises: DrinkPremises = DEFAULT_DRINK_PREMISES,
+  stored?: DrinkQuantities,
+  auto = true,
+): DrinkSeparationLine[] {
+  const n = Math.max(0, Math.floor(Number(guests)) || 0);
+  const rules = normalizeDrinkPremises(premises);
+  const bottleMl = rules.refrigeranteBottleMl || 2000;
+  const bottleL = bottleMl / 1000;
+  const bottleLabel = Number.isInteger(bottleL) ? String(bottleL) : String(bottleL).replace(".", ",");
+  const aguaQty = n > 0 ? Math.ceil(n / rules.aguaGuestsPerCarboy) : 0;
+  const refriQty = n > 0 ? Math.ceil((n * rules.refrigeranteMlPerPerson) / bottleMl) : 0;
+  const sucoQty = n > 0 ? Math.ceil((n * rules.sucoMlPerPerson) / 1000) : 0;
+  const suggested = suggestedDrinkQuantities(n, rules);
+  const current = stored ? normalizeDrinks(stored) : suggested;
+  const shown = (key: DrinkKey, numeric: number) =>
+    !auto && current[key] && current[key] !== suggested[key] ? current[key] : String(numeric);
+
+  return [
+    {
+      label: "Refrigerante",
+      unit: `garrafas ${bottleLabel}L`,
+      calc:
+        n > 0
+          ? `${n} conv. × ${rules.refrigeranteMlPerPerson} ml = ${n * rules.refrigeranteMlPerPerson} ml ÷ ${bottleMl} ml = ${refriQty} garrafa(s) ${bottleLabel}L`
+          : "Sem convidados",
+      qty: shown("refrigerante", refriQty),
+    },
+    {
+      label: "Suco",
+      unit: "litros",
+      calc:
+        n > 0
+          ? `${n} conv. × ${rules.sucoMlPerPerson} ml = ${n * rules.sucoMlPerPerson} ml ÷ 1000 = ${sucoQty} litro(s)`
+          : "Sem convidados",
+      qty: shown("suco", sucoQty),
+    },
+    {
+      label: "Água",
+      unit: `galões ${rules.aguaCarboyLiters}L`,
+      calc:
+        n > 0
+          ? `${n} conv. ÷ ${rules.aguaGuestsPerCarboy} = ${aguaQty} galão(ões) ${rules.aguaCarboyLiters}L`
+          : "Sem convidados",
+      qty: shown("agua", aguaQty),
+    },
+  ];
+}
+
 export function syncDrinksToGuests(
   drinks: DrinkQuantities,
   previousGuests: number,

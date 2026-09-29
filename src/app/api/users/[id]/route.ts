@@ -38,6 +38,7 @@ export async function PATCH(request: Request, { params }: Params) {
       {
         module: "configuracoes",
         entity: "usuário",
+        page: "Configurações · Cadastro de Usuários",
         action: "editar",
         summary: `Editou usuário ${updated.name} (${updated.username})`,
       },
@@ -67,6 +68,7 @@ export async function DELETE(_request: Request, { params }: Params) {
       {
         module: "configuracoes",
         entity: "usuário",
+        page: "Configurações · Cadastro de Usuários",
         action: "excluir",
         summary: `Excluiu usuário ${target?.name || id}`,
       },

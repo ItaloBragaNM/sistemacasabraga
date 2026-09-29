@@ -3,7 +3,16 @@
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import { formatShortDate, formatWeekday } from "@/lib/dates";
 import { downloadBlob, slugify } from "@/lib/download";
-import { PDF_FONT, registerPdfFonts } from "@/lib/pdf/fonts";
+import { PDF_FONT } from "@/lib/pdf/fonts";
+import {
+  PDF,
+  PdfFooter,
+  PdfHeader,
+  PdfTableHead,
+  columnStyle,
+  pdfStyles,
+  type PdfColumn,
+} from "@/lib/pdf/header";
 import {
   EVENT_STATUS_LABELS,
   EVENT_TYPE_LABELS,
@@ -23,8 +32,6 @@ import {
   type YesNo,
 } from "@/lib/types";
 
-registerPdfFonts();
-
 export const KITCHEN_PDF_SECTIONS = [
   { key: "evento", label: "Informações do evento" },
   { key: "cardapio", label: "Cardápio" },
@@ -32,116 +39,45 @@ export const KITCHEN_PDF_SECTIONS = [
   { key: "logistica", label: "Extras e logística" },
   { key: "logisticaNotes", label: "Observações da logística" },
   { key: "cozinha", label: "Observações da cozinha" },
-  { key: "veiculos", label: "Veículos" },
 ] as const;
 
 export type KitchenPdfSectionKey = (typeof KITCHEN_PDF_SECTIONS)[number]["key"];
 
 export const ALL_KITCHEN_PDF_SECTIONS = KITCHEN_PDF_SECTIONS.map((item) => item.key);
 
-const colors = {
-  forest: "#1E443E",
-  petrol: "#003F3C",
-  cream: "#FFFBFA",
-  terracotta: "#E13F3A",
-  muted: "#5D6F6C",
-  line: "#C9D5D1",
-};
+const MENU_COLUMNS: PdfColumn[] = [
+  { label: "Per capita", width: 64 },
+  { label: "Prato", flex: 3 },
+  { label: "Obs", flex: 2, align: "right" },
+];
 
 const styles = StyleSheet.create({
-  page: {
-    backgroundColor: colors.cream,
-    paddingTop: 52,
-    paddingBottom: 32,
-    paddingHorizontal: 24,
-    fontFamily: PDF_FONT,
-    color: colors.forest,
-  },
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.petrol,
-    color: colors.cream,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  brand: {
-    fontSize: 7,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    opacity: 0.75,
-    marginBottom: 2,
-  },
-  title: { fontSize: 11, fontFamily: PDF_FONT, fontWeight: 700 },
-  headerRight: { fontSize: 8, textAlign: "right", color: colors.cream, opacity: 0.92 },
-  metaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
-  meta: { width: "31%", borderWidth: 0.6, borderColor: colors.line, padding: 5 },
-  metaWide: { width: "64.5%", borderWidth: 0.6, borderColor: colors.line, padding: 5 },
-  metaLabel: {
-    fontSize: 6.5,
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    color: colors.muted,
-    marginBottom: 2,
-  },
-  metaValue: { fontSize: 8.5, fontFamily: PDF_FONT, fontWeight: 700 },
+  eventLine: { fontSize: PDF.body, marginBottom: 1 },
   alert: {
-    backgroundColor: "#F8D9D7",
-    borderWidth: 1,
-    borderColor: colors.terracotta,
-    padding: 6,
-    marginBottom: 8,
+    borderWidth: 0.8,
+    borderColor: PDF.danger,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginTop: 6,
   },
   alertTitle: {
-    color: colors.terracotta,
-    fontSize: 7,
+    color: PDF.danger,
+    fontSize: PDF.small,
+    fontFamily: PDF_FONT,
+    fontWeight: 700,
     letterSpacing: 1,
     textTransform: "uppercase",
-    marginBottom: 2,
-    fontFamily: PDF_FONT, fontWeight: 700,
+    marginBottom: 1,
   },
-  sectionTitle: {
-    fontSize: 8,
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-    marginTop: 6,
-    marginBottom: 4,
-    color: colors.forest,
-    fontFamily: PDF_FONT, fontWeight: 700,
-  },
-  item: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.line,
-    paddingVertical: 2.5,
-  },
-  itemName: { flex: 3, fontSize: 9 },
-  itemQty: { width: 64, fontSize: 9 },
-  itemNotes: { flex: 2, fontSize: 8, color: colors.muted, textAlign: "right" },
-  note: { fontSize: 9, lineHeight: 1.35 },
-  footer: {
-    position: "absolute",
-    bottom: 12,
-    left: 24,
-    right: 24,
-    fontSize: 7,
-    color: colors.muted,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
+  note: { fontSize: PDF.body, lineHeight: 1.35 },
+  columns: { flexDirection: "row", gap: 14 },
+  column: { flex: 1 },
+  label: { flex: 1, fontSize: PDF.body },
+  value: { fontSize: PDF.body, textAlign: "right", paddingLeft: 6 },
 });
 
 function eventPlaceLabel(event: EventRecord) {
   return event.venue.address?.trim() || event.venue.name || "Local a definir";
-}
-
-function hasSection(sections: Set<KitchenPdfSectionKey>, key: KitchenPdfSectionKey) {
-  return sections.has(key);
 }
 
 function yn(value: YesNo | string | undefined) {
@@ -149,11 +85,46 @@ function yn(value: YesNo | string | undefined) {
   return "—";
 }
 
-function Meta({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+function joinParts(parts: Array<string | false | undefined>) {
+  return parts.filter((part): part is string => Boolean(part && part.trim())).join(" · ");
+}
+
+function SectionTitle({ children }: { children: string }) {
   return (
-    <View style={wide ? styles.metaWide : styles.meta}>
-      <Text style={styles.metaLabel}>{label}</Text>
-      <Text style={styles.metaValue}>{value || "—"}</Text>
+    <Text style={pdfStyles.sectionTitle} minPresenceAhead={30}>
+      {children}
+    </Text>
+  );
+}
+
+function Line({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={pdfStyles.row} wrap={false}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.value}>{value}</Text>
+    </View>
+  );
+}
+
+function EventLines({ event }: { event: EventRecord }) {
+  const date = event.date ? `${formatWeekday(event.date)}, ${formatShortDate(event.date)}` : "";
+  const kindLabel = event.venue.kind ? VENUE_KIND_LABELS[event.venue.kind] : "";
+  const placeLabel = eventPlaceLabel(event);
+  const place = joinParts([kindLabel !== placeLabel ? kindLabel : "", placeLabel]);
+  const times = joinParts([
+    event.ceremonyTime ? `Cerimônia ${event.ceremonyTime}` : "",
+    event.invitationTime ? `Convite ${event.invitationTime}` : "",
+    event.serviceTime ? `Serviço ${event.serviceTime}` : "",
+    event.serviceDuration ? `Duração ${event.serviceDuration}` : "",
+    event.teamArrival ? `Chegada da equipe ${event.teamArrival}` : "",
+  ]);
+  const people = joinParts([`${guestTotal(event.guests)} a servir`, guestsSummary(event.guests)]);
+
+  return (
+    <View>
+      {date || place ? <Text style={styles.eventLine}>{joinParts([date, place])}</Text> : null}
+      <Text style={styles.eventLine}>{people}</Text>
+      {times ? <Text style={styles.eventLine}>{times}</Text> : null}
     </View>
   );
 }
@@ -168,50 +139,29 @@ export function KitchenDocument({
   const selected = new Set(sections);
   const staff = eventStaffLines(event);
   const uniforms = uniformPiecesForReport(event.uniforms);
-  const showEvento = hasSection(selected, "evento");
-  const showCardapio = hasSection(selected, "cardapio");
-  const showEquipe = hasSection(selected, "equipe");
-  const showLogistica = hasSection(selected, "logistica");
-  const showLogisticaNotes = hasSection(selected, "logisticaNotes");
-  const showCozinha = hasSection(selected, "cozinha");
-  const showVeiculos = hasSection(selected, "veiculos");
+  const labor = event.laborAllocations ?? [];
+  const showEvento = selected.has("evento");
+  const showCardapio = selected.has("cardapio");
+  const showEquipe = selected.has("equipe");
+  const showLogistica = selected.has("logistica");
+  const showLogisticaNotes = selected.has("logisticaNotes");
+  const showCozinha = selected.has("cozinha");
+  const showStaff = showEquipe && (staff.length > 0 || labor.length > 0);
+  const showUniforms = showEquipe && uniforms.length > 0;
+  const alcohol = alcoholSummary(event.logistics);
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header} fixed wrap={false}>
-          <View>
-            <Text style={styles.brand}>Casa Braga</Text>
-            <Text style={styles.title}>{event.title || "Evento sem nome"}</Text>
-          </View>
-          <Text style={styles.headerRight}>
-            {event.code} · {EVENT_TYPE_LABELS[event.type]}
-            {"\n"}
-            {eventPlaceLabel(event)}
-          </Text>
-        </View>
+      <Page size="A4" style={pdfStyles.page}>
+        <PdfHeader
+          title={event.title || "Evento sem nome"}
+          meta={joinParts([event.code, EVENT_TYPE_LABELS[event.type], EVENT_STATUS_LABELS[event.status]])}
+        />
 
-        {showEvento ? (
-          <View style={styles.metaGrid}>
-            <Meta
-              label="Data"
-              value={event.date ? `${formatWeekday(event.date)}, ${formatShortDate(event.date)}` : ""}
-            />
-            <Meta label="Status" value={EVENT_STATUS_LABELS[event.status]} />
-            <Meta label="Tipo de local" value={VENUE_KIND_LABELS[event.venue.kind]} />
-            <Meta label="Local" value={eventPlaceLabel(event)} wide />
-            <Meta label="A servir" value={String(guestTotal(event.guests))} />
-            <Meta label="Público" value={guestsSummary(event.guests)} wide />
-            <Meta label="Chegada da equipe" value={event.teamArrival} />
-            <Meta label="Cerimônia" value={event.ceremonyTime} />
-            <Meta label="Convite" value={event.invitationTime} />
-            <Meta label="Serviço" value={event.serviceTime} />
-            <Meta label="Duração" value={event.serviceDuration} />
-          </View>
-        ) : null}
+        {showEvento ? <EventLines event={event} /> : null}
 
         {showCozinha && event.dietaryNotes ? (
-          <View style={styles.alert}>
+          <View style={styles.alert} wrap={false}>
             <Text style={styles.alertTitle}>Restrições alimentares</Text>
             <Text style={styles.note}>{event.dietaryNotes}</Text>
           </View>
@@ -221,41 +171,15 @@ export function KitchenDocument({
           ? eventMenuSections(event).map((section) => {
               const items = section.items.filter((item) => item.name.trim());
               if (!items.length) return null;
-              const title = section.time ? `${section.title} · ${section.time}` : section.title;
               return (
                 <View key={section.id}>
-                  <Text style={styles.sectionTitle}>{title}</Text>
-                  <View style={styles.item}>
-                    <Text
-                      style={[
-                        styles.itemQty,
-                        { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted },
-                      ]}
-                    >
-                      Per capita
-                    </Text>
-                    <Text
-                      style={[
-                        styles.itemName,
-                        { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.muted },
-                      ]}
-                    >
-                      Prato
-                    </Text>
-                    <Text
-                      style={[
-                        styles.itemNotes,
-                        { fontSize: 6.5, letterSpacing: 0.5, textTransform: "uppercase" },
-                      ]}
-                    >
-                      Obs
-                    </Text>
-                  </View>
+                  <SectionTitle>{section.time ? `${section.title} · ${section.time}` : section.title}</SectionTitle>
+                  <PdfTableHead columns={MENU_COLUMNS} fixed={false} />
                   {items.map((item) => (
-                    <View key={item.id} style={styles.item}>
-                      <Text style={styles.itemQty}>{item.quantity}</Text>
-                      <Text style={styles.itemName}>{item.name}</Text>
-                      <Text style={styles.itemNotes}>{item.notes}</Text>
+                    <View key={item.id} style={pdfStyles.row} wrap={false}>
+                      <Text style={[pdfStyles.cell, columnStyle(MENU_COLUMNS[0])]}>{item.quantity}</Text>
+                      <Text style={[pdfStyles.cell, columnStyle(MENU_COLUMNS[1])]}>{item.name}</Text>
+                      <Text style={[pdfStyles.cellMuted, columnStyle(MENU_COLUMNS[2])]}>{item.notes}</Text>
                     </View>
                   ))}
                 </View>
@@ -263,136 +187,100 @@ export function KitchenDocument({
             })
           : null}
 
-        {showEquipe && (staff.length > 0 || (event.laborAllocations ?? []).length > 0) ? (
-          <View>
-            <Text style={styles.sectionTitle}>Equipe</Text>
-            {staff.map((item) => (
-              <View key={item.key} style={styles.item}>
-                <Text style={styles.itemName}>{item.label}</Text>
-                <Text style={styles.itemNotes}>{String(item.quantity)}</Text>
-              </View>
-            ))}
-            {(event.laborAllocations ?? []).length > 0 ? (
-              <View style={styles.item}>
-                <Text style={styles.itemName}>Equipe externa</Text>
-                <Text style={styles.itemNotes}>{String(event.laborAllocations.length)} prestadores</Text>
+        {showStaff || showUniforms || showLogistica ? (
+          <View style={styles.columns}>
+            {showStaff || showUniforms ? (
+              <View style={styles.column}>
+                {showStaff ? (
+                  <View>
+                    <SectionTitle>Equipe</SectionTitle>
+                    {staff.map((item) => (
+                      <Line key={item.key} label={item.label} value={String(item.quantity)} />
+                    ))}
+                    {labor.length > 0 ? (
+                      <Line label="Equipe externa" value={`${labor.length} prestadores`} />
+                    ) : null}
+                    {event.laborOvertime ? (
+                      <Line
+                        label="Hora extra"
+                        value={event.laborOvertimeHours ? `${event.laborOvertimeHours} h` : "Sim"}
+                      />
+                    ) : null}
+                    {event.laborApplyAllowance ? <Line label="Ajuda de custo" value="Sim" /> : null}
+                  </View>
+                ) : null}
+                {showUniforms ? (
+                  <View>
+                    <SectionTitle>Fardamentos</SectionTitle>
+                    {uniforms.map((piece) => (
+                      <Line
+                        key={piece.key}
+                        label={piece.label}
+                        value={formatUniformSizeLine(piece.sizes, UNIFORM_SIZE_LABELS, "   ")}
+                      />
+                    ))}
+                  </View>
+                ) : null}
               </View>
             ) : null}
-            {event.laborOvertime ? (
-              <View style={styles.item}>
-                <Text style={styles.itemName}>Hora extra</Text>
-                <Text style={styles.itemNotes}>
-                  {event.laborOvertimeHours ? `${event.laborOvertimeHours} h` : "Sim"}
-                </Text>
+            {showLogistica ? (
+              <View style={styles.column}>
+                <SectionTitle>Extras e logística</SectionTitle>
+                <Line label="Ilhas" value={String(event.islands ?? 0)} />
+                {alcohol ? (
+                  <View style={pdfStyles.row} wrap={false}>
+                    <Text style={styles.label}>{alcohol}</Text>
+                  </View>
+                ) : (
+                  <Line label="Bebidas alcoólicas" value={yn(event.logistics.alcoholServed)} />
+                )}
+                <Line label="Material no dia anterior" value={yn(event.logistics.materialPreviousDay)} />
+                <Line label="Mesa cavalete" value={yn(event.logistics.trestleTable)} />
+                <Line label="Recolher material ao final" value={yn(event.logistics.mustCollectMaterial)} />
+                <Line
+                  label="Cozinha / forno / freezer / micro-ondas"
+                  value={[
+                    event.logistics.hasKitchen,
+                    event.logistics.hasOven,
+                    event.logistics.hasFreezer,
+                    event.logistics.hasMicrowave,
+                  ]
+                    .map(yn)
+                    .join(" / ")}
+                />
               </View>
             ) : null}
-            {event.laborApplyAllowance ? (
-              <View style={styles.item}>
-                <Text style={styles.itemName}>Ajuda de custo</Text>
-                <Text style={styles.itemNotes}>Sim</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {showEquipe && uniforms.length > 0 ? (
-          <View>
-            <Text style={styles.sectionTitle}>Fardamentos</Text>
-            {uniforms.map((piece) => (
-              <View key={piece.key} style={styles.item}>
-                <Text style={styles.itemName}>{piece.label}</Text>
-                <Text style={styles.itemNotes}>
-                  {formatUniformSizeLine(piece.sizes, UNIFORM_SIZE_LABELS, "   ")}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {showLogistica ? (
-          <View>
-            <Text style={styles.sectionTitle}>Extras e logística</Text>
-            <View style={styles.item}>
-              <Text style={styles.itemName}>Ilhas</Text>
-              <Text style={styles.itemNotes}>{String(event.islands ?? 0)}</Text>
-            </View>
-            {alcoholSummary(event.logistics) ? (
-              <Text style={styles.note}>{alcoholSummary(event.logistics)}</Text>
-            ) : (
-              <View style={styles.item}>
-                <Text style={styles.itemName}>Bebidas alcoólicas</Text>
-                <Text style={styles.itemNotes}>{yn(event.logistics.alcoholServed)}</Text>
-              </View>
-            )}
-            <View style={styles.item}>
-              <Text style={styles.itemName}>Material no dia anterior</Text>
-              <Text style={styles.itemNotes}>{yn(event.logistics.materialPreviousDay)}</Text>
-            </View>
-            <View style={styles.item}>
-              <Text style={styles.itemName}>Mesa cavalete</Text>
-              <Text style={styles.itemNotes}>{yn(event.logistics.trestleTable)}</Text>
-            </View>
-            <View style={styles.item}>
-              <Text style={styles.itemName}>Recolher material ao final</Text>
-              <Text style={styles.itemNotes}>{yn(event.logistics.mustCollectMaterial)}</Text>
-            </View>
-            <View style={styles.item}>
-              <Text style={styles.itemName}>Cozinha / forno / freezer / micro-ondas</Text>
-              <Text style={styles.itemNotes}>
-                {yn(event.logistics.hasKitchen)} / {yn(event.logistics.hasOven)} / {yn(event.logistics.hasFreezer)} /{" "}
-                {yn(event.logistics.hasMicrowave)}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        {showVeiculos ? (
-          <View>
-            <Text style={styles.sectionTitle}>Veículos</Text>
-            <View style={styles.item}>
-              <Text style={styles.itemName}>Fora da cidade</Text>
-              <Text style={styles.itemNotes}>{event.outOfTown ? "Sim" : "Não"}</Text>
-            </View>
-            <View style={styles.item}>
-              <Text style={styles.itemName}>Veículos alocados</Text>
-              <Text style={styles.itemNotes}>{String((event.vehicleIds ?? []).length)}</Text>
-            </View>
           </View>
         ) : null}
 
         {showCozinha && event.menuSetupNotes ? (
           <View>
-            <Text style={styles.sectionTitle}>Observações — cozinha</Text>
+            <SectionTitle>Observações — cozinha</SectionTitle>
             <Text style={styles.note}>{event.menuSetupNotes}</Text>
           </View>
         ) : null}
 
         {showCozinha && event.managementNotes ? (
           <View>
-            <Text style={styles.sectionTitle}>Gerenciais e Evento</Text>
+            <SectionTitle>Gerenciais e Evento</SectionTitle>
             <Text style={styles.note}>{event.managementNotes}</Text>
           </View>
         ) : null}
 
         {showLogisticaNotes && event.logisticsNotes ? (
           <View>
-            <Text style={styles.sectionTitle}>Observações — logística</Text>
+            <SectionTitle>Observações — logística</SectionTitle>
             <Text style={styles.note}>{event.logisticsNotes}</Text>
           </View>
         ) : null}
 
-        <View style={styles.footer} fixed wrap={false}>
-          <Text>
-            {showLogistica
-              ? `Material dia anterior: ${yn(event.logistics.materialPreviousDay)} · Cavalete: ${yn(event.logistics.trestleTable)}`
-              : event.code}
-          </Text>
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              `Pág. ${pageNumber} de ${totalPages} · ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
-            }
-          />
-        </View>
+        <PdfFooter
+          label={joinParts([
+            event.code,
+            showLogistica ? `Material dia anterior: ${yn(event.logistics.materialPreviousDay)}` : "",
+            showLogistica ? `Cavalete: ${yn(event.logistics.trestleTable)}` : "",
+          ])}
+        />
       </Page>
     </Document>
   );

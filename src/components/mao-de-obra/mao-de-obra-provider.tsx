@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { assertSaved, saveErrorMessage } from "@/lib/http";
 import type { ExternalWorker, LaborPayment, LaborRate, MaoDeObraData } from "@/lib/mao-de-obra/types";
 
 interface MaoDeObraContextValue {
@@ -71,10 +72,10 @@ export function MaoDeObraProvider({ children }: { children: React.ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
-        if (!res.ok) throw new Error("save");
+        assertSaved(res);
       })
-      .catch(() => {
-        toast.error("Não foi possível salvar a mão de obra externa.");
+      .catch((error) => {
+        toast.error(saveErrorMessage(error, "Não foi possível salvar a mão de obra. Verifique a conexão."));
       });
   }, []);
 

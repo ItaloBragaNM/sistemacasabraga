@@ -3,24 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Copy, FileDown, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ClienteForm } from "@/components/cadastros/cliente-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { Modal, SearchInput } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
 import { KitchenPdfPicker } from "@/components/events/kitchen-pdf-picker";
+import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
 import { fieldControlClass, fieldControlCompactClass, Field, FichaSection } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
 import { useEvents } from "@/components/events/events-provider";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { downloadVehicleChecklistPdf } from "@/components/veiculos/checklist-pdf";
-import { useVeiculosUso } from "@/components/veiculos/veiculos-uso-provider";
+import { PageShell } from "@/components/ui/page-shell";
 import type { DishRecord } from "@/lib/cadastros/types";
-import { VEHICLE_USAGE_CATEGORY_LABELS } from "@/lib/cadastros/types";
 import { formatBRL } from "@/lib/crm/format";
-import { formatDateTime, formatLongDate, formatWeekday } from "@/lib/dates";
+import { formatDateTime } from "@/lib/dates";
 import { menuFromPlan, menuItem, uid, upsertMenuPlanFromDishes } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import {
@@ -62,8 +61,8 @@ type Props = {
 };
 
 function snapshotForDirty(event: EventRecord) {
-  const { changeLog: _changeLog, updatedAt: _updatedAt, ...rest } = normalizeEventRecord(event);
-  return JSON.stringify(rest);
+  const normalized = normalizeEventRecord(event);
+  return JSON.stringify({ ...normalized, changeLog: undefined, updatedAt: undefined });
 }
 
 export function EventFicha({ event, onSave, onDelete }: Props) {
@@ -71,7 +70,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const { events } = useEvents();
   const { data: cadastros, upsertCliente } = useCadastros();
   const { data: maoDeObra, reload: reloadLabor } = useMaoDeObra();
-  const { markGenerated } = useVeiculosUso();
   const [draft, setDraft] = useState(() => normalizeEventRecord(event));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
@@ -118,6 +116,13 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       menuPlan: plan,
       menu: menuFromPlan(plan),
     }));
+  };
+
+  const addMenuSection = () => {
+    setDraft((current) => {
+      const plan = [...eventMenuSections(current), { id: uid(), title: "Nova seção", time: "", items: [] }];
+      return { ...current, menuPlan: plan, menu: menuFromPlan(plan) };
+    });
   };
 
   const patchLogistics = (patch: Partial<Logistics>) => {
@@ -219,47 +224,36 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 pb-28">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <Link
-            href="/eventos"
-            className="inline-flex items-center gap-2 text-sm font-light text-forest/60 hover:text-forest"
-          >
-            <ArrowLeft className="size-4" />
-            Voltar ao calendário
-          </Link>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <p className="text-[13px] font-medium text-forest/50">{draft.code}</p>
-            <StatusBadge status={draft.status} />
-            <span className="text-xs font-light text-forest/45">
+    <PageShell
+      width="wide"
+      className="pb-28"
+      back={
+        <Link
+          href="/eventos"
+          className="inline-flex items-center gap-2 text-sm text-forest/60 hover:text-forest"
+        >
+          <ArrowLeft className="size-4" />
+          Voltar ao calendário
+        </Link>
+      }
+      eyebrow={draft.code}
+      title={draft.title || "Evento sem nome"}
+      description={
+        <span className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={draft.status} />
+          {saveState === "saving" || dirty || saveState === "saved" ? (
+            <span className={dirty && saveState !== "saving" ? "text-warn" : undefined}>
               {saveState === "saving"
                 ? "Salvando…"
                 : dirty
                   ? "Alterações não salvas"
-                  : saveState === "saved"
-                    ? "Alterações salvas"
-                    : "Ficha operacional — uso interno"}
+                  : "Alterações salvas"}
             </span>
-          </div>
-          <h1 className="page-title mt-2">
-            {draft.title || "Evento sem nome"}
-          </h1>
-          <p className="mt-2 text-sm font-light text-forest/60">
-            {[
-              draft.date ? `${formatWeekday(draft.date)}, ${formatLongDate(draft.date)}` : "Data a definir",
-              clientName,
-              draft.ceremonyTime ? `Horário da cerimônia ${draft.ceremonyTime}` : "",
-              draft.invitationTime ? `Horário do convite ${draft.invitationTime}` : "",
-              draft.serviceTime ? `Horário do serviço ${draft.serviceTime}` : "",
-              draft.serviceDuration ? `Duração do serviço ${draft.serviceDuration}` : "",
-              `${guestTotal(draft.guests)} a servir`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-nowrap items-center gap-2">
+          ) : null}
+        </span>
+      }
+      actions={
+        <>
           <FichaActionButtons
             dirty={dirty}
             saveState={saveState}
@@ -268,8 +262,8 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             onPdf={() => setPdfModal(true)}
           />
           <Button
-            variant="outline"
-            className="size-9 p-0 text-terracotta"
+            variant="destructive"
+            size="icon"
             aria-label="Excluir ficha"
             onClick={() => {
               if (window.confirm("Excluir esta ficha? A ação não pode ser desfeita neste aparelho.")) {
@@ -281,9 +275,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           >
             <Trash2 className="size-4" />
           </Button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       <FichaSection title="Dados do evento" compact>
         <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
           <Field label="★ Nome do evento" className="md:col-span-2">
@@ -355,6 +349,8 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("date", event.target.value)}
             />
           </Field>
+        </div>
+        <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
           <Field label="Entrega de material">
             <input
               type="date"
@@ -407,7 +403,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               placeholder="Ex.: 6 horas"
             />
           </Field>
-          <Field label="Local / endereço" className="md:col-span-2">
+          <Field label="Local / endereço">
             <input
               className={fieldControlCompactClass}
               value={draft.venue.address}
@@ -420,7 +416,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <input
               type="number"
               min={0}
-              className={fieldControlCompactClass}
+              className={cn(fieldControlCompactClass, "tabular")}
               value={draft.guests.adults}
               onChange={(event) =>
                 setGuests({ ...draft.guests, adults: Number(event.target.value) })
@@ -431,7 +427,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <input
               type="number"
               min={0}
-              className={fieldControlCompactClass}
+              className={cn(fieldControlCompactClass, "tabular")}
               value={draft.guests.children0to5 ?? 0}
               onChange={(event) =>
                 setGuests({ ...draft.guests, children0to5: Number(event.target.value) })
@@ -442,7 +438,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <input
               type="number"
               min={0}
-              className={fieldControlCompactClass}
+              className={cn(fieldControlCompactClass, "tabular")}
               value={draft.guests.children5to10 ?? 0}
               onChange={(event) =>
                 setGuests({ ...draft.guests, children5to10: Number(event.target.value) })
@@ -453,7 +449,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <input
               type="number"
               min={0}
-              className={fieldControlCompactClass}
+              className={cn(fieldControlCompactClass, "tabular")}
               value={draft.guests.professionals}
               onChange={(event) =>
                 setGuests({
@@ -499,14 +495,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </FichaSection>
 
       <FichaSection title="Equipe" compact>
-        <p className="mb-2 text-[12px] font-medium text-forest/50">Casa</p>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+        <p className="group-title mb-2">Casa</p>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           {STAFF_ROLES.map((role) => (
             <Field key={role.key} label={role.label}>
               <input
                 type="number"
                 min={0}
-                className={fieldControlCompactClass}
+                className={cn(fieldControlCompactClass, "tabular")}
                 value={draft.staff[role.key]}
                 onChange={(event) =>
                   update("staff", {
@@ -526,7 +522,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                   <input
                     type="number"
                     min={0}
-                    className={cn(fieldControlCompactClass, "min-w-0 flex-1")}
+                    className={cn(fieldControlCompactClass, "tabular min-w-0 flex-1")}
                     value={line.quantity}
                     onChange={(event) =>
                       update(
@@ -542,7 +538,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                   <button
                     type="button"
                     aria-label={`Remover ${extraStaffLabel(line.key)}`}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-lg text-forest/35 hover:text-terracotta"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-md text-forest/35 hover:text-danger"
                     onClick={() =>
                       update(
                         "extraStaff",
@@ -573,9 +569,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </div>
         ) : null}
 
-        <p className="mb-2 mt-5 text-[12px] font-medium text-forest/50">Externa</p>
+        <p className="group-title mb-2 mt-6 border-t border-line pt-4">Externa</p>
         {(maoDeObra?.workers ?? []).length === 0 ? (
-          <p className="text-sm font-light text-forest/50">
+          <p className="meta-text">
             Cadastre os prestadores em Cadastros → Equipe externa.
           </p>
         ) : (
@@ -611,7 +607,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           />
         )}
 
-        <p className="mb-2 mt-5 text-[12px] font-medium text-forest/50">Fardamento</p>
+        <p className="group-title mb-2 mt-6 border-t border-line pt-4">Fardamento</p>
         <EventUniformsFields
           embedded
           uniforms={draft.uniforms}
@@ -624,7 +620,23 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         />
       </FichaSection>
 
-      <FichaSection title="Pratos do cardápio (catálogo)">
+      <FichaSection
+        title="Pratos do cardápio"
+        actions={
+          <>
+            <Button size="sm" onClick={generatePerCapita}>
+              Gerar Per Capita
+            </Button>
+            <Link
+              href={`/logistica/separacao-materiais/${draft.id}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <ClipboardList data-icon="inline-start" />
+              Abrir separação de materiais
+            </Link>
+          </>
+        }
+      >
         <CatalogDishPicker
           dishes={cadastros?.dishes ?? []}
           categoryOrder={cadastros?.dishCategories ?? []}
@@ -632,25 +644,17 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           popularity={dishPopularity}
           onChange={(ids) => update("selectedDishIds", ids)}
         />
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button className="h-9 bg-forest px-4 text-cream hover:bg-petrol" onClick={generatePerCapita}>
-            Gerar Per Capita
-          </Button>
-          <Link
-            href={`/logistica/separacao-materiais/${draft.id}`}
-            className={cn(buttonVariants({ variant: "outline" }), "h-9 px-4")}
-          >
-            <ClipboardList data-icon="inline-start" />
-            Abrir separação de materiais
-          </Link>
-        </div>
       </FichaSection>
 
-      <FichaSection title="Cardápio do evento">
-        <p className="mb-4 text-sm font-light text-forest/55">
-          Crie seções para organizar o serviço e duplique pratos se precisar listá-los mais de uma vez.
-          A logística conta cada prato do catálogo só uma vez.
-        </p>
+      <FichaSection
+        title="Cardápio do evento"
+        actions={
+          <Button type="button" variant="outline" size="sm" onClick={addMenuSection}>
+            <Plus data-icon="inline-start" />
+            Nova seção
+          </Button>
+        }
+      >
         <MenuPlanEditor sections={eventMenuSections(draft)} onChange={setMenuPlan} />
       </FichaSection>
 
@@ -674,13 +678,85 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         }
       />
 
-      <FichaSection title="Extras e logística">
+      <FichaSection title="Observações — cozinha">
+        <Field label="Restrições alimentares" className="mb-4">
+          <textarea
+            className={cn(
+              fieldControlClass,
+              "min-h-24 border-warn/40 bg-warn-soft py-2",
+            )}
+            value={draft.dietaryNotes}
+            onChange={(event) => update("dietaryNotes", event.target.value)}
+          />
+        </Field>
+        <Field label="Cardápio e montagem">
+          <textarea
+            className={cn(fieldControlClass, "min-h-36 py-3")}
+            value={draft.menuSetupNotes}
+            onChange={(event) => update("menuSetupNotes", event.target.value)}
+          />
+        </Field>
+        <Field label="Gerenciais e Evento" className="mt-4">
+          <textarea
+            className={cn(fieldControlClass, "min-h-28 py-3")}
+            value={draft.managementNotes ?? ""}
+            onChange={(event) => update("managementNotes", event.target.value)}
+            placeholder="Notas gerenciais deste evento."
+          />
+        </Field>
+        <Field
+          label="Fotos e vídeos"
+          className="mt-4"
+        >
+          <p className="meta-text mb-2">
+            Até {EVENT_ATTACHMENT_MAX_FILES} arquivos, 500 KB cada.
+          </p>
+          <input
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="block w-full text-sm text-forest file:mr-3 file:h-9 file:rounded-md file:border file:border-line file:bg-white file:px-3 file:text-sm file:font-medium file:text-forest hover:file:bg-forest/[0.04]"
+            onChange={(event) => {
+              void addAttachments(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          {(draft.attachments ?? []).length ? (
+            <ul className="mt-3 space-y-2">
+              {(draft.attachments ?? []).map((file) => (
+                <li
+                  key={file.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2 text-sm"
+                >
+                  <span className="min-w-0 truncate text-forest">{file.name}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remover ${file.name}`}
+                    className="flex size-8 shrink-0 items-center justify-center text-forest/35 hover:text-danger"
+                    onClick={() =>
+                      update(
+                        "attachments",
+                        (draft.attachments ?? []).filter((item) => item.id !== file.id),
+                      )
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Field>
+      </FichaSection>
+
+
+      <FichaSection title="Observações - Logística">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Ilhas (estações)">
             <input
               type="number"
               min={0}
-              className={fieldControlClass}
+              className={cn(fieldControlClass, "tabular")}
               value={draft.islands ?? 0}
               onChange={(event) => update("islands", Number(event.target.value))}
             />
@@ -697,7 +773,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           />
         </div>
         {draft.logistics.alcoholServed === "sim" ? (
-          <div className="mt-4 rounded-xl border border-forest/10 bg-cream/50 p-4">
+          <div className="mt-4 rounded-md border border-line bg-cream/50 p-4">
             <p className="field-label mb-3">Quais tipos serão servidos</p>
             <div className="flex flex-wrap gap-x-5 gap-y-3">
               {ALCOHOL_TYPES.map((item) => {
@@ -731,99 +807,98 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </div>
         ) : null}
 
-        <div className="mt-6">
-          <p className="mb-3 text-[13px] font-medium text-forest/45">Observações da logística</p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <YesNoField
-              label="Material no dia anterior"
-              value={draft.logistics.materialPreviousDay}
-              onChange={(value) => patchLogistics({ materialPreviousDay: value })}
-            />
-            <YesNoField
-              label="Mesa cavalete"
-              value={draft.logistics.trestleTable}
-              onChange={(value) => patchLogistics({ trestleTable: value })}
-            />
-            <YesNoField
-              label="Recolher material ao final"
-              value={draft.logistics.mustCollectMaterial}
-              onChange={(value) => patchLogistics({ mustCollectMaterial: value })}
-            />
-            <YesNoField
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <FlagField
+            label="Material no dia anterior"
+            checked={draft.logistics.materialPreviousDay === "sim"}
+            onChange={(checked) => patchLogistics({ materialPreviousDay: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Mesa cavalete"
+            checked={draft.logistics.trestleTable === "sim"}
+            onChange={(checked) => patchLogistics({ trestleTable: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Recolher material ao final"
+            checked={draft.logistics.mustCollectMaterial === "sim"}
+            onChange={(checked) => patchLogistics({ mustCollectMaterial: checked ? "sim" : "nao" })}
+          />
+          <div className="space-y-2">
+            <FlagField
               label="Conservação extra"
-              value={draft.logistics.extraConservation}
-              onChange={(value) =>
+              checked={draft.logistics.extraConservation === "sim"}
+              onChange={(checked) =>
                 patchLogistics({
-                  extraConservation: value,
-                  extraConservationQty: value === "sim" ? draft.logistics.extraConservationQty : "",
+                  extraConservation: checked ? "sim" : "nao",
+                  extraConservationQty: checked ? draft.logistics.extraConservationQty : "",
                 })
               }
             />
             {draft.logistics.extraConservation === "sim" ? (
-              <Field label="Quantidade — conservação extra">
-                <input
-                  className={fieldControlClass}
-                  value={draft.logistics.extraConservationQty}
-                  onChange={(event) => patchLogistics({ extraConservationQty: event.target.value })}
-                />
-              </Field>
+              <input
+                className={fieldControlCompactClass}
+                value={draft.logistics.extraConservationQty}
+                onChange={(event) => patchLogistics({ extraConservationQty: event.target.value })}
+                placeholder="Quantidade"
+              />
             ) : null}
-            <YesNoField
+          </div>
+          <div className="space-y-2">
+            <FlagField
               label="Gelo cubo"
-              value={draft.logistics.iceCubes}
-              onChange={(value) =>
+              checked={draft.logistics.iceCubes === "sim"}
+              onChange={(checked) =>
                 patchLogistics({
-                  iceCubes: value,
-                  iceCubesQty: value === "sim" ? draft.logistics.iceCubesQty : "",
+                  iceCubes: checked ? "sim" : "nao",
+                  iceCubesQty: checked ? draft.logistics.iceCubesQty : "",
                 })
               }
             />
             {draft.logistics.iceCubes === "sim" ? (
-              <Field label="Quantidade — gelo cubo">
-                <input
-                  className={fieldControlClass}
-                  value={draft.logistics.iceCubesQty}
-                  onChange={(event) => patchLogistics({ iceCubesQty: event.target.value })}
-                />
-              </Field>
+              <input
+                className={fieldControlCompactClass}
+                value={draft.logistics.iceCubesQty}
+                onChange={(event) => patchLogistics({ iceCubesQty: event.target.value })}
+                placeholder="Quantidade"
+              />
             ) : null}
-            <YesNoField
-              label="Local com cozinha"
-              value={draft.logistics.hasKitchen}
-              onChange={(value) => patchLogistics({ hasKitchen: value })}
-            />
-            <YesNoField
-              label="Local com pia"
-              value={draft.logistics.hasSink}
-              onChange={(value) => patchLogistics({ hasSink: value })}
-            />
-            <YesNoField
-              label="Local com geladeira"
-              value={draft.logistics.hasFridge}
-              onChange={(value) => patchLogistics({ hasFridge: value })}
-            />
-            <YesNoField
-              label="Local com fogão"
-              value={draft.logistics.hasStove}
-              onChange={(value) => patchLogistics({ hasStove: value })}
-            />
-            <YesNoField
-              label="Local com freezer"
-              value={draft.logistics.hasFreezer}
-              onChange={(value) => patchLogistics({ hasFreezer: value })}
-            />
-            <YesNoField
-              label="Local com forno"
-              value={draft.logistics.hasOven}
-              onChange={(value) => patchLogistics({ hasOven: value })}
-            />
-            <YesNoField
-              label="Local com micro-ondas"
-              value={draft.logistics.hasMicrowave}
-              onChange={(value) => patchLogistics({ hasMicrowave: value })}
-            />
           </div>
-          <Field label="Notas da equipe de logística" className="mt-4">
+          <FlagField
+            label="Local com cozinha"
+            checked={draft.logistics.hasKitchen === "sim"}
+            onChange={(checked) => patchLogistics({ hasKitchen: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Local com pia"
+            checked={draft.logistics.hasSink === "sim"}
+            onChange={(checked) => patchLogistics({ hasSink: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Local com geladeira"
+            checked={draft.logistics.hasFridge === "sim"}
+            onChange={(checked) => patchLogistics({ hasFridge: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Local com fogão"
+            checked={draft.logistics.hasStove === "sim"}
+            onChange={(checked) => patchLogistics({ hasStove: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Local com freezer"
+            checked={draft.logistics.hasFreezer === "sim"}
+            onChange={(checked) => patchLogistics({ hasFreezer: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Local com forno"
+            checked={draft.logistics.hasOven === "sim"}
+            onChange={(checked) => patchLogistics({ hasOven: checked ? "sim" : "nao" })}
+          />
+          <FlagField
+            label="Local com micro-ondas"
+            checked={draft.logistics.hasMicrowave === "sim"}
+            onChange={(checked) => patchLogistics({ hasMicrowave: checked ? "sim" : "nao" })}
+          />
+          <Field label="Notas da equipe de logística" className="mt-1 sm:col-span-2 lg:col-span-3">
             <textarea
               className={cn(fieldControlClass, "min-h-24 py-2")}
               value={draft.logisticsNotes ?? ""}
@@ -833,149 +908,6 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </Field>
         </div>
       </FichaSection>
-
-      <FichaSection title="Veículos">
-        <YesNoField
-          label="Evento fora da cidade?"
-          value={draft.outOfTown ? "sim" : "nao"}
-          onChange={(value) => update("outOfTown", value === "sim")}
-        />
-        {(cadastros?.veiculos ?? []).length === 0 ? (
-          <p className="mt-4 text-sm font-light text-forest/50">
-            Cadastre a frota em Cadastros → Veículos para alocar aqui.
-          </p>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {(cadastros?.veiculos ?? [])
-              .slice()
-              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-              .map((vehicle) => {
-                const selected = (draft.vehicleIds ?? []).includes(vehicle.id);
-                return (
-                  <div
-                    key={vehicle.id}
-                    className="flex flex-col gap-2 rounded-xl border border-forest/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={selected}
-                        onChange={() => {
-                          const current = draft.vehicleIds ?? [];
-                          update(
-                            "vehicleIds",
-                            selected ? current.filter((id) => id !== vehicle.id) : [...current, vehicle.id],
-                          );
-                        }}
-                      />
-                      <span>
-                        <span className="block text-sm font-medium text-forest">{vehicle.name}</span>
-                        <span className="block text-xs font-light text-forest/45">
-                          {[vehicle.plate, vehicle.model, VEHICLE_USAGE_CATEGORY_LABELS[vehicle.usageCategory]]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      </span>
-                    </label>
-                    {selected ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 shrink-0 px-3"
-                        onClick={async () => {
-                          try {
-                            await downloadVehicleChecklistPdf(draft, vehicle);
-                            markGenerated(draft.id, vehicle.id);
-                            toast.success("Checklist baixado para preenchimento e assinatura.");
-                          } catch (error) {
-                            console.error(error);
-                            toast.error("Não foi possível gerar o PDF.");
-                          }
-                        }}
-                      >
-                        <FileDown data-icon="inline-start" />
-                        Checklist PDF
-                      </Button>
-                    ) : null}
-                  </div>
-                );
-              })}
-          </div>
-        )}
-      </FichaSection>
-
-      <FichaSection title="Observações — cozinha">
-        <Field label="Restrições alimentares" className="mb-4">
-          <textarea
-            className={cn(
-              fieldControlClass,
-              "min-h-24 border-terracotta/30 bg-terracotta/5 py-2",
-            )}
-            value={draft.dietaryNotes}
-            onChange={(event) => update("dietaryNotes", event.target.value)}
-          />
-        </Field>
-        <Field label="Cardápio e montagem">
-          <textarea
-            className={cn(fieldControlClass, "min-h-36 py-3")}
-            value={draft.menuSetupNotes}
-            onChange={(event) => update("menuSetupNotes", event.target.value)}
-          />
-        </Field>
-        <Field label="Gerenciais e Evento" className="mt-4">
-          <textarea
-            className={cn(fieldControlClass, "min-h-28 py-3")}
-            value={draft.managementNotes ?? ""}
-            onChange={(event) => update("managementNotes", event.target.value)}
-            placeholder="Notas gerenciais deste evento."
-          />
-        </Field>
-        <Field
-          label="Fotos e vídeos"
-          className="mt-4"
-        >
-          <p className="mb-2 text-xs font-light text-forest/50">
-            Até {EVENT_ATTACHMENT_MAX_FILES} arquivos, 500 KB cada.
-          </p>
-          <input
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            className="block w-full text-sm text-forest file:mr-3 file:rounded-lg file:border-0 file:bg-forest/8 file:px-3 file:py-2 file:text-sm file:text-forest"
-            onChange={(event) => {
-              void addAttachments(event.target.files);
-              event.target.value = "";
-            }}
-          />
-          {(draft.attachments ?? []).length ? (
-            <ul className="mt-3 space-y-2">
-              {(draft.attachments ?? []).map((file) => (
-                <li
-                  key={file.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-forest/10 px-3 py-2 text-sm"
-                >
-                  <span className="min-w-0 truncate text-forest">{file.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remover ${file.name}`}
-                    className="flex size-8 shrink-0 items-center justify-center text-forest/35 hover:text-terracotta"
-                    onClick={() =>
-                      update(
-                        "attachments",
-                        (draft.attachments ?? []).filter((item) => item.id !== file.id),
-                      )
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </Field>
-      </FichaSection>
-
       <EventChangeHistory
         entries={draft.changeLog ?? []}
         clientNameById={new Map(clientes.map((cliente) => [cliente.id, cliente.name]))}
@@ -1004,17 +936,17 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
       <Modal open={reasonModal} onClose={() => setReasonModal(false)} title="Motivo da alteração">
         <div className="space-y-4">
-          <p className="text-sm font-light text-forest/65">
+          <p className="meta-text">
             Informe por que esta ficha está sendo alterada. O registro fica no histórico.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-forest/10 bg-white px-3 py-2">
+            <div className="rounded-md border border-line bg-white px-3 py-2">
               <p className="field-label">Cliente</p>
               <p className="mt-1 text-sm text-forest">{clientLabel}</p>
             </div>
-            <div className="rounded-xl border border-forest/10 bg-white px-3 py-2">
+            <div className="rounded-md border border-line bg-white px-3 py-2">
               <p className="field-label">Data da alteração</p>
-              <p className="mt-1 text-sm text-forest">{changeAtLabel}</p>
+              <p className="tabular mt-1 text-sm text-forest">{changeAtLabel}</p>
             </div>
           </div>
           <Field label="Motivo">
@@ -1027,10 +959,10 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             />
           </Field>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" className="h-10" onClick={() => setReasonModal(false)}>
+            <Button type="button" variant="outline" onClick={() => setReasonModal(false)}>
               Cancelar
             </Button>
-            <Button type="button" className="h-10 bg-forest text-cream hover:bg-petrol" onClick={confirmSave}>
+            <Button type="button" onClick={confirmSave}>
               Confirmar e salvar
             </Button>
           </div>
@@ -1038,7 +970,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       </Modal>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-end p-4 sm:p-5 lg:p-8">
-        <div className="pointer-events-auto rounded-2xl border border-forest/10 bg-white/95 p-2 shadow-lg backdrop-blur">
+        <div className="surface-card pointer-events-auto flex max-w-full flex-wrap items-center justify-end gap-2 bg-white/95 p-2 shadow-pop backdrop-blur">
+          <Link
+            href={`/logistica/separacao-materiais/${draft.id}`}
+            className={cn(buttonVariants({ variant: "outline" }), "px-3")}
+          >
+            <ClipboardList data-icon="inline-start" />
+            Abrir separação de materiais
+          </Link>
           <FichaActionButtons
             dirty={dirty}
             saveState={saveState}
@@ -1048,7 +987,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           />
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -1068,14 +1007,15 @@ function FichaActionButtons({
   return (
     <div className="flex shrink-0 flex-nowrap items-center gap-2">
       <Button
-        className="h-9 bg-forest px-3 text-cream hover:bg-petrol"
+        className="px-4"
         disabled={!dirty || saveState === "saving"}
         onClick={onSave}
       >
         {saveState === "saving" ? "Salvando…" : "Salvar"}
       </Button>
       <Button
-        className="h-9 bg-terracotta px-3 text-cream hover:bg-terracotta/90"
+        variant="outline"
+        className="px-4"
         disabled={pdfState === "working"}
         onClick={onPdf}
       >
@@ -1128,7 +1068,7 @@ function EventLaborAllocations({
             type="number"
             min={0}
             step="0.5"
-            className={fieldControlClass}
+            className={cn(fieldControlClass, "tabular disabled:bg-forest/[0.03]")}
             disabled={!extras.overtime}
             value={extras.overtime ? extras.overtimeHours || "" : ""}
             onChange={(event) =>
@@ -1145,93 +1085,92 @@ function EventLaborAllocations({
           typeof row.daily === "number" && Number.isFinite(row.daily) ? row.daily : rate.daily;
         const amounts = laborLineAmounts({ ...row, functionKey, daily: dailyValue }, rate, extras);
         return (
-          <div key={row.workerId} className="rounded-xl border border-forest/10 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-sm font-medium text-forest">{worker?.name || "Prestador removido"}</p>
-                <p className="text-xs font-light text-forest/45">
-                  {formatBRL(amounts.total)}
-                  {amounts.allowance ? ` · ajuda ${formatBRL(amounts.allowance)}` : ""}
-                  {amounts.overtimeHours ? ` · ${amounts.overtimeHours}h extra` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Remover prestador"
-                className="flex size-8 items-center justify-center text-forest/35 hover:text-terracotta"
-                onClick={() => onChange(allocations.filter((item) => item.workerId !== row.workerId))}
+          <div
+            key={row.workerId}
+            className="grid grid-cols-2 items-end gap-2 border-b border-line py-3 last:border-0 sm:grid-cols-[minmax(8rem,1.1fr)_minmax(9rem,1.3fr)_minmax(7rem,1fr)_6rem_2rem]"
+          >
+            <div className="col-span-2 min-w-0 sm:col-span-1 sm:pb-1">
+              <p className="truncate text-sm font-medium text-forest">{worker?.name || "Prestador removido"}</p>
+              <p className="meta-text tabular text-xs">
+                {formatBRL(amounts.total)}
+                {amounts.allowance ? ` · ajuda ${formatBRL(amounts.allowance)}` : ""}
+                {amounts.overtimeHours ? ` · ${amounts.overtimeHours}h extra` : ""}
+              </p>
+            </div>
+            <Field label="Função">
+              <select
+                className={fieldControlCompactClass}
+                value={functionKey}
+                onChange={(event) => {
+                  const nextKey = event.target.value;
+                  onChange(
+                    allocations.map((item) =>
+                      item.workerId === row.workerId
+                        ? { ...item, functionKey: nextKey, daily: rateFor(rates, nextKey).daily }
+                        : item,
+                    ),
+                  );
+                }}
               >
-                <Trash2 className="size-4" />
-              </button>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Função neste evento" className="sm:col-span-2">
-                <select
-                  className={fieldControlClass}
-                  value={functionKey}
-                  onChange={(event) => {
-                    const nextKey = event.target.value;
-                    onChange(
-                      allocations.map((item) =>
-                        item.workerId === row.workerId
-                          ? { ...item, functionKey: nextKey, daily: rateFor(rates, nextKey).daily }
-                          : item,
-                      ),
-                    );
-                  }}
-                >
-                  {LABOR_FUNCTIONS.map((role) => (
-                    <option key={role.key} value={role.key}>
-                      {role.label}
+                {LABOR_FUNCTIONS.map((role) => (
+                  <option key={role.key} value={role.key}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Fardamento">
+              <select
+                className={fieldControlCompactClass}
+                value={row.uniformPiece || ""}
+                onChange={(event) =>
+                  onChange(
+                    allocations.map((item) =>
+                      item.workerId === row.workerId
+                        ? { ...item, uniformPiece: (event.target.value || "") as UniformPieceKey | "" }
+                        : item,
+                    ),
+                  )
+                }
+              >
+                <option value="">Sem farda</option>
+                {UNIFORM_PIECES.map((piece) => {
+                  const size = worker?.uniformSizes?.[piece.key];
+                  return (
+                    <option key={piece.key} value={piece.key}>
+                      {piece.label}
+                      {size ? ` · ${UNIFORM_SIZE_LABELS[size]}` : " · sem tamanho"}
                     </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Fardamento">
-                <select
-                  className={fieldControlClass}
-                  value={row.uniformPiece || ""}
-                  onChange={(event) =>
-                    onChange(
-                      allocations.map((item) =>
-                        item.workerId === row.workerId
-                          ? { ...item, uniformPiece: (event.target.value || "") as UniformPieceKey | "" }
-                          : item,
-                      ),
-                    )
-                  }
-                >
-                  <option value="">Sem farda</option>
-                  {UNIFORM_PIECES.map((piece) => {
-                    const size = worker?.uniformSizes?.[piece.key];
-                    return (
-                      <option key={piece.key} value={piece.key}>
-                        {piece.label}
-                        {size ? ` · ${UNIFORM_SIZE_LABELS[size]}` : " · sem tamanho"}
-                      </option>
-                    );
-                  })}
-                </select>
-              </Field>
-              <Field label="Diária (R$)">
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  className={fieldControlClass}
-                  value={dailyValue || ""}
-                  onChange={(event) =>
-                    onChange(
-                      allocations.map((item) =>
-                        item.workerId === row.workerId
-                          ? { ...item, daily: Number(event.target.value) || 0 }
-                          : item,
-                      ),
-                    )
-                  }
-                />
-              </Field>
-            </div>
+                  );
+                })}
+              </select>
+            </Field>
+            <Field label="Diária (R$)">
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className={cn(fieldControlCompactClass, "tabular text-right")}
+                value={dailyValue || ""}
+                onChange={(event) =>
+                  onChange(
+                    allocations.map((item) =>
+                      item.workerId === row.workerId
+                        ? { ...item, daily: Number(event.target.value) || 0 }
+                        : item,
+                    ),
+                  )
+                }
+              />
+            </Field>
+            <button
+              type="button"
+              aria-label="Remover prestador"
+              className="flex size-8 items-center justify-center justify-self-end text-forest/35 hover:text-danger"
+              onClick={() => onChange(allocations.filter((item) => item.workerId !== row.workerId))}
+            >
+              <Trash2 className="size-4" />
+            </button>
           </div>
         );
       })}
@@ -1266,7 +1205,7 @@ function EventLaborAllocations({
           ))}
         </select>
       ) : allocations.length ? (
-        <p className="text-xs font-light text-forest/45">Todos os prestadores cadastrados já estão neste evento.</p>
+        <p className="meta-text">Todos os prestadores cadastrados já estão neste evento.</p>
       ) : null}
     </div>
   );
@@ -1285,17 +1224,17 @@ function ExtraStaffPicker({
 
   return (
     <div className="relative">
-      <Button type="button" variant="outline" className="h-10 px-4" onClick={() => setOpen((value) => !value)}>
+      <Button type="button" variant="outline" className="px-4" onClick={() => setOpen((value) => !value)}>
         <Plus data-icon="inline-start" />
         Acrescentar função
       </Button>
       {open ? (
-        <div className="absolute z-20 mt-2 max-h-64 w-72 overflow-y-auto rounded-xl border border-forest/10 bg-white p-1 shadow-xl">
+        <div className="absolute z-20 mt-2 max-h-64 w-72 max-w-[calc(100vw-3rem)] overflow-y-auto rounded-md border border-line bg-white p-1 shadow-pop">
           {available.map((role) => (
             <button
               key={role.key}
               type="button"
-              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-forest hover:bg-forest/[0.05]"
+              className="block w-full rounded-md px-3 py-2 text-left text-sm text-forest hover:bg-forest/[0.05]"
               onClick={() => {
                 onAdd(role.key);
                 setOpen(false);
@@ -1317,35 +1256,44 @@ function EventChangeHistory({
   entries: EventRecord["changeLog"];
   clientNameById: Map<string, string>;
 }) {
+  const [dateSort, setDateSort] = useState<DateSort>("desc");
   const pretty = (label: string, value: string) => {
     if (label !== "Cliente" || value === "(vazio)" || !value) return value;
     return clientNameById.get(value) ?? value;
   };
-  const log = [...entries].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const log = [...entries].sort((a, b) => compareDateSort(a.at, b.at, dateSort));
 
   return (
-    <FichaSection title="Histórico de alterações">
+    <FichaSection
+      title="Histórico de alterações"
+      defaultOpen={false}
+      actions={
+        entries.length > 0 ? (
+          <DateSortSelect value={dateSort} onChange={setDateSort} className="h-8" />
+        ) : null
+      }
+    >
       {log.length === 0 ? (
-        <p className="text-sm font-light text-forest/55">
+        <p className="meta-text">
           Ainda não há alterações registradas nesta ficha. As próximas edições aparecem aqui, com
           data, horário e o usuário que salvou.
         </p>
       ) : (
         <ol className="space-y-4">
           {log.map((entry) => (
-            <li key={entry.id} className="border-b border-forest/8 pb-4 last:border-0 last:pb-0">
+            <li key={entry.id} className="border-b border-line pb-4 last:border-0 last:pb-0">
               <p className="text-sm text-forest">
                 <span className="font-medium">{entry.userName}</span>
-                <span className="font-light text-forest/50"> · {formatDateTime(entry.at)}</span>
+                <span className="tabular text-forest/50"> · {formatDateTime(entry.at)}</span>
               </p>
               {entry.clientLabel || entry.reason ? (
-                <p className="mt-1 text-sm font-light text-forest/60">
+                <p className="meta-text mt-1">
                   {entry.clientLabel ? `Cliente: ${entry.clientLabel}` : null}
                   {entry.clientLabel && entry.reason ? " · " : null}
                   {entry.reason ? `Motivo: ${entry.reason}` : null}
                 </p>
               ) : null}
-              <ul className="mt-2 space-y-1 text-sm font-light text-forest/70">
+              <ul className="mt-2 space-y-1 text-sm text-forest/70">
                 {entry.changes.map((change, index) => (
                   <li key={`${entry.id}-${change.label}-${index}`}>
                     <span className="font-medium text-forest/80">{change.label}:</span>{" "}
@@ -1375,9 +1323,10 @@ function CatalogDishPicker({
   onChange: (ids: string[]) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [focused, setFocused] = useState(false);
   if (dishes.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+      <p className="meta-text rounded-md border border-dashed border-line p-4">
         Nenhum prato no catálogo ainda. Cadastre em Cadastros → Cardápio.
       </p>
     );
@@ -1428,42 +1377,68 @@ function CatalogDishPicker({
       }))
       .filter((group) => group.items.length > 0);
 
+  const popular = !query && focused
+    ? [...dishes]
+        .sort(byPopularity)
+        .filter((dish) => !selectedSet.has(dish.id) && (popularity.get(dish.id) ?? 0) > 0)
+        .slice(0, 12)
+    : [];
+
   return (
     <div className="space-y-4">
-      <SearchInput value={search} onChange={setSearch} placeholder="Buscar prato…" />
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar prato…"
+        onFocus={() => setFocused(true)}
+        onBlur={() => window.setTimeout(() => setFocused(false), 180)}
+      />
+      {popular.length > 0 ? (
+        <div>
+          <p className="group-title mb-2">Mais pedidos</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {popular.map((dish) => (
+              <DishChoice
+                key={`pop-${dish.id}`}
+                dish={dish}
+                checked={selectedSet.has(dish.id)}
+                onToggle={toggle}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
       {selectedDishes.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[13px] font-medium text-forest/55">Selecionados</p>
+          <p className="group-title">Selecionados</p>
           {groupsFor(selectedDishes).map((group) => (
             <DishGroup
               key={`sel-${group.category}`}
               group={group}
               selectedSet={selectedSet}
-              popularity={popularity}
               onToggle={toggle}
             />
           ))}
         </div>
       ) : (
-        <p className="text-sm font-light text-forest/50">Nenhum prato selecionado. Use a busca para incluir.</p>
+        <p className="meta-text">Nenhum prato selecionado. Use a busca para incluir.</p>
       )}
       {query ? (
         searchHits.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
+          <p className="meta-text rounded-md border border-dashed border-line p-4">
             Nenhum prato encontrado para “{search.trim()}”.
           </p>
         ) : (
           <div className="space-y-3">
             {topHits.length > 0 ? (
               <div>
-                <p className="mb-2 text-[13px] font-medium text-forest/55">Mais usados no cardápio</p>
+                <p className="group-title mb-2">Mais usados no cardápio</p>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {topHits.slice(0, 8).map((dish) => (
                     <DishChoice
                       key={`pop-${dish.id}`}
                       dish={dish}
-                      checked={false}
-                      uses={popularity.get(dish.id) ?? 0}
+                      checked={selectedSet.has(dish.id)}
                       onToggle={toggle}
                     />
                   ))}
@@ -1472,13 +1447,12 @@ function CatalogDishPicker({
             ) : null}
             {topHits.length === 0 || otherHits.length > 0 ? (
               <>
-                <p className="text-[13px] font-medium text-forest/55">Resultados</p>
+                <p className="group-title">Resultados</p>
                 {groupsFor(topHits.length ? otherHits : searchHits).map((group) => (
                   <DishGroup
                     key={`hit-${group.category}`}
                     group={group}
                     selectedSet={selectedSet}
-                    popularity={popularity}
                     onToggle={toggle}
                   />
                 ))}
@@ -1494,24 +1468,21 @@ function CatalogDishPicker({
 function DishGroup({
   group,
   selectedSet,
-  popularity,
   onToggle,
 }: {
   group: { category: string; items: DishRecord[] };
   selectedSet: Set<string>;
-  popularity: Map<string, number>;
   onToggle: (id: string) => void;
 }) {
   return (
     <div>
-      <h3 className="mb-2 text-[13px] font-medium text-forest/55">{group.category}</h3>
+      <h3 className="group-title mb-2">{group.category}</h3>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {group.items.map((dish) => (
           <DishChoice
             key={dish.id}
             dish={dish}
             checked={selectedSet.has(dish.id)}
-            uses={popularity.get(dish.id) ?? 0}
             onToggle={onToggle}
           />
         ))}
@@ -1523,19 +1494,17 @@ function DishGroup({
 function DishChoice({
   dish,
   checked,
-  uses,
   onToggle,
 }: {
   dish: DishRecord;
   checked: boolean;
-  uses: number;
   onToggle: (id: string) => void;
 }) {
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors",
-        checked ? "border-forest/30 bg-forest/8" : "border-forest/10 hover:bg-forest/[0.03]",
+        "flex min-h-10 cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm transition-colors",
+        checked ? "border-forest/30 bg-forest/[0.06]" : "border-line hover:bg-forest/[0.03]",
       )}
     >
       <input
@@ -1544,14 +1513,29 @@ function DishChoice({
         checked={checked}
         onChange={() => onToggle(dish.id)}
       />
-      <span className="min-w-0 flex-1 text-forest">
-        {dish.name}
-        {uses > 0 ? (
-          <span className="ml-1 text-[11px] font-light text-forest/45">
-            {uses} {uses === 1 ? "evento" : "eventos"}
-          </span>
-        ) : null}
-      </span>
+      <span className="min-w-0 flex-1 text-forest">{dish.name}</span>
+    </label>
+  );
+}
+
+function FlagField({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-forest">
+      <input
+        type="checkbox"
+        className="size-4 accent-forest"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      {label}
     </label>
   );
 }
@@ -1598,6 +1582,12 @@ function MenuPlanEditor({
   sections: EventMenuSection[];
   onChange: (next: EventMenuSection[]) => void;
 }) {
+  const readDrag = (transfer: DataTransfer) => {
+    const [section, item] = transfer.getData("text/plain").split(":").map(Number);
+    if (!Number.isInteger(section) || !Number.isInteger(item)) return null;
+    return { section, item };
+  };
+
   const moveSection = (index: number, direction: -1 | 1) => {
     const target = index + direction;
     if (target < 0 || target >= sections.length) return;
@@ -1610,28 +1600,15 @@ function MenuPlanEditor({
     onChange(sections.map((section, i) => (i === index ? { ...section, ...patch } : section)));
   };
 
-  const moveItem = (sectionIndex: number, itemIndex: number, direction: -1 | 1) => {
-    const items = [...sections[sectionIndex].items];
-    const target = itemIndex + direction;
-    if (target < 0 || target >= items.length) return;
-    [items[itemIndex], items[target]] = [items[target], items[itemIndex]];
-    patchSection(sectionIndex, { items });
-  };
-
-  const moveItemToSection = (fromSection: number, itemIndex: number, toSectionId: string) => {
-    const item = sections[fromSection]?.items[itemIndex];
-    if (!item) return;
-    onChange(
-      sections.map((section, index) => {
-        if (index === fromSection) {
-          return { ...section, items: section.items.filter((_, i) => i !== itemIndex) };
-        }
-        if (section.id === toSectionId) {
-          return { ...section, items: [...section.items, item] };
-        }
-        return section;
-      }),
-    );
+  const relocate = (fromSection: number, fromIndex: number, toSection: number, toIndex: number) => {
+    if (fromSection === toSection && fromIndex === toIndex) return;
+    const next = sections.map((section) => ({ ...section, items: [...section.items] }));
+    const [moved] = next[fromSection].items.splice(fromIndex, 1);
+    if (!moved) return;
+    let index = toIndex;
+    if (fromSection === toSection && fromIndex < toIndex) index -= 1;
+    next[toSection].items.splice(Math.max(0, Math.min(index, next[toSection].items.length)), 0, moved);
+    onChange(next);
   };
 
   const removeSection = (index: number) => {
@@ -1642,10 +1619,6 @@ function MenuPlanEditor({
       return;
     }
     onChange(sections.filter((_, i) => i !== index));
-  };
-
-  const addSection = () => {
-    onChange([...sections, { id: uid(), title: "Nova seção", time: "", items: [] }]);
   };
 
   const addItem = (sectionIndex: number) => {
@@ -1664,106 +1637,107 @@ function MenuPlanEditor({
 
   if (sections.length === 0) {
     return (
-      <div className="space-y-3">
-        <p className="rounded-xl border border-dashed border-forest/20 p-4 text-sm font-light text-forest/50">
-          Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita, ou crie uma seção para organizar.
-        </p>
-        <Button type="button" variant="outline" className="h-9 px-4" onClick={addSection}>
-          <Plus data-icon="inline-start" />
-          Nova seção
-        </Button>
-      </div>
+      <p className="meta-text rounded-md border border-dashed border-line p-4">
+        Nenhum prato neste cardápio. Selecione no catálogo e clique em Gerar Per Capita, ou crie uma seção para organizar.
+      </p>
     );
   }
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       {sections.map((section, sectionIndex) => (
-        <div key={section.id}>
-          <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_8rem_auto]">
-            <Field label="Seção">
-              <input
-                className={fieldControlClass}
-                value={section.title}
-                onChange={(event) => patchSection(sectionIndex, { title: event.target.value })}
-              />
-            </Field>
-            <Field label="Horário">
-              <input
-                type="time"
-                className={fieldControlClass}
-                value={section.time}
-                onChange={(event) => patchSection(sectionIndex, { time: event.target.value })}
-              />
-            </Field>
-            <div className="flex items-end gap-1 pb-0.5">
-              <button
-                type="button"
-                aria-label="Subir seção"
-                className="flex size-10 items-center justify-center rounded-lg text-forest/35 hover:text-forest disabled:opacity-30"
-                disabled={sectionIndex === 0}
-                onClick={() => moveSection(sectionIndex, -1)}
-              >
-                <ChevronUp className="size-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="Descer seção"
-                className="flex size-10 items-center justify-center rounded-lg text-forest/35 hover:text-forest disabled:opacity-30"
-                disabled={sectionIndex === sections.length - 1}
-                onClick={() => moveSection(sectionIndex, 1)}
-              >
-                <ChevronDown className="size-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="Excluir seção"
-                className="flex size-10 items-center justify-center rounded-lg text-forest/35 hover:text-terracotta"
-                onClick={() => removeSection(sectionIndex)}
-              >
-                <Trash2 className="size-4" />
-              </button>
-            </div>
+        <div key={section.id} className="border-t border-line pt-4 first:border-t-0 first:pt-0">
+          <div className="mb-2 flex items-center gap-1.5">
+            <input
+              className={cn(fieldControlCompactClass, "min-w-0 flex-1")}
+              value={section.title}
+              placeholder="Seção"
+              onChange={(event) => patchSection(sectionIndex, { title: event.target.value })}
+            />
+            <input
+              type="time"
+              aria-label="Horário da seção"
+              className={cn(fieldControlCompactClass, "tabular w-24 shrink-0 sm:w-28")}
+              value={section.time}
+              onChange={(event) => patchSection(sectionIndex, { time: event.target.value })}
+            />
+            <button
+              type="button"
+              aria-label="Subir seção"
+              className="flex size-8 shrink-0 items-center justify-center text-forest/35 hover:text-forest disabled:opacity-30"
+              disabled={sectionIndex === 0}
+              onClick={() => moveSection(sectionIndex, -1)}
+            >
+              <ChevronUp className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Descer seção"
+              className="flex size-8 shrink-0 items-center justify-center text-forest/35 hover:text-forest disabled:opacity-30"
+              disabled={sectionIndex === sections.length - 1}
+              onClick={() => moveSection(sectionIndex, 1)}
+            >
+              <ChevronDown className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Excluir seção"
+              className="flex size-8 shrink-0 items-center justify-center text-forest/35 hover:text-danger"
+              onClick={() => removeSection(sectionIndex)}
+            >
+              <Trash2 className="size-3.5" />
+            </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
+            <table className="w-full min-w-[520px] text-left">
               <thead>
                 <tr>
-                  <th className="field-label w-10 px-2 pb-2 font-normal" />
-                  <th className="field-label w-36 px-2 pb-2 font-normal">Per capita</th>
-                  <th className="field-label px-2 pb-2 font-normal">Prato / variação</th>
-                  <th className="field-label px-2 pb-2 font-normal">Observações / variação</th>
-                  <th />
+                  <th className="w-8" />
+                  <th className="field-label w-28 px-1 pb-1 font-normal">Per capita</th>
+                  <th className="field-label px-1 pb-1 font-normal">Prato</th>
+                  <th className="field-label px-1 pb-1 font-normal">Observações</th>
+                  <th className="w-16" />
                 </tr>
               </thead>
-              <tbody>
+              <tbody
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const from = readDrag(event.dataTransfer);
+                  if (!from) return;
+                  relocate(from.section, from.item, sectionIndex, section.items.length);
+                }}
+              >
                 {section.items.map((item, itemIndex) => (
-                  <tr key={item.id} className="border-t border-forest/8">
-                    <td className="p-2">
-                      <div className="flex flex-col">
-                        <button
-                          type="button"
-                          aria-label="Subir prato"
-                          className="flex size-7 items-center justify-center text-forest/30 hover:text-forest disabled:opacity-30"
-                          disabled={itemIndex === 0}
-                          onClick={() => moveItem(sectionIndex, itemIndex, -1)}
-                        >
-                          <ChevronUp className="size-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Descer prato"
-                          className="flex size-7 items-center justify-center text-forest/30 hover:text-forest disabled:opacity-30"
-                          disabled={itemIndex === section.items.length - 1}
-                          onClick={() => moveItem(sectionIndex, itemIndex, 1)}
-                        >
-                          <ChevronDown className="size-3.5" />
-                        </button>
-                      </div>
+                  <tr
+                    key={item.id}
+                    className="border-t border-line"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const from = readDrag(event.dataTransfer);
+                      if (!from) return;
+                      relocate(from.section, from.item, sectionIndex, itemIndex);
+                    }}
+                  >
+                    <td className="py-1 pr-1">
+                      <button
+                        type="button"
+                        draggable
+                        aria-label="Arrastar prato"
+                        className="flex size-7 cursor-grab items-center justify-center text-forest/30 hover:text-forest active:cursor-grabbing"
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", `${sectionIndex}:${itemIndex}`);
+                        }}
+                      >
+                        <GripVertical className="size-3.5" />
+                      </button>
                     </td>
-                    <td className="p-2">
+                    <td className="p-1">
                       <input
-                        className={fieldControlClass}
+                        className={cn(fieldControlCompactClass, "tabular text-right")}
                         value={item.quantity}
                         onChange={(event) => {
                           const items = [...section.items];
@@ -1772,9 +1746,9 @@ function MenuPlanEditor({
                         }}
                       />
                     </td>
-                    <td className="p-2">
+                    <td className="p-1">
                       <input
-                        className={fieldControlClass}
+                        className={fieldControlCompactClass}
                         value={item.name}
                         onChange={(event) => {
                           const items = [...section.items];
@@ -1783,9 +1757,9 @@ function MenuPlanEditor({
                         }}
                       />
                     </td>
-                    <td className="p-2">
+                    <td className="p-1">
                       <input
-                        className={fieldControlClass}
+                        className={fieldControlCompactClass}
                         value={item.notes}
                         onChange={(event) => {
                           const items = [...section.items];
@@ -1794,36 +1768,15 @@ function MenuPlanEditor({
                         }}
                       />
                     </td>
-                    <td className="p-2 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {sections.length > 1 ? (
-                          <select
-                            className={cn(fieldControlClass, "h-9 w-36")}
-                            value=""
-                            aria-label="Mover prato para outra seção"
-                            onChange={(event) => {
-                              const toId = event.target.value;
-                              if (!toId) return;
-                              moveItemToSection(sectionIndex, itemIndex, toId);
-                            }}
-                          >
-                            <option value="">Mover para…</option>
-                            {sections
-                              .filter((item) => item.id !== section.id)
-                              .map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  {item.title || "Seção"}
-                                </option>
-                              ))}
-                          </select>
-                        ) : null}
+                    <td className="p-1 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => duplicateItem(sectionIndex, itemIndex)}
-                          className="text-forest/35 transition-colors hover:text-forest"
+                          className="flex size-7 items-center justify-center text-forest/35 transition-colors hover:text-forest"
                           aria-label="Duplicar prato"
                         >
-                          <Copy className="size-4" />
+                          <Copy className="size-3.5" />
                         </button>
                         <button
                           type="button"
@@ -1832,10 +1785,10 @@ function MenuPlanEditor({
                               items: section.items.filter((row) => row.id !== item.id),
                             })
                           }
-                          className="text-forest/35 transition-colors hover:text-terracotta"
+                          className="flex size-7 items-center justify-center text-forest/35 transition-colors hover:text-danger"
                           aria-label="Remover"
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 className="size-3.5" />
                         </button>
                       </div>
                     </td>
@@ -1844,21 +1797,15 @@ function MenuPlanEditor({
               </tbody>
             </table>
           </div>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            className="mt-3 h-9 px-4"
+            className="mt-2 text-[13px] font-medium text-forest/55 hover:text-forest"
             onClick={() => addItem(sectionIndex)}
           >
-            <Plus data-icon="inline-start" />
-            Adicionar prato
-          </Button>
+            + Adicionar prato
+          </button>
         </div>
       ))}
-      <Button type="button" variant="outline" className="h-9 px-4" onClick={addSection}>
-        <Plus data-icon="inline-start" />
-        Nova seção
-      </Button>
     </div>
   );
 }

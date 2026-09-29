@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingBlock } from "@/components/cadastros/ui";
 import { CalendarBoard } from "@/components/events/calendar-board";
 import { useEvents } from "@/components/events/events-provider";
 
@@ -7,11 +8,7 @@ export default function EventosPage() {
   const { events, ready } = useEvents();
 
   if (!ready) {
-    return (
-      <p className="py-20 text-center text-sm font-light text-forest/50">
-        Carregando o calendário da casa…
-      </p>
-    );
+    return <LoadingBlock label="Carregando o calendário da casa…" />;
   }
 
   return <CalendarBoard events={events} />;

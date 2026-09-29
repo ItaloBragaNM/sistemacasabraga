@@ -23,6 +23,13 @@ function filePath(fileName: string) {
   return path.join(DATA_DIR, fileName);
 }
 
+/** Na Vercel o disco é temporário: sem Supabase, gravar em arquivo perderia dados sem aviso. */
+function assertFileFallbackAllowed() {
+  if (process.env.VERCEL) {
+    throw new Error("Supabase não configurado (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) neste deploy.");
+  }
+}
+
 export async function readState<T>(key: string, fileName: string): Promise<T | null> {
   const supabase = getSupabaseAdmin();
   if (supabase) {
@@ -35,6 +42,7 @@ export async function readState<T>(key: string, fileName: string): Promise<T | n
     return (data?.value as T) ?? null;
   }
 
+  assertFileFallbackAllowed();
   try {
     const raw = await readFile(filePath(fileName), "utf8");
     return JSON.parse(raw) as T;
@@ -54,6 +62,7 @@ export async function writeState<T>(key: string, fileName: string, value: T): Pr
     return;
   }
 
+  assertFileFallbackAllowed();
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(filePath(fileName), JSON.stringify(value), "utf8");
 }

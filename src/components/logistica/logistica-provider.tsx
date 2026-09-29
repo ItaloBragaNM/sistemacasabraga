@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { assertSaved, saveErrorMessage } from "@/lib/http";
 import { uid } from "@/lib/event-factory";
 import type {
   EventMaterialControl,
@@ -90,10 +91,10 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
-        if (!res.ok) throw new Error("save");
+        assertSaved(res);
       })
-      .catch(() => {
-        toast.error("Não foi possível salvar o estoque. Verifique a conexão.");
+      .catch((error) => {
+        toast.error(saveErrorMessage(error, "Não foi possível salvar o estoque. Verifique a conexão."));
       })
       .finally(() => setSaving(false));
   }, []);

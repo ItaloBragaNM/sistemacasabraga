@@ -11,6 +11,7 @@ export type AuditActor = { id: string; name: string; username: string } | null;
 export type AuditDraft = {
   module: string;
   entity: string;
+  page: string;
   action: AuditAction;
   summary: string;
 };
@@ -20,7 +21,7 @@ function normalize(input: Partial<AuditoriaData> | null): AuditoriaData {
   const entries = input.entries.filter(
     (item): item is AuditEntry =>
       Boolean(item && item.id && item.at && item.action && item.summary),
-  );
+  ).map((item) => ({ ...item, page: typeof item.page === "string" ? item.page : "" }));
   return { entries };
 }
 
@@ -40,6 +41,7 @@ export async function appendAudit(actor: AuditActor, drafts: AuditDraft[]): Prom
     at,
     userId,
     userName,
+    page: typeof draft.page === "string" ? draft.page : "",
     module: draft.module,
     entity: draft.entity,
     action: draft.action,
@@ -65,16 +67,16 @@ export function diffRecords<T extends { id: string }>(
   for (const item of next) {
     const before = prevMap.get(item.id);
     if (!before) {
-      drafts.push({ module: "", entity: "", action: "criar", summary: label(item) });
+      drafts.push({ module: "", entity: "", page: "", action: "criar", summary: label(item) });
       continue;
     }
     if (stable(snapshot(before)) !== stable(snapshot(item))) {
-      drafts.push({ module: "", entity: "", action: "editar", summary: label(item) });
+      drafts.push({ module: "", entity: "", page: "", action: "editar", summary: label(item) });
     }
   }
   for (const item of previous) {
     if (!nextMap.has(item.id)) {
-      drafts.push({ module: "", entity: "", action: "excluir", summary: label(item) });
+      drafts.push({ module: "", entity: "", page: "", action: "excluir", summary: label(item) });
     }
   }
   return drafts;
@@ -84,11 +86,13 @@ export function tagged(
   drafts: AuditDraft[],
   module: string,
   entity: string,
+  page: string,
 ): AuditDraft[] {
   return drafts.map((draft) => ({
     ...draft,
     module,
     entity,
+    page,
     summary: `${draft.action === "criar" ? "Criou" : draft.action === "excluir" ? "Excluiu" : "Editou"} ${entity} ${draft.summary}`.trim(),
   }));
 }
@@ -98,12 +102,14 @@ export function scalarChange(
   entity: string,
   previous: unknown,
   next: unknown,
+  page: string,
 ): AuditDraft[] {
   if (stable(previous) === stable(next)) return [];
   return [
     {
       module,
       entity,
+      page,
       action: "editar",
       summary: `Editou ${entity}`,
     },

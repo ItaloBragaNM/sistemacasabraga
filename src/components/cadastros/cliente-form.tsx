@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { StatusBadge } from "@/components/events/status-badge";
 import { Button } from "@/components/ui/button";
@@ -102,11 +103,11 @@ export function ClienteForm({
         />
       </Field>
       {showHistory && initial ? <ClienteEventHistory clientId={initial.id} /> : null}
-      <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={submit}>
+        <Button className="h-10 px-5" onClick={submit}>
           {initial ? "Salvar alterações" : "Cadastrar cliente"}
         </Button>
       </div>
@@ -116,30 +117,36 @@ export function ClienteForm({
 
 function ClienteEventHistory({ clientId }: { clientId: string }) {
   const { events } = useEvents();
+  const [dateSort, setDateSort] = useState<DateSort>("desc");
   const history = useMemo(
     () =>
       events
         .filter((event) => event.clientId === clientId)
-        .sort((a, b) => `${b.date}${b.invitationTime}`.localeCompare(`${a.date}${a.invitationTime}`)),
-    [events, clientId],
+        .sort((a, b) =>
+          compareDateSort(`${a.date}${a.invitationTime}`, `${b.date}${b.invitationTime}`, dateSort),
+        ),
+    [events, clientId, dateSort],
   );
 
   return (
-    <div className="rounded-xl border border-forest/10 bg-forest/[0.02] p-4">
-      <p className="field-label mb-3">Histórico de eventos</p>
+    <div className="rounded-lg border border-line bg-white p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="section-title">Histórico de eventos</h3>
+        {history.length > 0 ? <DateSortSelect value={dateSort} onChange={setDateSort} className="h-8" /> : null}
+      </div>
       {history.length === 0 ? (
-        <p className="text-sm font-light text-forest/50">Nenhum evento vinculado a este cliente.</p>
+        <p className="meta-text">Nenhum evento vinculado a este cliente.</p>
       ) : (
         <ul className="space-y-2">
           {history.map((event) => (
             <li key={event.id}>
               <Link
                 href={`/eventos/${event.id}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-forest/[0.03]"
               >
                 <span className="min-w-0">
                   <span className="font-medium text-forest">{event.title || "Evento sem nome"}</span>
-                  <span className="font-light text-forest/50">
+                  <span className="text-forest/55">
                     {" "}
                     · {event.date ? formatLongDate(event.date) : "sem data"} ·{" "}
                     {EVENT_TYPE_LABELS[event.type]}

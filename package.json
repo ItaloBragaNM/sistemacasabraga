@@ -6,7 +6,10 @@
     "dev": "next dev --port 43127 --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start --port 43127 --hostname 0.0.0.0",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "verify:pdfs": "npx --yes esbuild scripts/verify-pdfs.tsx --bundle --platform=node --format=cjs --jsx=automatic --log-level=warning --outfile=scripts/out/verify-pdfs.cjs && node scripts/out/verify-pdfs.cjs && python3 scripts/inspect-pdfs.py scripts/out"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -33,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

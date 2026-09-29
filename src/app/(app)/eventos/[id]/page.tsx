@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
+import { EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
 import { EventFicha } from "@/components/events/event-ficha";
 import { useEvents } from "@/components/events/events-provider";
+import { buttonVariants } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
 
 export default function EventoPage() {
   const params = useParams<{ id: string }>();
@@ -10,21 +14,22 @@ export default function EventoPage() {
   const event = getEvent(params.id);
 
   if (!ready) {
-    return (
-      <p className="py-20 text-center text-sm font-light text-forest/50">
-        Abrindo a ficha…
-      </p>
-    );
+    return <LoadingBlock label="Abrindo a ficha…" />;
   }
 
   if (!event) {
     return (
-      <div className="py-20 text-center">
-        <h1 className="page-title">Ficha não encontrada</h1>
-        <p className="mt-2 text-sm font-light text-forest/55">
-          Este evento pode ter sido excluído.
-        </p>
-      </div>
+      <PageShell title="Ficha do Evento">
+        <EmptyBlock
+          title="Ficha não encontrada"
+          description="Este evento pode ter sido excluído."
+          action={
+            <Link href="/eventos" className={buttonVariants({ variant: "outline" })}>
+              Voltar ao calendário
+            </Link>
+          }
+        />
+      </PageShell>
     );
   }
 

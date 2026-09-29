@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Modal } from "@/components/cadastros/ui";
 import {
@@ -26,14 +26,22 @@ export function KitchenPdfPicker({
   onClose: () => void;
   onWorking: (value: boolean) => void;
 }) {
+  return open ? <KitchenPdfPickerForm key={event.id} {...{ event, working, onClose, onWorking }} /> : null;
+}
+
+function KitchenPdfPickerForm({
+  event,
+  working,
+  onClose,
+  onWorking,
+}: {
+  event: EventRecord;
+  working: boolean;
+  onClose: () => void;
+  onWorking: (value: boolean) => void;
+}) {
   const [mode, setMode] = useState<"completa" | "especifica">("completa");
   const [sections, setSections] = useState<KitchenPdfSectionKey[]>(ALL_KITCHEN_PDF_SECTIONS);
-
-  useEffect(() => {
-    if (!open) return;
-    setMode("completa");
-    setSections(ALL_KITCHEN_PDF_SECTIONS);
-  }, [open]);
 
   const toggle = (key: KitchenPdfSectionKey) => {
     setMode("especifica");
@@ -62,7 +70,7 @@ export function KitchenPdfPicker({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Baixar PDF da ficha">
+    <Modal open onClose={onClose} title="Baixar PDF da ficha">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -117,7 +125,7 @@ export function KitchenPdfPicker({
           </Button>
           <Button
             type="button"
-            className="h-10 bg-terracotta px-5 text-cream hover:bg-terracotta/90"
+            className="h-10 px-5"
             disabled={working}
             onClick={() => void download()}
           >

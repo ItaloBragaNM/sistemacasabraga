@@ -8,13 +8,11 @@ export function ComingSoon({
   pageName: string;
 }) {
   return (
-    <section className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center text-center">
+    <section className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
       <CasaBragaMark onLight />
       <p className="mt-6 text-[13px] font-medium text-forest/50">{moduleName}</p>
-      <h1 className="page-title mt-2">{pageName}</h1>
-      <p className="mt-3 max-w-md text-sm leading-6 text-forest/60">
-        Este módulo será desenvolvido em breve.
-      </p>
+      <h1 className="page-title mt-1">{pageName}</h1>
+      <p className="meta-text mt-2 max-w-md">Este módulo será desenvolvido em breve.</p>
     </section>
   );
 }

@@ -37,16 +37,19 @@ export async function PUT(request: Request) {
         diffRecords(previous.movements, data.movements, (item) => item.note || item.id),
         "logistica",
         "movimento de estoque",
+        "Logística · Estoque de Materiais",
       ),
       ...tagged(
         diffRecords(previous.inventories, data.inventories, (item) => item.date || item.id),
         "logistica",
         "inventário",
+        "Logística · Inventário de Materiais",
       ),
       ...tagged(
         diffRecords(previous.eventControls, data.eventControls, (item) => item.eventCode || item.id),
         "logistica",
         "controle de materiais",
+        "Logística · Controle de Materiais em Eventos",
       ),
     ]);
     return NextResponse.json({ data });

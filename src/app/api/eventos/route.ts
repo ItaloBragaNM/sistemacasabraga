@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireModule } from "@/lib/auth/server";
 import { readEventos, writeEventos } from "@/lib/eventos/store.server";
 import { syncLaborPaymentsFromEvents } from "@/lib/mao-de-obra/sync.server";
+import { eventChangeLabels } from "@/lib/eventos/changelog";
 import type { EventRecord } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -50,15 +51,18 @@ export async function PUT(request: Request) {
       console.error("Falha ao sincronizar pagamentos de mão de obra", error);
     }
     const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
+    const beforeById = new Map(previous.map((event) => [event.id, event]));
     await appendAudit(
       user,
       tagged(
-        diffRecords(previous, data, (event) => `${event.code} ${event.title || "sem nome"}`, (event) => {
-          const { changeLog: _changeLog, updatedAt: _updatedAt, ...rest } = event;
-          return rest;
-        }),
+        diffRecords(previous, data, (event) => {
+          const name = `${event.code} · ${event.title || "sem nome"}`;
+          const detail = eventChangeLabels(beforeById.get(event.id) ?? null, event).slice(0, 6).join(", ");
+          return detail ? `${name} — ${detail}` : name;
+        }, (event) => ({ ...event, changeLog: undefined, updatedAt: undefined })),
         "eventos",
         "evento",
+        "Eventos · Ficha do Evento",
       ),
     );
     try {

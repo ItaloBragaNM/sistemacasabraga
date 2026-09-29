@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Bell } from "lucide-react";
 import { formatDateTime } from "@/lib/dates";
 import type { PublicUser } from "@/lib/auth/types";
@@ -17,33 +17,60 @@ export function NotificationsBell({
 }) {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
   const wrapRef = useRef<HTMLDivElement>(null);
-
-  const load = async () => {
-    try {
-      const res = await fetch("/api/notificacoes", { cache: "no-store" });
-      if (!res.ok) return;
-      const json = (await res.json()) as { data: AppNotification[] };
-      setItems(Array.isArray(json.data) ? json.data : []);
-    } catch {
-      /* ignore polling errors */
-    }
-  };
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 25_000);
-    return () => window.clearInterval(timer);
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const res = await fetch("/api/notificacoes", { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as { data: AppNotification[] };
+        if (!cancelled) setItems(Array.isArray(json.data) ? json.data : []);
+      } catch {
+        /* ignore polling errors */
+      }
+    };
+    const first = window.setTimeout(() => void refresh(), 0);
+    const timer = window.setInterval(() => void refresh(), 25_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const placePanel = useCallback(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const margin = 12;
+    const width = Math.min(352, window.innerWidth - margin * 2);
+    let left = rect.left;
+    if (left + width > window.innerWidth - margin) {
+      left = window.innerWidth - margin - width;
+    }
+    if (left < margin) left = margin;
+    setPanelStyle({ top: rect.bottom + 8, left, width });
   }, []);
 
   useEffect(() => {
     if (!open) return;
+    placePanel();
     const onPointer = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
     };
     window.addEventListener("mousedown", onPointer);
-    return () => window.removeEventListener("mousedown", onPointer);
-  }, [open]);
+    window.addEventListener("resize", placePanel);
+    window.addEventListener("scroll", placePanel, true);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("resize", placePanel);
+      window.removeEventListener("scroll", placePanel, true);
+    };
+  }, [open, placePanel]);
 
   const unread = items.filter((item) => !item.readBy.includes(user.id));
 
@@ -67,9 +94,13 @@ export function NotificationsBell({
   return (
     <div ref={wrapRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         aria-label="Notificações"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (!open) placePanel();
+          setOpen((current) => !current);
+        }}
         className={cn(
           "relative flex size-9 items-center justify-center rounded-md transition-colors",
           dark
@@ -86,24 +117,22 @@ export function NotificationsBell({
       </button>
       {open ? (
         <div
-          className={cn(
-            "absolute z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-forest/10 bg-white shadow-xl",
-            dark ? "right-0" : "right-0",
-          )}
+          style={panelStyle}
+          className="fixed z-50 overflow-hidden rounded-xl border border-forest/10 bg-white shadow-xl"
         >
-          <div className="flex items-center justify-between border-b border-forest/10 px-3 py-2">
+          <div className="flex items-center justify-between gap-3 border-b border-forest/10 px-3 py-2">
             <p className="text-sm font-semibold text-forest">Notificações</p>
             {unread.length > 0 ? (
               <button
                 type="button"
-                className="text-xs text-forest/55 hover:text-forest"
+                className="shrink-0 text-xs text-forest/55 hover:text-forest"
                 onClick={() => void mark()}
               >
                 Marcar todas como lidas
               </button>
             ) : null}
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[min(20rem,calc(100vh-8rem))] overflow-y-auto">
             {items.length === 0 ? (
               <p className="px-3 py-8 text-center text-sm font-light text-forest/50">
                 Nenhuma notificação ainda.
@@ -113,7 +142,7 @@ export function NotificationsBell({
                 const isUnread = !item.readBy.includes(user.id);
                 const inner = (
                   <div className={cn("px-3 py-2.5", isUnread && "bg-forest/[0.04]")}>
-                    <p className="text-sm text-forest">{item.summary}</p>
+                    <p className="text-sm leading-5 break-words text-forest">{item.summary}</p>
                     <p className="mt-0.5 text-[11px] text-forest/45">{formatDateTime(item.createdAt)}</p>
                   </div>
                 );

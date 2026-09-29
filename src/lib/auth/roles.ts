@@ -3,6 +3,7 @@ import { USER_ROLES, type UserRole } from "./types";
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   gestao: "Gestão",
   comercial: "Comercial",
+  cozinha: "Cozinha",
   logistica: "Logística",
   gerencia: "Gerência",
   financeiro: "Financeiro",
@@ -11,6 +12,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
 export const ROLE_MODULES: Record<UserRole, readonly string[] | "*"> = {
   gestao: "*",
   comercial: "*",
+  cozinha: ["eventos", "cozinha", "cadastros"],
   logistica: "*",
   gerencia: "*",
   financeiro: "*",

@@ -32,13 +32,30 @@ export async function PUT(request: Request) {
     const previous = await readCozinhaInsumos();
     const data = await writeCozinhaInsumos(payload);
     const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
+    const isCount = (item: { type?: string }) => item.type === "inventario";
     await appendAudit(user, [
       ...tagged(
-        diffRecords(previous.movements, data.movements, (item) => item.note || item.id),
+        diffRecords(
+          previous.movements.filter((item) => !isCount(item)),
+          data.movements.filter((item) => !isCount(item)),
+          (item) => item.note || item.id,
+        ),
         "cozinha",
         "movimento de insumo",
+        "Cozinha · Movimentações no Estoque",
       ),
-      ...tagged(diffRecords(previous.losses, data.losses, (item) => item.note || item.id), "cozinha", "perda"),
+      ...tagged(
+        diffRecords(previous.inventories ?? [], data.inventories ?? [], (item) => item.date || item.id),
+        "cozinha",
+        "inventário de insumo",
+        "Cozinha · Inventário de Insumos",
+      ),
+      ...tagged(
+        diffRecords(previous.losses, data.losses, (item) => item.note || item.id),
+        "cozinha",
+        "perda",
+        "Cozinha · Registro de Desperdícios",
+      ),
     ]);
     return NextResponse.json({ data });
   } catch (error) {

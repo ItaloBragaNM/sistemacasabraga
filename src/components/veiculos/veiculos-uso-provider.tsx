@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { assertSaved, saveErrorMessage } from "@/lib/http";
 import { usageIdFor, type VehicleUsageRecord, type VeiculosUsoData } from "@/lib/veiculos/types";
 
 interface VeiculosUsoContextValue {
@@ -57,10 +58,10 @@ export function VeiculosUsoProvider({ children }: { children: React.ReactNode })
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
-        if (!res.ok) throw new Error("save");
+        assertSaved(res);
       })
-      .catch(() => {
-        toast.error("Não foi possível salvar o uso dos veículos.");
+      .catch((error) => {
+        toast.error(saveErrorMessage(error, "Não foi possível salvar o uso dos veículos. Verifique a conexão."));
       });
   }, []);
 

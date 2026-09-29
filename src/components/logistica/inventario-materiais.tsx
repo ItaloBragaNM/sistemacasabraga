@@ -1,14 +1,19 @@
 "use client";
 
 import { ArrowDown, ArrowLeft, ArrowUp, ClipboardCheck, Download, Eye, EyeOff, FileDown, Pencil, Plus, Printer, Trash2, Upload, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, CatalogFilters, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { CatalogFilters, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { downloadCountSheetPdf, downloadInventorySessionPdf } from "@/components/logistica/inventario-pdf";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
+import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { QtyInput } from "@/components/ui/qty-input";
+import { SegmentedControl } from "@/components/ui/segmented";
 import { exportToXlsx, readXlsx } from "@/lib/cadastros/xlsx";
 import {
   skuBalance,
@@ -51,6 +56,7 @@ export function InventarioMateriais() {
   const [viewing, setViewing] = useState<InventorySession | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [dateSort, setDateSort] = useState<DateSort>("desc");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const balances = useMemo(() => computeBalances(logistica?.movements ?? []), [logistica]);
@@ -156,19 +162,17 @@ export function InventarioMateriais() {
 
   if (!ready) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 pb-16">
-        <CadastrosHeader eyebrow="Logística" title="Inventário de Materiais" />
+      <PageShell eyebrow="Logística" title="Inventário de Materiais">
         <LoadingBlock />
-      </div>
+      </PageShell>
     );
   }
 
   if (!cadastros || !logistica) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 pb-16">
-        <CadastrosHeader eyebrow="Logística" title="Inventário de Materiais" />
+      <PageShell eyebrow="Logística" title="Inventário de Materiais">
         <EmptyBlock title="Indisponível" description="Recarregue a página." />
-      </div>
+      </PageShell>
     );
   }
 
@@ -206,67 +210,65 @@ export function InventarioMateriais() {
     );
   }
 
-  const inventories = [...logistica.inventories].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const inventories = [...logistica.inventories].sort((a, b) => compareDateSort(a.date, b.date, dateSort));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <CadastrosHeader
-        eyebrow="Logística"
-        title="Inventário de Materiais"
-        action={
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xlsm"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void importSheet(file);
-              }}
-            />
-            <Button
-              variant="outline"
-              className="h-10 px-4"
-              onClick={() => setPdfOpen(true)}
-              disabled={cadastros.materials.length === 0}
-            >
-              <FileDown data-icon="inline-start" />
-              PDF
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 px-4"
-              onClick={() => void exportTemplate()}
-              disabled={cadastros.materials.length === 0}
-            >
-              <Download data-icon="inline-start" />
-              Modelo
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 px-4"
-              onClick={() => fileRef.current?.click()}
-              disabled={cadastros.materials.length === 0 || importing}
-            >
-              <Upload data-icon="inline-start" />
-              {importing ? "Importando…" : "Importar"}
-            </Button>
-            <Button
-              className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
-              onClick={() => {
-                setImportDraft(null);
-                setMode("new");
-              }}
-              disabled={cadastros.materials.length === 0}
-            >
-              <Plus data-icon="inline-start" />
-              Novo
-            </Button>
-          </div>
-        }
-      />
-
+    <PageShell
+      eyebrow="Logística"
+      title="Inventário de Materiais"
+      actions={
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xlsm"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importSheet(file);
+            }}
+          />
+          <Button
+            variant="outline"
+            className="h-10 px-4"
+            onClick={() => setPdfOpen(true)}
+            disabled={cadastros.materials.length === 0}
+          >
+            <FileDown data-icon="inline-start" />
+            PDF
+          </Button>
+          <Button
+            variant="outline"
+            className="h-10 px-4"
+            onClick={() => void exportTemplate()}
+            disabled={cadastros.materials.length === 0}
+          >
+            <Download data-icon="inline-start" />
+            Modelo
+          </Button>
+          <Button
+            variant="outline"
+            className="h-10 px-4"
+            onClick={() => fileRef.current?.click()}
+            disabled={cadastros.materials.length === 0 || importing}
+          >
+            <Upload data-icon="inline-start" />
+            {importing ? "Importando…" : "Importar"}
+          </Button>
+          <Button
+            className="h-10 px-5"
+            onClick={() => {
+              setImportDraft(null);
+              setMode("new");
+            }}
+            disabled={cadastros.materials.length === 0}
+          >
+            <Plus data-icon="inline-start" />
+            Novo
+          </Button>
+        </>
+      }
+    >
       {inventories.length === 0 ? (
         <EmptyBlock
           title="Nenhum inventário"
@@ -282,7 +284,6 @@ export function InventarioMateriais() {
                 Importar
               </Button>
               <Button
-                className="bg-forest text-cream hover:bg-petrol"
                 onClick={() => {
                   setImportDraft(null);
                   setMode("new");
@@ -296,37 +297,45 @@ export function InventarioMateriais() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+        <div className="space-y-3">
+          <DateSortSelect value={dateSort} onChange={setDateSort} />
+          <Card flush>
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-forest/10">
-                <th className="field-label py-3 pl-5 font-normal">Data</th>
-                <th className="field-label py-3 font-normal">Responsável</th>
+              <tr className="border-b border-line">
+                <th className="field-label py-3 pl-4 font-normal sm:pl-5">Data</th>
+                <th className="field-label px-3 py-3 font-normal">Responsável</th>
                 <th className="field-label py-3 text-right font-normal">Ajustes</th>
-                <th className="field-label py-3 pr-5 text-right font-normal" />
+                <th className="field-label py-3 pr-4 text-right font-normal sm:pr-5" />
               </tr>
             </thead>
             <tbody>
               {inventories.map((session) => {
                 const changed = session.items.filter((i) => i.counted !== i.previous).length;
                 return (
-                  <tr key={session.id} className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]">
-                    <td className="py-3 pl-5 text-forest">{formatShortDate(session.date.slice(0, 10))}</td>
-                    <td className="py-3 text-forest/70">{session.responsible || "—"}</td>
-                    <td className="py-3 text-right text-forest/70">{changed}</td>
-                    <td className="py-3 pr-5">
+                  <tr key={session.id} className="border-b border-line last:border-0 hover:bg-forest/[0.02]">
+                    <td className="py-3 pl-4 text-forest tabular sm:pl-5">{formatShortDate(session.date.slice(0, 10))}</td>
+                    <td className="px-3 py-3 text-forest/70">{session.responsible || "—"}</td>
+                    <td className="py-3 text-right text-forest/70 tabular">{changed}</td>
+                    <td className="py-3 pr-4 pl-3 sm:pr-5">
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
-                          className="h-8 px-3 text-xs"
+                          className="h-8 px-2.5 text-xs sm:px-3"
+                          aria-label="Imprimir"
                           onClick={() => void printSession(session)}
                         >
                           <Printer data-icon="inline-start" />
-                          Imprimir
+                          <span className="hidden sm:inline">Imprimir</span>
                         </Button>
-                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => setViewing(session)}>
+                        <Button
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs sm:px-3"
+                          aria-label="Ver"
+                          onClick={() => setViewing(session)}
+                        >
                           <Eye data-icon="inline-start" />
-                          Ver
+                          <span className="hidden sm:inline">Ver</span>
                         </Button>
                       </div>
                     </td>
@@ -335,6 +344,7 @@ export function InventarioMateriais() {
               })}
             </tbody>
           </table>
+          </Card>
         </div>
       )}
 
@@ -342,23 +352,23 @@ export function InventarioMateriais() {
         <Modal open onClose={() => setViewing(null)} title={`Inventário · ${formatShortDate(viewing.date.slice(0, 10))}`} wide>
           <div className="space-y-3">
             {viewing.responsible ? (
-              <p className="text-sm text-forest/60">Responsável: {viewing.responsible}</p>
+              <p className="meta-text">Responsável: {viewing.responsible}</p>
             ) : null}
             {(viewing.participants ?? []).length > 0 ? (
-              <p className="text-sm text-forest/60">
+              <p className="meta-text">
                 Participantes da contagem: {viewing.participants.join(", ")}
               </p>
             ) : null}
-            {viewing.note ? <p className="text-sm font-light text-forest/60">{viewing.note}</p> : null}
+            {viewing.note ? <p className="meta-text">{viewing.note}</p> : null}
             {(viewing.skipped ?? []).length > 0 ? (
-              <p className="text-sm text-forest/60">
+              <p className="meta-text">
                 {(viewing.skipped ?? []).length} oculto(s) — saldo inalterado.
               </p>
             ) : null}
-            <div className="overflow-hidden rounded-xl border border-forest/10">
+            <div className="overflow-x-auto rounded-lg border border-line bg-white">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-forest/10 bg-forest/[0.02]">
+                  <tr className="border-b border-line bg-forest/[0.02]">
                     <th className="field-label py-2 pl-4 font-normal">Material / variação</th>
                     <th className="field-label py-2 text-right font-normal">Anterior</th>
                     <th className="field-label py-2 text-right font-normal">Contado</th>
@@ -371,17 +381,17 @@ export function InventarioMateriais() {
                     return (
                       <tr
                         key={stockKey(item.materialId, item.variant)}
-                        className="border-b border-forest/5 last:border-0"
+                        className="border-b border-line last:border-0"
                       >
                         <td className="py-2 pl-4 text-forest">
                           {inventoryItemLabel(materialById.get(item.materialId), item.variant, item.materialId)}
                         </td>
-                        <td className="py-2 text-right text-forest/60">{formatInt(item.previous)}</td>
-                        <td className="py-2 text-right text-forest">{formatInt(item.counted)}</td>
+                        <td className="py-2 pl-3 text-right text-forest/60 tabular">{formatInt(item.previous)}</td>
+                        <td className="py-2 pl-3 text-right text-forest tabular">{formatInt(item.counted)}</td>
                         <td
                           className={cn(
-                            "py-2 pr-4 text-right font-medium",
-                            diff === 0 ? "text-forest/40" : diff > 0 ? "text-forest" : "text-terracotta",
+                            "py-2 pr-4 pl-3 text-right font-medium tabular",
+                            diff === 0 ? "text-forest/40" : diff > 0 ? "text-forest" : "text-danger",
                           )}
                         >
                           {diff > 0 ? "+" : ""}
@@ -399,15 +409,15 @@ export function InventarioMateriais() {
                 Imprimir
               </Button>
               <Button
-                variant="outline"
-                className="h-10 text-terracotta hover:text-terracotta"
+                variant="destructive"
+                className="h-10"
                 onClick={() => deleteInventory(viewing)}
               >
                 <Trash2 data-icon="inline-start" />
                 Excluir
               </Button>
               <Button
-                className="h-10 bg-forest px-5 text-cream hover:bg-petrol"
+                className="h-10 px-5"
                 onClick={() => {
                   setViewing(null);
                   setEditing(viewing);
@@ -429,7 +439,7 @@ export function InventarioMateriais() {
           onClose={() => setPdfOpen(false)}
         />
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 
@@ -520,7 +530,7 @@ function CountSheetModal({
   return (
     <Modal open onClose={onClose} title="PDF para contagem" wide>
       <div className="space-y-5">
-        <p className="text-sm font-light text-forest/60">
+        <p className="meta-text">
           Folha em branco para anotar e lançar depois.
         </p>
         <Field label="Data da contagem">
@@ -545,7 +555,7 @@ function CountSheetModal({
             <legend className="field-label mb-2">Categorias</legend>
             <button
               type="button"
-              className="mb-2 text-xs font-light text-forest/55 hover:text-forest"
+              className="mb-2 text-xs text-forest/55 hover:text-forest"
               onClick={() =>
                 setSelectedCategories(
                   selectedCategories.size === categories.length ? new Set() : new Set(categories),
@@ -554,10 +564,10 @@ function CountSheetModal({
             >
               {selectedCategories.size === categories.length ? "Limpar" : "Selecionar todas"}
             </button>
-            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-forest/10 p-2">
+            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line bg-white p-2">
               {categories.map((item) => (
                 <li key={item}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-forest/[0.03]">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-forest/[0.03]">
                     <input
                       type="checkbox"
                       className="size-4 accent-forest"
@@ -576,7 +586,7 @@ function CountSheetModal({
             <legend className="field-label mb-2">Locais</legend>
             <button
               type="button"
-              className="mb-2 text-xs font-light text-forest/55 hover:text-forest"
+              className="mb-2 text-xs text-forest/55 hover:text-forest"
               onClick={() => {
                 const all = new Set([...locations.map((item) => item.id), "__none__"]);
                 setSelectedLocations(selectedLocations.size === all.size ? new Set() : all);
@@ -584,9 +594,9 @@ function CountSheetModal({
             >
               {selectedLocations.size === locations.length + 1 ? "Limpar" : "Selecionar todos"}
             </button>
-            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-forest/10 p-2">
+            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line bg-white p-2">
               <li>
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-forest/[0.03]">
+                <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-forest/[0.03]">
                   <input
                     type="checkbox"
                     className="size-4 accent-forest"
@@ -602,7 +612,7 @@ function CountSheetModal({
               </li>
               {locations.map((item) => (
                 <li key={item.id}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-forest/[0.03]">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-forest/[0.03]">
                     <input
                       type="checkbox"
                       className="size-4 accent-forest"
@@ -624,7 +634,7 @@ function CountSheetModal({
           <Button variant="outline" className="h-10 px-4" onClick={onClose}>
             Cancelar
           </Button>
-          <Button className="h-10 bg-terracotta px-5 text-cream hover:bg-terracotta/90" onClick={generate}>
+          <Button className="h-10 px-5" onClick={generate}>
             <FileDown data-icon="inline-start" />
             Gerar PDF
           </Button>
@@ -802,6 +812,9 @@ function InventoryForm({
     }
   };
 
+  const hiddenCount = hiddenKeys.size;
+  const effectiveShowHidden = showHidden && hiddenCount > 0;
+
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     const list = [...skus]
@@ -823,7 +836,7 @@ function InventoryForm({
       })
       .filter((sku) => {
         const hidden = hiddenKeys.has(stockKey(sku.materialId, sku.variant));
-        return showHidden ? hidden : !hidden;
+        return effectiveShowHidden ? hidden : !hidden;
       })
       .filter((sku) => {
         if (!diffFilter) return true;
@@ -865,10 +878,9 @@ function InventoryForm({
     sortDir,
     previousOf,
     hiddenKeys,
-    showHidden,
+    effectiveShowHidden,
   ]);
 
-  const hiddenCount = hiddenKeys.size;
   const toCount = skus.length - hiddenCount;
   const changedCount = skus.filter((sku) => {
     const key = stockKey(sku.materialId, sku.variant);
@@ -884,10 +896,6 @@ function InventoryForm({
       return next;
     });
   };
-
-  useEffect(() => {
-    if (hiddenCount === 0 && showHidden) setShowHidden(false);
-  }, [hiddenCount, showHidden]);
 
   const hideListed = () => {
     setHiddenKeys((current) => {
@@ -941,7 +949,26 @@ function InventoryForm({
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <PageShell
+      title={isEditing ? "Editar inventário" : "Novo inventário"}
+      back={
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-2 text-sm text-forest/60 hover:text-forest"
+        >
+          <ArrowLeft className="size-4" />
+          Voltar ao histórico
+        </button>
+      }
+      description={
+        isEditing
+          ? "Altere quantidades ou quem participou. Ocultos não mudam o estoque."
+          : fromSheet
+            ? "Revise as quantidades. O que não veio na planilha fica oculto."
+            : "Preencha a data e a contagem. Oculte o que não entra desta vez."
+      }
+    >
       <input
         ref={formFileRef}
         type="file"
@@ -952,28 +979,7 @@ function InventoryForm({
           if (file) void importIntoForm(file);
         }}
       />
-      <div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex items-center gap-2 text-sm font-light text-forest/60 hover:text-forest"
-        >
-          <ArrowLeft className="size-4" />
-          Voltar ao histórico
-        </button>
-        <h1 className="page-title mt-3">
-          {isEditing ? "Editar inventário" : "Novo inventário"}
-        </h1>
-        <p className="mt-2 text-sm font-light text-forest/60">
-          {isEditing
-            ? "Altere quantidades ou quem participou. Ocultos não mudam o estoque."
-            : fromSheet
-              ? "Revise as quantidades. O que não veio na planilha fica oculto."
-              : "Preencha a data e a contagem. Oculte o que não entra desta vez."}
-        </p>
-      </div>
-
-      <div className="grid gap-3 rounded-2xl border border-forest/10 bg-white p-4 sm:grid-cols-2">
+      <Card as="div" className="grid gap-3 sm:grid-cols-2">
         <Field label="Data do inventário">
           <input
             type="date"
@@ -1014,7 +1020,7 @@ function InventoryForm({
                     <button
                       type="button"
                       aria-label={`Remover ${name}`}
-                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-forest/40 hover:text-terracotta"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-forest/40 hover:text-danger"
                       onClick={() => setParticipants((current) => current.filter((item) => item !== name))}
                     >
                       <X className="size-3" />
@@ -1028,7 +1034,7 @@ function InventoryForm({
         <Field label="Observação" className="sm:col-span-2">
           <input className={fieldControlClass} value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
-      </div>
+      </Card>
 
       <CatalogFilters
         compact
@@ -1067,14 +1073,14 @@ function InventoryForm({
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-forest/60">
-          {showHidden
+        <p className="meta-text tabular">
+          {effectiveShowHidden
             ? `${visible.length} oculto(s) listado(s)`
             : visible.length === toCount
               ? `${toCount} a contar`
               : `${visible.length} de ${toCount} a contar`}
-          {hiddenCount > 0 && !showHidden ? ` · ${hiddenCount} oculto(s)` : ""}
-          {!showHidden
+          {hiddenCount > 0 && !effectiveShowHidden ? ` · ${hiddenCount} oculto(s)` : ""}
+          {!effectiveShowHidden
             ? changedCount > 0
               ? ` · ${changedCount} com diferença`
               : " · sem diferenças até agora"
@@ -1082,19 +1088,24 @@ function InventoryForm({
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {hiddenCount > 0 ? (
-            <Button variant="outline" className="h-10 px-4" onClick={() => setShowHidden((current) => !current)}>
-              {showHidden ? <Eye data-icon="inline-start" /> : <EyeOff data-icon="inline-start" />}
-              {showHidden ? "Voltar à contagem" : `Mostrar ${hiddenCount} ocultos`}
-            </Button>
+            <SegmentedControl
+              ariaLabel="Itens da contagem"
+              value={effectiveShowHidden ? "hidden" : "count"}
+              onChange={(value) => setShowHidden(value === "hidden")}
+              options={[
+                { value: "count", label: "Contagem" },
+                { value: "hidden", label: `${hiddenCount} ocultos` },
+              ]}
+            />
           ) : null}
           {visible.length > 0 ? (
             <Button
               variant="outline"
               className="h-10 px-4"
-              onClick={showHidden ? unhideListed : hideListed}
+              onClick={effectiveShowHidden ? unhideListed : hideListed}
             >
-              {showHidden ? <Eye data-icon="inline-start" /> : <EyeOff data-icon="inline-start" />}
-              {showHidden ? "Incluir listados" : "Ocultar listados"}
+              {effectiveShowHidden ? <Eye data-icon="inline-start" /> : <EyeOff data-icon="inline-start" />}
+              {effectiveShowHidden ? "Incluir listados" : "Ocultar listados"}
             </Button>
           ) : null}
           <Button
@@ -1106,7 +1117,7 @@ function InventoryForm({
             <Upload data-icon="inline-start" />
             {formImporting ? "Importando…" : "Importar"}
           </Button>
-          <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={conclude}>
+          <Button className="h-10 px-5" onClick={conclude}>
             <ClipboardCheck data-icon="inline-start" />
             {isEditing ? "Salvar alterações" : "Concluir inventário"}
           </Button>
@@ -1114,33 +1125,36 @@ function InventoryForm({
       </div>
 
       {skus.some((sku) => sku.label.endsWith("Não classificado")) ? (
-        <p className="rounded-xl border border-terracotta/20 bg-terracotta/[0.06] px-4 py-3 text-sm text-forest/70">
+        <p className="rounded-lg border border-warn/25 bg-warn-soft px-4 py-3 text-sm text-warn">
           Há saldo sem variação. Conte cada variação e zere “Não classificado”.
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+      <Card flush>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-forest/10">
+            <tr className="border-b border-line">
               <SortTh
                 label="Material / variação"
                 active={sortKey === "name"}
                 dir={sortDir}
                 onClick={() => toggleSort("name")}
-                className="pl-5"
+                className="pl-4 sm:pl-5"
               />
               <SortTh
                 label="Categoria"
                 active={sortKey === "category"}
                 dir={sortDir}
                 onClick={() => toggleSort("category")}
+                className="hidden px-3 md:table-cell"
               />
               <SortTh
                 label="Local"
                 active={sortKey === "location"}
                 dir={sortDir}
                 onClick={() => toggleSort("location")}
+                className="hidden px-3 md:table-cell"
               />
               <SortTh
                 label={initial ? "Saldo anterior" : "Saldo atual"}
@@ -1148,12 +1162,15 @@ function InventoryForm({
                 active={sortKey === "previous"}
                 dir={sortDir}
                 onClick={() => toggleSort("previous")}
+                className="px-3"
               />
               <SortTh
                 label="Contagem"
+                align="right"
                 active={sortKey === "counted"}
                 dir={sortDir}
                 onClick={() => toggleSort("counted")}
+                className="w-24 px-2"
               />
               <SortTh
                 label="Diferença"
@@ -1161,6 +1178,7 @@ function InventoryForm({
                 active={sortKey === "diff"}
                 dir={sortDir}
                 onClick={() => toggleSort("diff")}
+                className="px-3"
               />
               <th className="field-label py-3 pr-4 text-right font-normal">
                 <span className="sr-only">Ocultar da contagem</span>
@@ -1170,8 +1188,8 @@ function InventoryForm({
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-sm font-light text-forest/50">
-                  {showHidden
+                <td colSpan={7} className="meta-text px-5 py-10 text-center">
+                  {effectiveShowHidden
                     ? hiddenCount === 0
                       ? "Nenhum item oculto. Tudo entra nesta contagem."
                       : "Nenhum item oculto com esses filtros."
@@ -1191,45 +1209,46 @@ function InventoryForm({
                 <tr
                   key={key}
                   className={cn(
-                    "border-b border-forest/5 last:border-0",
+                    "border-b border-line last:border-0",
                     hidden && "bg-forest/[0.02]",
                   )}
                 >
-                  <td className="py-2.5 pl-5">
+                  <td className="py-2.5 pl-4 sm:pl-5">
                     <p className={cn("font-medium text-forest", hidden && "text-forest/50")}>
                       {sku.label}
                     </p>
-                    {sku.unit ? (
-                      <p className="text-xs font-light text-forest/45">{sku.unit}</p>
-                    ) : null}
+                    <p className="meta-text">
+                      {sku.unit}
+                      <span className="md:hidden">
+                        {sku.unit ? " · " : ""}
+                        {sku.category}
+                      </span>
+                    </p>
                   </td>
-                  <td className="py-2.5 text-forest/60">{sku.category}</td>
-                  <td className="py-2.5 text-forest/60">
+                  <td className="hidden px-3 py-2.5 text-forest/60 md:table-cell">{sku.category}</td>
+                  <td className="hidden px-3 py-2.5 text-forest/60 md:table-cell">
                     {sku.locationId ? locationName.get(sku.locationId) ?? "—" : "—"}
                   </td>
-                  <td className="py-2.5 text-right text-forest/60">{formatInt(previous)}</td>
-                  <td className="py-2.5">
-                    <input
-                      type="number"
-                      min={0}
+                  <td className="px-3 py-2.5 text-right text-forest/60 tabular">{formatInt(previous)}</td>
+                  <td className="px-2 py-2.5 text-right">
+                    <QtyInput
+                      ariaLabel={`Contagem de ${sku.label}`}
                       disabled={hidden}
-                      className={cn(fieldControlClass, "h-9 w-28")}
+                      edited={!hidden && diff !== 0}
                       value={counted}
-                      onChange={(e) =>
-                        setCounts((current) => ({ ...current, [key]: Number(e.target.value) }))
-                      }
+                      onChange={(value) => setCounts((current) => ({ ...current, [key]: value }))}
                     />
                   </td>
                   <td
                     className={cn(
-                      "py-2.5 text-right font-medium",
+                      "px-3 py-2.5 text-right font-medium tabular",
                       hidden
                         ? "text-forest/30"
                         : diff === 0
                           ? "text-forest/40"
                           : diff > 0
                             ? "text-forest"
-                            : "text-terracotta",
+                            : "text-danger",
                     )}
                   >
                     {hidden ? "—" : `${diff > 0 ? "+" : ""}${formatInt(diff)}`}
@@ -1251,8 +1270,9 @@ function InventoryForm({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+        </div>
+      </Card>
+    </PageShell>
   );
 }
 

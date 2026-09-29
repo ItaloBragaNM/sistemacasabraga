@@ -2,15 +2,29 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { addMonths, addWeeks, format, isSameMonth, isToday } from "date-fns";
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  eachDayOfInterval,
+  format,
+  isSameMonth,
+  isToday,
+  parseISO,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, FileDown, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { FilterMultiSelect } from "@/components/cadastros/ui";
+import { EmptyBlock, FilterMultiSelect } from "@/components/cadastros/ui";
+import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
 import { fieldControlClass } from "@/components/events/field";
 import { downloadKitchenPdf } from "@/components/events/kitchen-pdf";
 import { StatusBadge } from "@/components/events/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { SegmentedControl } from "@/components/ui/segmented";
+import { StatusPill } from "@/components/ui/status-pill";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { formatDayHeading, formatMonthTitle, monthGrid, weekDays } from "@/lib/dates";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
@@ -28,14 +42,17 @@ function eventsOnDay(events: EventRecord[], day: Date) {
     );
 }
 
-function PdfButton({ event }: { event: EventRecord }) {
+function PdfButton({ event, roomy }: { event: EventRecord; roomy?: boolean }) {
   const [busy, setBusy] = useState(false);
   return (
     <button
       type="button"
       aria-label={`Baixar PDF de ${event.title || event.code}`}
       title="Baixar PDF da cozinha"
-      className="flex size-5 shrink-0 items-center justify-center rounded text-current opacity-75 hover:opacity-100"
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded text-current opacity-75 hover:opacity-100",
+        roomy ? "size-7" : "size-6",
+      )}
       onClick={async (click) => {
         click.preventDefault();
         click.stopPropagation();
@@ -52,22 +69,35 @@ function PdfButton({ event }: { event: EventRecord }) {
         }
       }}
     >
-      <FileDown className="size-3" />
+      <FileDown className={roomy ? "size-3.5" : "size-3"} />
     </button>
   );
 }
 
-function EventChip({ event }: { event: EventRecord }) {
+function EventChip({ event, roomy = false }: { event: EventRecord; roomy?: boolean }) {
   return (
-    <div className={cn("flex items-start gap-0.5 rounded-md pr-0.5", `cal-chip-${event.status}`)}>
-      <Link href={`/eventos/${event.id}`} className="min-w-0 flex-1 px-1.5 py-0.5 transition-colors hover:opacity-90">
-        <p className="truncate text-[10px] font-medium leading-tight">
+    <div className={cn("flex items-center gap-1 rounded-md pr-1", `cal-chip-${event.status}`)}>
+      <Link
+        href={`/eventos/${event.id}`}
+        className={cn(
+          "min-w-0 flex-1 transition-colors hover:opacity-90",
+          roomy ? "px-2.5 py-1.5" : "px-2 py-1",
+        )}
+      >
+        <p className={cn("truncate font-medium", roomy ? "text-[13px] leading-5" : "text-[12px] leading-4")}>
           {event.ceremonyTime || event.invitationTime || event.serviceTime || "—"} · {event.title}
         </p>
       </Link>
-      <PdfButton event={event} />
+      <PdfButton event={event} roomy={roomy} />
     </div>
   );
+}
+
+function periodDays(from: string, to: string) {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return null;
+  return eachDayOfInterval({ start, end });
 }
 
 export function CalendarBoard({ events }: { events: EventRecord[] }) {
@@ -81,6 +111,12 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
   const [query, setQuery] = useState("");
   const [statuses, setStatuses] = useState<string[]>([]);
   const [types, setTypes] = useState<string[]>([]);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [dateSort, setDateSort] = useState<DateSort>("asc");
+
+  const rangeInvalid = Boolean(from && to && from > to);
+  const range = !rangeInvalid && from && to ? periodDays(from, to) : null;
 
   const filtered = useMemo(() => {
     return events.filter((event) => {
@@ -89,285 +125,325 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
       const matchesQuery = hay.includes(query.trim().toLowerCase());
       const matchesStatus = statuses.length === 0 || statuses.includes(event.status);
       const matchesType = types.length === 0 || types.includes(event.type);
-      return matchesQuery && matchesStatus && matchesType;
+      const matchesFrom = !from || event.date >= from;
+      const matchesTo = !to || event.date <= to;
+      return matchesQuery && matchesStatus && matchesType && !rangeInvalid && matchesFrom && matchesTo;
     });
-  }, [events, query, statuses, types, clientNames]);
+  }, [events, query, statuses, types, clientNames, from, to, rangeInvalid]);
 
-  const days = view === "mes" ? monthGrid(cursor) : weekDays(cursor);
+  const days = view === "mes" ? monthGrid(cursor) : range ?? weekDays(cursor);
+  const weekShown =
+    range && range.length > 45 ? days.filter((day) => eventsOnDay(filtered, day).length > 0) : days;
   const listDays = useMemo(() => {
-    const unique = [...new Set(filtered.map((event) => event.date))].sort();
-    return unique;
-  }, [filtered]);
+    return [...new Set(filtered.map((event) => event.date))].sort((a, b) =>
+      compareDateSort(a, b, dateSort),
+    );
+  }, [filtered, dateSort]);
 
   const shift = (direction: number) => {
+    if (view === "semana" && range && from && to) {
+      setFrom(format(addDays(parseISO(from), direction * 7), "yyyy-MM-dd"));
+      setTo(format(addDays(parseISO(to), direction * 7), "yyyy-MM-dd"));
+      return;
+    }
     if (view === "semana") setCursor((current) => addWeeks(current, direction));
     else setCursor((current) => addMonths(current, direction));
   };
 
+  const periodLabel =
+    view === "semana" && range
+      ? `${format(range[0], "d MMM", { locale: ptBR })} — ${format(range[range.length - 1], "d MMM yyyy", { locale: ptBR })}`
+      : view === "semana"
+        ? `${format(weekDays(cursor)[0], "d MMM", { locale: ptBR })} — ${format(weekDays(cursor)[6], "d MMM yyyy", { locale: ptBR })}`
+        : formatMonthTitle(cursor);
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-[13px] font-medium text-forest/50">Eventos</p>
-          <h1 className="page-title mt-0.5">Calendário de Eventos</h1>
-        </div>
-        <Link
-          href="/eventos/novo"
-          className={cn(buttonVariants(), "h-9 bg-forest px-4 text-cream hover:bg-petrol")}
-        >
+    <PageShell
+      width="wide"
+      eyebrow="Eventos"
+      title="Calendário de Eventos"
+      actions={
+        <Link href="/eventos/novo" className={cn(buttonVariants(), "px-4")}>
           <Plus data-icon="inline-start" />
           Novo evento
         </Link>
-      </div>
+      }
+    >
+      <div className="space-y-3">
+        <Card className="flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por nome, cliente ou código"
+            className={cn(fieldControlClass, "min-w-0 sm:min-w-[220px] sm:flex-1")}
+          />
+          <FilterMultiSelect
+            value={statuses}
+            onChange={setStatuses}
+            emptyLabel="Todos os status"
+            countedNoun="status"
+            options={EVENT_STATUSES.map((item) => ({ key: item, label: EVENT_STATUS_LABELS[item] }))}
+          />
+          <FilterMultiSelect
+            value={types}
+            onChange={setTypes}
+            emptyLabel="Todos os tipos"
+            countedNoun="tipos"
+            options={EVENT_TYPES.map((item) => ({ key: item, label: EVENT_TYPE_LABELS[item] }))}
+          />
+        </Card>
 
-      <div className="flex flex-col gap-2 rounded-xl border border-forest/10 bg-white p-2 sm:flex-row sm:items-center">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar por nome, cliente ou código"
-          className={cn(fieldControlClass, "h-9 flex-1 bg-cream")}
-        />
-        <FilterMultiSelect
-          value={statuses}
-          onChange={setStatuses}
-          emptyLabel="Todos os status"
-          countedNoun="status"
-          options={EVENT_STATUSES.map((item) => ({ key: item, label: EVENT_STATUS_LABELS[item] }))}
-        />
-        <FilterMultiSelect
-          value={types}
-          onChange={setTypes}
-          emptyLabel="Todos os tipos"
-          countedNoun="tipos"
-          options={EVENT_TYPES.map((item) => ({ key: item, label: EVENT_TYPE_LABELS[item] }))}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="icon" className="size-8" onClick={() => shift(-1)}>
-            <ChevronLeft />
-          </Button>
-          <Button variant="outline" size="icon" className="size-8" onClick={() => shift(1)}>
-            <ChevronRight />
-          </Button>
-          <Button variant="outline" className="h-8 px-3 text-[13px]" onClick={() => setCursor(new Date())}>
-            Hoje
-          </Button>
-          <h2 className="ml-1 text-sm font-semibold capitalize text-forest">
-            {view === "semana"
-              ? `${format(weekDays(cursor)[0], "d MMM", { locale: ptBR })} — ${format(weekDays(cursor)[6], "d MMM yyyy", { locale: ptBR })}`
-              : formatMonthTitle(cursor)}
-          </h2>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon-sm" aria-label="Período anterior" onClick={() => shift(-1)}>
+              <ChevronLeft />
+            </Button>
+            <Button variant="outline" size="icon-sm" aria-label="Próximo período" onClick={() => shift(1)}>
+              <ChevronRight />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>
+              Hoje
+            </Button>
+            <h2 className="section-title ml-1 capitalize">{periodLabel}</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="meta-text flex items-center gap-1.5 font-medium">
+              De
+              <input
+                type="date"
+                value={from}
+                max={to || undefined}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setFrom(value);
+                  if (value) setCursor(parseISO(value));
+                }}
+                className={cn(fieldControlClass, "tabular w-auto")}
+              />
+            </label>
+            <label className="meta-text flex items-center gap-1.5 font-medium">
+              Até
+              <input
+                type="date"
+                value={to}
+                min={from || undefined}
+                onChange={(event) => setTo(event.target.value)}
+                className={cn(fieldControlClass, "tabular w-auto")}
+              />
+            </label>
+            {from || to ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFrom("");
+                  setTo("");
+                }}
+              >
+                Limpar
+              </Button>
+            ) : null}
+            {view === "lista" ? (
+              <DateSortSelect value={dateSort} onChange={setDateSort} />
+            ) : null}
+            <SegmentedControl<ViewMode>
+              ariaLabel="Visão do calendário"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "mes", label: "Mês" },
+                { value: "semana", label: "Semana" },
+                { value: "lista", label: "Lista" },
+              ]}
+            />
+          </div>
         </div>
-        <div className="flex rounded-lg border border-forest/15 bg-white p-0.5">
-          {(
-            [
-              ["mes", "Mês"],
-              ["semana", "Semana"],
-              ["lista", "Lista"],
-            ] as const
-          ).map(([mode, label]) => (
-            <button
-              key={mode}
-              type="button"
-              aria-pressed={view === mode}
-              onClick={() => setView(mode)}
-              className={cn(
-                "cursor-pointer rounded-md px-2.5 py-1 text-[12px] font-medium",
-                view === mode ? "bg-forest text-cream" : "text-forest/60 hover:text-forest",
-              )}
-            >
-              {label}
-            </button>
+        {rangeInvalid ? (
+          <p className="text-[13px] text-danger">A data final precisa ser igual ou posterior à inicial.</p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-forest/65">
+          {EVENT_STATUSES.map((status) => (
+            <span key={status} className="inline-flex items-center gap-1.5">
+              <span className={cn("size-2.5 rounded-sm", `cal-chip-${status}`)} />
+              {EVENT_STATUS_LABELS[status]}
+            </span>
           ))}
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-forest/65">
-        {EVENT_STATUSES.map((status) => (
-          <span key={status} className="inline-flex items-center gap-1.5">
-            <span className={cn("size-2.5 rounded-sm", `cal-chip-${status}`)} />
-            {EVENT_STATUS_LABELS[status]}
-          </span>
-        ))}
-      </div>
-
-      {view === "lista" ? (
-        <div className="space-y-6">
-          {listDays.length === 0 && (
-            <EmptyState />
-          )}
-          {listDays.map((date) => {
-            const dayEvents = filtered
-              .filter((event) => event.date === date)
-              .sort((a, b) =>
-                (a.invitationTime || a.serviceTime).localeCompare(
-                  b.invitationTime || b.serviceTime,
-                ),
-              );
-            return (
-              <section key={date}>
-                <h3 className="mb-2 text-[13px] font-medium text-forest/55">
-                  {formatDayHeading(new Date(`${date}T12:00:00`))}
-                </h3>
-                <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-                  {dayEvents.map((event, index) => (
-                    <div
-                      key={event.id}
-                      className={cn(
-                        "grid gap-3 px-4 py-3 sm:grid-cols-[90px_1fr_auto] sm:items-center",
-                        index > 0 && "border-t border-forest/8",
-                      )}
-                    >
-                      <p className="text-sm font-medium text-forest">
-                        {event.invitationTime || "—"}
-                        {event.serviceTime ? ` · serviço ${event.serviceTime}` : ""}
-                      </p>
-                      <Link href={`/eventos/${event.id}`} className="min-w-0 hover:opacity-80">
-                        <p className="text-[15px] font-semibold text-forest">{event.title}</p>
-                        <p className="mt-1 text-sm text-forest/55">
-                          {EVENT_TYPE_LABELS[event.type]} · {event.venue.name} ·{" "}
-                          {guestTotal(event.guests)} pessoas · {event.code}
-                        </p>
-                      </Link>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={event.status} />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="size-8 p-0"
-                          aria-label={`Baixar PDF de ${event.title || event.code}`}
-                          onClick={async () => {
-                            try {
-                              await downloadKitchenPdf(event);
-                              toast.success("PDF da cozinha baixado.");
-                            } catch (error) {
-                              console.error(error);
-                              toast.error("Não foi possível gerar o PDF.");
-                            }
-                          }}
-                        >
-                          <FileDown className="size-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      ) : view === "semana" ? (
-        <div className="space-y-2">
-          {days.map((day) => {
-            const dayEvents = eventsOnDay(filtered, day);
-            return (
-              <section
-                key={day.toISOString()}
-                className={cn(
-                  "rounded-xl border border-forest/10 bg-white p-3",
-                  isToday(day) && "border-terracotta/40 bg-terracotta/5",
-                )}
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-[12px] font-medium text-forest/60">
-                    {formatDayHeading(day)}
-                  </h3>
-                  {isToday(day) && (
-                    <span className="text-[12px] font-medium text-forest/50">Hoje</span>
-                  )}
-                </div>
-                {dayEvents.length === 0 ? (
-                  <p className="text-sm font-light text-forest/40">Sem eventos neste dia.</p>
-                ) : (
-                  <div className="grid gap-1.5 md:grid-cols-2">
-                    {dayEvents.map((event) => (
-                      <EventChip key={event.id} event={event} />
-                    ))}
-                  </div>
-                )}
-              </section>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-forest/10 bg-white">
-          <div className="grid grid-cols-7 border-b border-forest/10 bg-cream/80">
-            {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
-              <p
-                key={label}
-                className="px-1 py-1.5 text-center text-[11px] font-medium text-forest/50"
-              >
-                {label}
-              </p>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {days.map((day) => {
-              const dayEvents = eventsOnDay(filtered, day);
-              const outside = !isSameMonth(day, cursor);
+        {view === "lista" ? (
+          <div className="space-y-6">
+            {listDays.length === 0 && (
+              <EmptyState />
+            )}
+            {listDays.map((date) => {
+              const dayEvents = filtered
+                .filter((event) => event.date === date)
+                .sort((a, b) =>
+                  (a.invitationTime || a.serviceTime).localeCompare(
+                    b.invitationTime || b.serviceTime,
+                  ),
+                );
               return (
-                <div
-                  key={day.toISOString()}
-                  className={cn(
-                    "min-h-[68px] border-r border-b border-forest/8 p-1 last:border-r-0",
-                    outside && "bg-cream/40",
-                    isToday(day) && "bg-forest/5",
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "flex size-5 items-center justify-center rounded text-[10px]",
-                        isToday(day)
-                          ? "bg-forest text-cream"
-                          : outside
-                            ? "text-forest/30"
-                            : "text-forest",
-                      )}
-                    >
-                      {format(day, "d")}
-                    </span>
-                    {dayEvents.length > 0 && (
-                      <span className="text-[10px] text-forest/40">
-                        {dayEvents.length}
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-0.5">
-                    {dayEvents.map((event) => (
-                      <EventChip key={event.id} event={event} />
+                <section key={date}>
+                  <h3 className="group-title mb-2 text-forest/55">
+                    {formatDayHeading(new Date(`${date}T12:00:00`))}
+                  </h3>
+                  <Card flush>
+                    {dayEvents.map((event, index) => (
+                      <div
+                        key={event.id}
+                        className={cn(
+                          "grid gap-3 px-4 py-3 sm:grid-cols-[110px_minmax(0,1fr)_auto] sm:items-center",
+                          index > 0 && "border-t border-line",
+                        )}
+                      >
+                        <p className="tabular text-sm font-medium text-forest">
+                          {event.invitationTime || "—"}
+                          {event.serviceTime ? ` · serviço ${event.serviceTime}` : ""}
+                        </p>
+                        <Link href={`/eventos/${event.id}`} className="min-w-0 hover:opacity-80">
+                          <p className="section-title">{event.title}</p>
+                          <p className="meta-text mt-1">
+                            {EVENT_TYPE_LABELS[event.type]} · {event.venue.name} ·{" "}
+                            <span className="tabular">{guestTotal(event.guests)}</span> pessoas · {event.code}
+                          </p>
+                        </Link>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={event.status} />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label={`Baixar PDF de ${event.title || event.code}`}
+                            onClick={async () => {
+                              try {
+                                await downloadKitchenPdf(event);
+                                toast.success("PDF da cozinha baixado.");
+                              } catch (error) {
+                                console.error(error);
+                                toast.error("Não foi possível gerar o PDF.");
+                              }
+                            }}
+                          >
+                            <FileDown className="size-3.5" />
+                          </Button>
+                        </div>
+                      </div>
                     ))}
-                  </div>
-                </div>
+                  </Card>
+                </section>
               );
             })}
           </div>
-          {filtered.length === 0 && (
-            <div className="border-t border-forest/8">
-              <EmptyState />
+        ) : view === "semana" ? (
+          <div className="space-y-3">
+            {range && range.length > 45 ? (
+              <p className="meta-text">
+                Neste intervalo longo, a visão de semana mostra só os dias com evento.
+              </p>
+            ) : null}
+            {weekShown.length === 0 ? <EmptyState /> : null}
+            {weekShown.map((day) => {
+              const dayEvents = eventsOnDay(filtered, day);
+              return (
+                <Card
+                  key={day.toISOString()}
+                  className={cn("p-4", isToday(day) && "border-forest/30 bg-forest/[0.03]")}
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="group-title text-forest/60">
+                      {formatDayHeading(day)}
+                    </h3>
+                    {isToday(day) && <StatusPill tone="info">Hoje</StatusPill>}
+                  </div>
+                  {dayEvents.length === 0 ? (
+                    <p className="meta-text">Sem eventos neste dia.</p>
+                  ) : (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {dayEvents.map((event) => (
+                        <EventChip key={event.id} event={event} roomy />
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <Card flush>
+            <div className="grid grid-cols-7 border-b border-line bg-cream/80">
+              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
+                <p
+                  key={label}
+                  className="px-1 py-1.5 text-center text-[11px] font-medium text-forest/50"
+                >
+                  {label}
+                </p>
+              ))}
             </div>
-          )}
-        </div>
-      )}
-    </div>
+            <div className="grid grid-cols-7">
+              {days.map((day) => {
+                const dayEvents = eventsOnDay(filtered, day);
+                const outside = !isSameMonth(day, cursor);
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={cn(
+                      "min-h-[84px] min-w-0 border-r border-b border-line p-1 last:border-r-0",
+                      outside && "bg-cream/40",
+                      isToday(day) && "bg-forest/5",
+                    )}
+                  >
+                    <div className="mb-1 flex items-center justify-between">
+                      <span
+                        className={cn(
+                          "tabular flex size-5 items-center justify-center rounded text-[11px]",
+                          isToday(day)
+                            ? "bg-forest text-cream"
+                            : outside
+                              ? "text-forest/30"
+                              : "text-forest",
+                        )}
+                      >
+                        {format(day, "d")}
+                      </span>
+                      {dayEvents.length > 0 && (
+                        <span className="tabular text-[11px] text-forest/40">
+                          {dayEvents.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayEvents.map((event) => (
+                        <EventChip key={event.id} event={event} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {filtered.length === 0 && (
+              <div className="border-t border-line p-4">
+                <EmptyState />
+              </div>
+            )}
+          </Card>
+        )}
+      </div>
+    </PageShell>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="px-6 py-12 text-center">
-      <p className="text-[15px] font-semibold text-forest">Nenhum evento neste recorte</p>
-      <p className="mt-2 text-sm font-light text-forest/55">
-        Ajuste os filtros ou crie um novo evento para a casa.
-      </p>
-      <Link
-        href="/eventos/novo"
-        className={cn(buttonVariants(), "mt-5 bg-forest text-cream hover:bg-petrol")}
-      >
-        Novo evento
-      </Link>
-    </div>
+    <EmptyBlock
+      title="Nenhum evento neste recorte"
+      description="Ajuste os filtros ou crie um novo evento para a casa."
+      action={
+        <Link href="/eventos/novo" className={buttonVariants()}>
+          Novo evento
+        </Link>
+      }
+    />
   );
 }

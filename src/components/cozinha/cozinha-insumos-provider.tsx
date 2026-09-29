@@ -10,8 +10,15 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { movementFromLoss, lossMovementId } from "@/lib/cozinha/calc";
-import type { CozinhaInsumosData, InsumoLoss, InsumoMeta, InsumoMovement } from "@/lib/cozinha/types";
+import { assertSaved, saveErrorMessage } from "@/lib/http";
+import { movementFromLoss, lossMovementId, movementsFromInsumoInventory } from "@/lib/cozinha/calc";
+import type {
+  CozinhaInsumosData,
+  InsumoInventorySession,
+  InsumoLoss,
+  InsumoMeta,
+  InsumoMovement,
+} from "@/lib/cozinha/types";
 
 interface CozinhaInsumosContextValue {
   data: CozinhaInsumosData | null;
@@ -20,6 +27,8 @@ interface CozinhaInsumosContextValue {
   upsertMeta: (meta: InsumoMeta) => void;
   addLoss: (loss: InsumoLoss) => void;
   removeLoss: (id: string) => void;
+  concludeInventory: (session: InsumoInventorySession) => void;
+  removeInventory: (id: string) => void;
 }
 
 const CozinhaInsumosContext = createContext<CozinhaInsumosContextValue | null>(null);
@@ -59,10 +68,10 @@ export function CozinhaInsumosProvider({ children }: { children: React.ReactNode
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
-        if (!res.ok) throw new Error("save");
+        assertSaved(res);
       })
-      .catch(() => {
-        toast.error("Não foi possível salvar o estoque de insumos.");
+      .catch((error) => {
+        toast.error(saveErrorMessage(error, "Não foi possível salvar o estoque de insumos. Verifique a conexão."));
       });
   }, []);
 
@@ -96,6 +105,21 @@ export function CozinhaInsumosProvider({ children }: { children: React.ReactNode
           ...current,
           losses: current.losses.filter((item) => item.id !== id),
           movements: current.movements.filter((item) => item.id !== lossMovementId(id)),
+        })),
+      concludeInventory: (session) =>
+        mutate((current) => ({
+          ...current,
+          inventories: [...(current.inventories ?? []).filter((item) => item.id !== session.id), session],
+          movements: [
+            ...current.movements.filter((item) => item.ref !== session.id),
+            ...movementsFromInsumoInventory(session),
+          ],
+        })),
+      removeInventory: (id) =>
+        mutate((current) => ({
+          ...current,
+          inventories: (current.inventories ?? []).filter((item) => item.id !== id),
+          movements: current.movements.filter((item) => item.ref !== id),
         })),
     }),
     [data, ready, mutate],

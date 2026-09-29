@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { assertSaved, saveErrorMessage } from "@/lib/http";
 import type {
   CadastrosData,
   CalcBase,
@@ -123,10 +124,10 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
-        if (!res.ok) throw new Error("save");
+        assertSaved(res);
       })
-      .catch(() => {
-        toast.error("Não foi possível salvar. Verifique a conexão e tente de novo.");
+      .catch((error) => {
+        toast.error(saveErrorMessage(error, "Não foi possível salvar. Verifique a conexão e tente de novo."));
       })
       .finally(() => setSaving(false));
   }, []);

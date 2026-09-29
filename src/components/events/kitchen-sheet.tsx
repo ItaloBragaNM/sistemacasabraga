@@ -37,7 +37,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
             Imprimir
           </Button>
           <Button
-            className="h-10 bg-terracotta text-cream hover:bg-terracotta/90"
+            className="h-10"
             onClick={async () => {
               try {
                 await downloadKitchenPdf(event);
@@ -55,24 +55,19 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
       </div>
 
       <article className="kitchen-print-sheet mx-auto w-full max-w-[210mm] bg-white print:max-w-none">
-        <header className="kitchen-print-header bg-petrol px-6 py-5 text-cream">
-          <p className="text-[13px] font-medium text-cream/70">
-            Casa Braga · Ficha de Cozinha
-          </p>
-          <h1 className="mt-2 text-[22px] font-semibold leading-tight">{event.title}</h1>
-          <p className="mt-2 text-sm font-light text-cream/75">
-            {event.code} · {EVENT_TYPE_LABELS[event.type]}
-          </p>
-          <p className="mt-2 text-sm font-light text-cream/80">
-            {event.date
-              ? `${formatWeekday(event.date)}, ${formatLongDate(event.date)}`
-              : "Data a definir"}
-          </p>
-          <p className="mt-1 text-sm font-light text-cream/80">
-            {event.venue.address?.trim() || event.venue.name || "Local a definir"}
-          </p>
+        <header className="kitchen-print-header flex items-center gap-3 border-b border-forest/15 bg-white px-5 py-2 text-forest">
+          {/* Folha de impressão: arquivo estático, sem otimização do next/image. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/zoraide-seal.png" alt="Zoraide Braga" className="h-11 w-11 shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-[16px] font-semibold leading-tight">{event.title}</h1>
+            <p className="mt-0.5 text-xs text-forest/65">
+              {event.code} · {EVENT_TYPE_LABELS[event.type]}
+              {event.date ? ` · ${formatWeekday(event.date)}, ${formatLongDate(event.date)}` : ""}
+            </p>
+          </div>
         </header>
-        <div className="p-8 pt-5">
+        <div className="p-5 pt-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <Info
             label="Data"
@@ -199,7 +194,6 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
             Material dia anterior: {flag(event.logistics.materialPreviousDay)} · Cavalete:{" "}
             {flag(event.logistics.trestleTable)}
           </p>
-          <p>Casa Braga</p>
         </footer>
         </div>
       </article>

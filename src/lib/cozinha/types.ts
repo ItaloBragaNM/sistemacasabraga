@@ -1,10 +1,11 @@
-export type InsumoMovementType = "entrada" | "saida" | "ajuste" | "perda";
+export type InsumoMovementType = "entrada" | "saida" | "ajuste" | "perda" | "inventario";
 
 export const INSUMO_MOVEMENT_LABELS: Record<InsumoMovementType, string> = {
   entrada: "Entrada",
   saida: "Saída",
   ajuste: "Ajuste",
   perda: "Perda",
+  inventario: "Inventário",
 };
 
 export interface InsumoMovement {
@@ -19,9 +20,40 @@ export interface InsumoMovement {
   ref?: string;
 }
 
+export type InsumoMinSource = "calculo" | "manual";
+
 export interface InsumoMeta {
   insumoId: string;
+  /** Ponto de pedido. No modo cálculo, espelha consumo médio × tempo de reposição. */
   min: number;
+  /** Dias que o fornecedor leva para repor. */
+  leadDays: number;
+  minSource: InsumoMinSource;
+  /** Perecível entra na contagem semanal; o restante, na mensal. */
+  perishable: boolean;
+}
+
+export type InsumoInventoryScope = "semanal" | "mensal";
+
+export const INSUMO_INVENTORY_SCOPE_LABELS: Record<InsumoInventoryScope, string> = {
+  semanal: "Perecíveis",
+  mensal: "Demais insumos",
+};
+
+export interface InsumoInventoryItem {
+  insumoId: string;
+  previous: number;
+  counted: number;
+}
+
+export interface InsumoInventorySession {
+  id: string;
+  date: string;
+  scope: InsumoInventoryScope;
+  responsible: string;
+  note: string;
+  items: InsumoInventoryItem[];
+  createdAt: string;
 }
 
 export const LOSS_REASONS = [
@@ -54,8 +86,9 @@ export interface CozinhaInsumosData {
   movements: InsumoMovement[];
   meta: InsumoMeta[];
   losses: InsumoLoss[];
+  inventories: InsumoInventorySession[];
 }
 
 export function emptyCozinhaInsumos(): CozinhaInsumosData {
-  return { movements: [], meta: [], losses: [] };
+  return { movements: [], meta: [], losses: [], inventories: [] };
 }

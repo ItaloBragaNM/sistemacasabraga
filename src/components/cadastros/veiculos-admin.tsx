@@ -13,8 +13,11 @@ import {
 } from "@/components/cadastros/bulk";
 import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
+import { SortableTh, compareSort, useColumnSort } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import { VEHICLE_KIND_LABELS, VEHICLE_USAGE_CATEGORIES, VEHICLE_USAGE_CATEGORY_LABELS, type VehicleKind, type VehicleUsageCategory, type VeiculoRecord } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
@@ -25,11 +28,28 @@ export function VeiculosAdmin() {
   const [kindFilter, setKindFilter] = useState("");
   const [editing, setEditing] = useState<VeiculoRecord | null>(null);
   const [open, setOpen] = useState(false);
+  const sort = useColumnSort<"name" | "plate" | "usage" | "kind" | "capacity">("name");
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = search.trim().toLowerCase();
-    const list = [...data.veiculos].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    const list = [...data.veiculos].sort((a, b) => {
+      const value = {
+        name: a.name,
+        plate: a.plate || "",
+        usage: VEHICLE_USAGE_CATEGORY_LABELS[a.usageCategory],
+        kind: VEHICLE_KIND_LABELS[a.kind],
+        capacity: a.capacity || "",
+      }[sort.key];
+      const other = {
+        name: b.name,
+        plate: b.plate || "",
+        usage: VEHICLE_USAGE_CATEGORY_LABELS[b.usageCategory],
+        kind: VEHICLE_KIND_LABELS[b.kind],
+        capacity: b.capacity || "",
+      }[sort.key];
+      return compareSort(value, other, sort.dir) || a.name.localeCompare(b.name, "pt-BR");
+    });
     return list.filter((item) => {
       if (kindFilter && item.kind !== kindFilter) return false;
       if (!term) return true;
@@ -40,7 +60,7 @@ export function VeiculosAdmin() {
         item.chassis.toLowerCase().includes(term)
       );
     });
-  }, [data, search, kindFilter]);
+  }, [data, search, kindFilter, sort.key, sort.dir]);
 
   const selection = useItemSelection(filtered.map((item) => item.id));
 
@@ -64,13 +84,13 @@ export function VeiculosAdmin() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <PageShell>
       <CadastrosHeader
         title="Veículos"
         action={
-          <div className="flex flex-nowrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ImportExport entity="veiculos" />
-            <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={startNew}>
+            <Button className="h-10 px-5" onClick={startNew}>
               <Plus data-icon="inline-start" />
               Novo veículo
             </Button>
@@ -113,18 +133,18 @@ export function VeiculosAdmin() {
               title="Nenhum veículo"
               description="Cadastre os veículos da frota ou importe de uma planilha."
               action={
-                <Button className="bg-forest text-cream hover:bg-petrol" onClick={startNew}>
+                <Button className="h-10" onClick={startNew}>
                   <Plus data-icon="inline-start" />
                   Novo veículo
                 </Button>
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-              <table className="w-full text-left text-sm">
+            <Card flush className="overflow-x-auto">
+              <table className="w-full min-w-[44rem] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-forest/10">
-                    <th className="w-10 py-3 pl-5">
+                  <tr className="border-b border-line">
+                    <th className="w-10 py-3 pl-5 pr-3">
                       <ItemCheckbox
                         label="Selecionar todos"
                         checked={selection.allVisibleSelected}
@@ -132,39 +152,39 @@ export function VeiculosAdmin() {
                         onChange={selection.toggleAllVisible}
                       />
                     </th>
-                    <th className="field-label py-3 font-normal">Veículo</th>
-                    <th className="field-label py-3 font-normal">Placa</th>
-                    <th className="field-label py-3 font-normal">Uso</th>
-                    <th className="field-label py-3 font-normal">Tipo</th>
-                    <th className="field-label py-3 font-normal">Capacidade</th>
-                    <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
+                    <SortableTh label="Veículo" active={sort.key === "name"} dir={sort.dir} onClick={() => sort.toggle("name")} />
+                    <SortableTh label="Placa" active={sort.key === "plate"} dir={sort.dir} onClick={() => sort.toggle("plate")} />
+                    <SortableTh label="Uso" active={sort.key === "usage"} dir={sort.dir} onClick={() => sort.toggle("usage")} />
+                    <SortableTh label="Tipo" active={sort.key === "kind"} dir={sort.dir} onClick={() => sort.toggle("kind")} />
+                    <SortableTh label="Capacidade" active={sort.key === "capacity"} dir={sort.dir} onClick={() => sort.toggle("capacity")} />
+                    <th className="field-label py-3 pr-5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((item) => (
                     <tr
                       key={item.id}
-                      className="border-b border-forest/5 last:border-0 hover:bg-forest/[0.02]"
+                      className="border-b border-line last:border-0 hover:bg-forest/[0.02]"
                     >
-                      <td className="py-3 pl-5">
+                      <td className="py-3 pl-5 pr-3">
                         <ItemCheckbox
                           label={`Selecionar ${item.name}`}
                           checked={selection.selected.has(item.id)}
                           onChange={() => selection.toggle(item.id)}
                         />
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 pr-3">
                         <p className="font-medium text-forest">{item.name}</p>
                         {item.model || item.year ? (
-                          <p className="text-xs font-light text-forest/45">
+                          <p className="meta-text mt-0.5">
                             {[item.model, item.year].filter(Boolean).join(" · ")}
                           </p>
                         ) : null}
                       </td>
-                      <td className="py-3 text-forest/70">{item.plate || "—"}</td>
-                      <td className="py-3 text-forest/70">{VEHICLE_USAGE_CATEGORY_LABELS[item.usageCategory]}</td>
-                      <td className="py-3 text-forest/70">{VEHICLE_KIND_LABELS[item.kind]}</td>
-                      <td className="py-3 text-forest/70">{item.capacity || "—"}</td>
+                      <td className="py-3 pr-3 text-forest/70 tabular">{item.plate || "—"}</td>
+                      <td className="py-3 pr-3 text-forest/70">{VEHICLE_USAGE_CATEGORY_LABELS[item.usageCategory]}</td>
+                      <td className="py-3 pr-3 text-forest/70">{VEHICLE_KIND_LABELS[item.kind]}</td>
+                      <td className="py-3 pr-3 text-forest/70 tabular">{item.capacity || "—"}</td>
                       <td className="py-3 pr-5">
                         <RecordRowActions
                           label={item.name}
@@ -185,7 +205,7 @@ export function VeiculosAdmin() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Card>
           )}
         </>
       )}
@@ -204,7 +224,7 @@ export function VeiculosAdmin() {
           />
         </Modal>
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 
@@ -314,11 +334,11 @@ function VeiculoForm({
           onChange={(e) => setNotes(e.target.value)}
         />
       </Field>
-      <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button className="h-10 bg-forest px-5 text-cream hover:bg-petrol" onClick={submit}>
+        <Button className="h-10 px-5" onClick={submit}>
           {initial ? "Salvar alterações" : "Cadastrar veículo"}
         </Button>
       </div>

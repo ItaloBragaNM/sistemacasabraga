@@ -3,7 +3,6 @@
 import {
   AlertTriangle,
   ChevronDown,
-  ClipboardList,
   FileDown,
   Plus,
   RotateCcw,
@@ -14,13 +13,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { CadastrosHeader, CatalogFilters, Chip } from "@/components/cadastros/ui";
-import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
+import { CatalogFilters, Chip, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { EventDrinksFields } from "@/components/events/drinks-uniforms";
 import { useEvents } from "@/components/events/events-provider";
 import { StatusBadge } from "@/components/events/status-badge";
+import { DateSortSelect, compareDateSort } from "@/components/date-sort";
 import { fieldControlClass } from "@/components/events/field";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { QtyInput } from "@/components/ui/qty-input";
+import { StatusPill } from "@/components/ui/status-pill";
 import {
   computeSeparationItems,
   eventCalcContext,
@@ -40,6 +44,7 @@ import {
 } from "@/lib/logistica/alocacao";
 import { computeBalances } from "@/lib/logistica/calc";
 import {
+  drinkSeparationLines,
   guestTotal,
   normalizeMaterialSeparation,
   suggestedDrinkQuantities,
@@ -48,8 +53,6 @@ import {
   type EventRecord,
   type MaterialSeparationOverride,
   type MaterialSeparationState,
-  type UniformPieceKey,
-  type UniformSize,
 } from "@/lib/types";
 import {
   downloadSeparationPdf,
@@ -70,6 +73,7 @@ interface Row {
   note: string;
   edited: boolean;
   manual?: boolean;
+  dishNames: string[];
   explanation?: QuantityExplanation;
 }
 
@@ -103,10 +107,7 @@ export function SeparacaoMateriais() {
     const term = search.trim().toLowerCase();
     return [...events]
       .sort((a, b) => {
-        const byDate =
-          dateSort === "asc"
-            ? (a.date || "").localeCompare(b.date || "")
-            : (b.date || "").localeCompare(a.date || "");
+        const byDate = compareDateSort(a.date, b.date, dateSort);
         return byDate || a.title.localeCompare(b.title, "pt-BR");
       })
       .filter((event) => {
@@ -126,27 +127,19 @@ export function SeparacaoMateriais() {
   }, [events, search, statusFilter, typeFilter, dateSort, clientNames]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <CadastrosHeader
-        eyebrow="Logística"
-        title="Separação de Materiais"
-      />
-
+    <PageShell eyebrow="Logística" title="Separação de Materiais">
       {!ready ? (
-        <p className="py-16 text-center text-sm font-light text-forest/50">Carregando…</p>
+        <LoadingBlock />
       ) : events.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-10 text-center">
-          <h2 className="text-[15px] font-semibold text-forest">Nenhum evento</h2>
-          <p className="mt-2 text-sm font-light text-forest/55">
-            Crie uma ficha de evento para separar materiais.
-          </p>
-          <Link
-            href="/eventos/novo"
-            className={cn(buttonVariants(), "mt-5 h-10 bg-forest px-5 text-cream hover:bg-petrol")}
-          >
-            Nova ficha
-          </Link>
-        </div>
+        <EmptyBlock
+          title="Nenhum evento"
+          description="Crie uma ficha de evento para separar materiais."
+          action={
+            <Link href="/eventos/novo" className={cn(buttonVariants(), "h-10 px-5")}>
+              Nova ficha
+            </Link>
+          }
+        />
       ) : (
         <>
           <CatalogFilters
@@ -177,26 +170,16 @@ export function SeparacaoMateriais() {
               },
             ]}
             extra={
-              <select
-                aria-label="Ordenar por data"
-                className={cn(fieldControlClass, "h-10 w-auto min-w-[11rem] shrink-0")}
-                value={dateSort}
-                onChange={(event) => setDateSort(event.target.value === "asc" ? "asc" : "desc")}
-              >
-                <option value="desc">Data · mais recente</option>
-                <option value="asc">Data · mais antiga</option>
-              </select>
+              <DateSortSelect value={dateSort} onChange={setDateSort} />
             }
           />
           {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-10 text-center">
-              <h2 className="text-[15px] font-semibold text-forest">Nenhum evento encontrado</h2>
-              <p className="mt-2 text-sm font-light text-forest/55">
-                Ajuste a busca ou os filtros para localizar a ficha.
-              </p>
-            </div>
+            <EmptyBlock
+              title="Nenhum evento encontrado"
+              description="Ajuste a busca ou os filtros para localizar a ficha."
+            />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+            <Card flush>
               {filtered.map((event, index) => {
                 const client = event.clientId ? clientNames.get(event.clientId) : "";
                 return (
@@ -204,38 +187,34 @@ export function SeparacaoMateriais() {
                     key={event.id}
                     href={`/logistica/separacao-materiais/${event.id}`}
                     className={cn(
-                      "grid gap-2 px-5 py-3 transition-colors hover:bg-cream md:grid-cols-[110px_1fr_auto] md:items-center",
-                      index > 0 && "border-t border-forest/8",
+                      "grid gap-2 px-4 py-3 transition-colors hover:bg-cream md:grid-cols-[110px_1fr_auto] md:items-center md:px-5",
+                      index > 0 && "border-t border-line",
                     )}
                   >
-                    <p className="text-sm text-forest/60">
+                    <p className="text-sm text-forest/60 tabular">
                       {event.date ? formatShortDate(event.date) : "Sem data"}
                     </p>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-forest">
                         {event.title || "Evento sem nome"}
                       </p>
-                      <p className="mt-0.5 text-xs font-light text-forest/50">
+                      <p className="meta-text mt-0.5">
                         {event.venue.name || "Local a definir"}
                         {client ? ` · ${client}` : ""}
                       </p>
                     </div>
-                    <div className="flex flex-col items-start gap-1 md:items-end">
-                      {ruptureIds.has(event.id) ? (
-                        <Chip size="sm" className="bg-terracotta/15 font-medium text-terracotta">
-                          Ruptura
-                        </Chip>
-                      ) : null}
+                    <div className="flex flex-wrap items-center gap-1.5 md:flex-col md:items-end">
+                      {ruptureIds.has(event.id) ? <StatusPill tone="danger">Ruptura</StatusPill> : null}
                       <StatusBadge status={event.status} />
                     </div>
                   </Link>
                 );
               })}
-            </div>
+            </Card>
           )}
         </>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -246,62 +225,69 @@ export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
   const ready = eventsReady && cadastrosReady;
 
   if (!ready) {
-    return (
-      <p className="py-16 text-center text-sm font-light text-forest/50">Carregando…</p>
-    );
+    return <LoadingBlock />;
   }
 
   if (!event) {
     return (
-      <div className="mx-auto max-w-5xl py-20 text-center">
-        <h1 className="page-title">Evento não encontrado</h1>
-        <p className="mt-2 text-sm font-light text-forest/55">
-          Esta ficha pode ter sido excluída neste aparelho.
-        </p>
-        <Link
-          href="/logistica/separacao-materiais"
-          className={cn(buttonVariants({ variant: "outline" }), "mt-6 h-10 px-4")}
-        >
-          Voltar à lista
-        </Link>
-      </div>
+      <PageShell title="Evento não encontrado">
+        <EmptyBlock
+          title="Evento não encontrado"
+          description="Esta ficha pode ter sido excluída neste aparelho."
+          action={
+            <Link
+              href="/logistica/separacao-materiais"
+              className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
+            >
+              Voltar à lista
+            </Link>
+          }
+        />
+      </PageShell>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
-      <header className="flex flex-col gap-4 border-b border-forest/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Link
-            href="/logistica/separacao-materiais"
-            className="text-sm font-light text-forest/55 hover:text-forest"
-          >
-            ← Eventos
-          </Link>
-          <h1 className="page-title mt-3">
-            {event.title || "Evento sem nome"}
-          </h1>
-          <p className="mt-1 text-sm font-light text-forest/55">
+    <PageShell
+      title={event.title || "Evento sem nome"}
+      back={
+        <Link
+          href="/logistica/separacao-materiais"
+          className="text-sm text-forest/55 hover:text-forest"
+        >
+          ← Eventos
+        </Link>
+      }
+      description={
+        <>
+          <span className="block tabular">
             {event.date ? formatShortDate(event.date) : "Sem data"}
             {event.code ? ` · ${event.code}` : ""}
-          </p>
-        </div>
+          </span>
+          <span className="mt-1 block tabular">
+            Entrega de material{" "}
+            {event.materialDeliveryDate ? formatShortDate(event.materialDeliveryDate) : "a definir"}
+            {" · "}
+            Recolhimento de material{" "}
+            {event.materialPickupDate ? formatShortDate(event.materialPickupDate) : "a definir"}
+          </span>
+        </>
+      }
+      actions={
         <Link
           href={`/eventos/${event.id}`}
           className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
         >
           Abrir ficha
         </Link>
-      </header>
-
+      }
+    >
       {cadastros ? (
         <SeparationEditor key={event.id} event={event} cadastros={cadastros} onSave={upsert} />
       ) : (
-        <p className="py-10 text-center text-sm font-light text-forest/50">
-          Não foi possível carregar os cadastros.
-        </p>
+        <EmptyBlock title="Não foi possível carregar os cadastros." description="Recarregue a página." />
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -398,8 +384,9 @@ function SeparationEditor({
         computedQty: item.computedQty,
         finalQty,
         note,
-        edited: (override?.quantity != null && override.quantity !== item.computedQty) || !!note,
+        edited: override?.quantity != null && override.quantity !== item.computedQty,
         manual: item.manual,
+        dishNames: item.dishNames,
         explanation: item.explanation,
       });
     }
@@ -517,6 +504,7 @@ function SeparationEditor({
       category: row.category,
       unit: row.unit,
       quantity: row.finalQty,
+      dishes: row.dishNames.join(", "),
       note: row.note,
       edited: row.edited,
     }));
@@ -524,6 +512,12 @@ function SeparationEditor({
       await downloadSeparationPdf(event, pdfRows, {
         kits: kitPdf.filter((kit) => kit.kitQty > 0 && kit.items.length > 0),
         extras: extraPdf,
+        drinks: drinkSeparationLines(
+          guestTotal(event.guests),
+          drinkPremises,
+          drinks,
+          event.drinksAuto !== false,
+        ),
         notes: sep.notes,
       });
       toast.success("PDF de separação baixado.");
@@ -534,33 +528,35 @@ function SeparationEditor({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <EventSummary event={event} />
 
       {warnings.length > 0 ? (
         <CollapsibleAlert
+          tone="warn"
           title={`Complete a ficha para uma separação precisa${warnings.length ? ` · ${warnings.length}` : ""}`}
         >
-          <p className="font-light">{warnings.map((w) => w.label).join(" · ")}</p>
+          <p>{warnings.map((w) => w.label).join(" · ")}</p>
         </CollapsibleAlert>
       ) : null}
 
       {ruptures.length > 0 ? (
         <CollapsibleAlert
+          tone="danger"
           title={`Ruptura de estoque nesta alocação · ${ruptures.length} material${ruptures.length === 1 ? "" : "is"}`}
         >
           {allocWindow ? (
-            <p className="font-light text-forest/70">
+            <p className="text-forest/70 tabular">
               {formatShortDate(allocWindow.start)} → {formatShortDate(allocWindow.end)}
             </p>
           ) : null}
-          <p className="mt-1 font-light text-forest/70">
+          <p className="mt-1 text-forest/70">
             {ruptures.length === 1
               ? "1 material não cabe no estoque"
               : `${ruptures.length} materiais não cabem no estoque`}{" "}
             com os eventos simultâneos (entrega até recolhimento).
           </p>
-          <ul className="mt-2 space-y-1 text-sm text-forest/80">
+          <ul className="mt-2 space-y-1 text-sm text-forest/80 tabular">
             {ruptures.slice(0, 6).map((item) => (
               <li key={item.materialId}>
                 <span className="font-medium">{item.name}</span>
@@ -574,13 +570,13 @@ function SeparationEditor({
             ))}
           </ul>
           {ruptures.length > 6 ? (
-            <p className="mt-1 text-xs font-light text-forest/50">
+            <p className="meta-text mt-1">
               e mais {ruptures.length - 6} material(is)
             </p>
           ) : null}
           <Link
             href="/logistica/alocacao-materiais"
-            className="mt-2 inline-block text-sm text-terracotta underline-offset-2 hover:underline"
+            className="mt-2 inline-block text-sm text-danger underline-offset-2 hover:underline"
           >
             Ver controle de alocação
           </Link>
@@ -593,7 +589,7 @@ function SeparationEditor({
             <button
               type="button"
               onClick={restoreRemoved}
-              className="text-terracotta underline-offset-2 hover:underline"
+              className="text-forest underline underline-offset-2 hover:text-petrol"
             >
               Restaurar {removedCount} removido(s)
             </button>
@@ -613,10 +609,7 @@ function SeparationEditor({
             <RotateCcw data-icon="inline-start" />
             Restaurar cálculo
           </Button>
-          <Button
-            className="h-9 bg-terracotta px-4 text-cream hover:bg-terracotta/90"
-            onClick={generatePdf}
-          >
+          <Button className="h-9 px-4" onClick={generatePdf}>
             <FileDown data-icon="inline-start" />
             Gerar PDF
           </Button>
@@ -651,24 +644,19 @@ function SeparationEditor({
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-10 text-center">
-          <ClipboardList className="mx-auto mb-3 size-7 text-forest/30" />
-          <h3 className="text-[15px] font-semibold text-forest">Lista vazia</h3>
-          <p className="mt-2 text-sm font-light text-forest/55">
-            Selecione pratos na ficha do evento ou inclua um material do cadastro. Kits e extras
-            ficam nas seções abaixo.
-          </p>
-        </div>
+        <EmptyBlock
+          title="Lista vazia"
+          description="Selecione pratos na ficha do evento ou inclua um material do cadastro. Kits e extras ficam nas seções abaixo."
+        />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
+        <Card flush>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
-                <tr className="border-b border-forest/8">
+                <tr className="border-b border-line">
                   <th className="field-label px-4 py-2 font-normal">Material</th>
                   <th className="field-label px-2 py-2 font-normal">Categoria</th>
-                  <th className="field-label w-32 px-2 py-2 text-right font-normal">Quantidade calculada</th>
-                  <th className="field-label w-32 px-2 py-2 font-normal">Quantidade final</th>
+                  <th className="field-label w-36 px-2 py-2 font-normal">Quantidade</th>
                   <th className="field-label px-2 py-2 font-normal">Observações</th>
                   <th className="w-10" />
                 </tr>
@@ -681,8 +669,8 @@ function SeparationEditor({
                     <Fragment key={row.key}>
                       <tr
                         className={cn(
-                          "border-b border-forest/5",
-                          rupture ? "bg-terracotta/[0.06]" : row.edited && "bg-[#FEF6D9]",
+                          "border-b border-line",
+                          rupture ? "bg-danger/[0.06]" : row.edited && "row-edited",
                         )}
                       >
                         <td className="px-4 py-2.5">
@@ -710,13 +698,8 @@ function SeparationEditor({
                                     sem prato
                                   </Chip>
                                 ) : null}
-                                {row.edited ? (
-                                  <Chip size="sm" className="ml-2 bg-[#B8860B]/15 text-[#8a6d0b]">
-                                    editado
-                                  </Chip>
-                                ) : null}
                                 {rupture ? (
-                                  <span className="ml-2 align-middle text-[11px] font-medium text-terracotta">
+                                  <span className="ml-2 align-middle text-xs font-medium text-danger tabular">
                                     −{formatInt(rupture.shortage)}
                                   </span>
                                 ) : null}
@@ -725,19 +708,17 @@ function SeparationEditor({
                           </div>
                         </td>
                         <td className="px-2 py-2.5 text-forest/70">{row.category}</td>
-                        <td className="px-2 py-2.5 text-right text-forest/55">{row.computedQty}</td>
                         <td className="px-2 py-2.5">
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min={0}
-                              className={cn(fieldControlClass, "h-9 w-20")}
+                          <div className="flex items-center gap-1.5">
+                            <QtyInput
+                              ariaLabel={`Quantidade de ${row.name}`}
+                              edited={row.edited}
                               value={row.finalQty}
-                              onChange={(e) =>
-                                setOverride(row.materialId!, { quantity: Number(e.target.value) }, row.computedQty)
+                              onChange={(value) =>
+                                setOverride(row.materialId!, { quantity: value }, row.computedQty)
                               }
                             />
-                            <span className="text-xs text-forest/45">{row.unit}</span>
+                            <span className="meta-text">{row.unit}</span>
                           </div>
                         </td>
                         <td className="px-2 py-2.5">
@@ -778,15 +759,15 @@ function SeparationEditor({
                                 });
                               }
                             }}
-                            className="flex size-8 items-center justify-center rounded-lg text-forest/35 transition-colors hover:bg-terracotta/10 hover:text-terracotta"
+                            className="flex size-8 items-center justify-center rounded-md text-forest/35 transition-colors hover:bg-danger/10 hover:text-danger"
                           >
                             <Trash2 className="size-4" />
                           </button>
                         </td>
                       </tr>
                       {open ? (
-                        <tr className="border-b border-forest/5 bg-forest/[0.03]">
-                          <td colSpan={6} className="px-4 py-3 pl-14">
+                        <tr className="border-b border-line bg-forest/[0.03]">
+                          <td colSpan={5} className="px-4 py-3 pl-14">
                             <CalculationDetail row={row} />
                           </td>
                         </tr>
@@ -797,7 +778,7 @@ function SeparationEditor({
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
 
       <KitsOnEvent
@@ -812,8 +793,8 @@ function SeparationEditor({
 
       <ExtrasOnEvent extras={extraCatalog} sep={sep} onChange={applySep} />
 
-      <section className="rounded-2xl border border-forest/10 bg-white p-5 sm:p-6">
-        <h2 className="mb-3 text-sm text-forest">Observação geral do evento</h2>
+      <Card>
+        <h2 className="section-title mb-3">Observação geral do evento</h2>
         <textarea
           className={cn(fieldControlClass, "h-24 py-2")}
           placeholder="Observações gerais para este evento…"
@@ -824,7 +805,7 @@ function SeparationEditor({
             persistEvent({ logisticsNotes: value });
           }}
         />
-      </section>
+      </Card>
 
       <EventDrinksFields
         drinks={drinks}
@@ -843,43 +824,49 @@ function SeparationEditor({
           })
         }
       />
-
-      <EventUniformsFields
-        uniforms={event.uniforms}
-        onChange={(piece: UniformPieceKey, size: UniformSize, value: number) =>
-          persistEvent({
-            uniforms: {
-              ...event.uniforms,
-              [piece]: { ...event.uniforms[piece], [size]: value },
-            },
-          })
-        }
-      />
     </div>
   );
 }
 
 function CollapsibleAlert({
   title,
+  tone,
   children,
 }: {
   title: string;
+  tone: "warn" | "danger";
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-terracotta/25 bg-terracotta/5">
+    <div
+      className={cn(
+        "rounded-lg border",
+        tone === "danger" ? "border-danger/25 bg-danger/5" : "border-warn/25 bg-warn-soft",
+      )}
+    >
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
-        <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-terracotta">
+        <span
+          className={cn(
+            "flex min-w-0 items-center gap-2 text-sm font-medium",
+            tone === "danger" ? "text-danger" : "text-warn",
+          )}
+        >
           <AlertTriangle className="size-4 shrink-0" />
           <span className="truncate">{title}</span>
         </span>
-        <ChevronDown className={cn("size-4 shrink-0 text-terracotta/70 transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          className={cn(
+            "size-4 shrink-0 transition-transform",
+            tone === "danger" ? "text-danger/70" : "text-warn/70",
+            open && "rotate-180",
+          )}
+        />
       </button>
       {open ? <div className="px-4 pb-4 text-sm text-forest">{children}</div> : null}
     </div>
@@ -896,7 +883,7 @@ function CalculationDetail({ row }: { row: Row }) {
   if (row.manual) {
     return (
       <div className="space-y-2 text-sm text-forest/75">
-        <p className="font-light">
+        <p>
           Incluído na mão, sem vínculo com prato do cardápio. A quantidade calculada usa a
           proporção cadastrada no material.
         </p>
@@ -912,42 +899,37 @@ function ProportionSteps({ row }: { row: Row }) {
   const explanation = row.explanation;
   if (!explanation || explanation.missingProportion) {
     return (
-      <p className="text-sm font-light text-forest/65">
+      <p className="meta-text">
         Sem proporção definida neste material. A quantidade calculada fica em 0 até o cadastro
         receber uma fórmula.
       </p>
     );
   }
 
-  const formula = explanation.factors
-    .map((factor) => `(${factor.baseLabel} × ${formatQty(factor.multiplier)})`)
+  const steps = explanation.factors
+    .map((factor) => `${formatQty(factor.baseValue)} ${factor.baseLabel} × ${formatQty(factor.multiplier)}`)
     .join(" × ");
+  const dishes = row.dishNames;
 
   return (
-    <div className="space-y-2 text-sm text-forest/75">
-      {row.manual ? null : (
-        <p className="font-light">
-          Aparece nesta lista porque entra em{" "}
-          <span className="font-medium text-forest">{explanation.occurrence}</span>{" "}
-          prato{explanation.occurrence === 1 ? "" : "s"} do cardápio deste evento.
+    <div className="space-y-1 text-sm text-forest/75">
+      {dishes.length > 0 ? (
+        <p>
+          Entra em {dishes.map((name, index) => (
+            <span key={`${name}-${index}`}>
+              {index > 0 ? ", " : ""}
+              <span className="font-medium text-forest">{name}</span>
+            </span>
+          ))}
+          .
         </p>
+      ) : row.manual ? null : (
+        <p>Entra pela regra do cadastro, sem prato vinculado pelo nome.</p>
       )}
-      <ul className="space-y-1">
-        {explanation.factors.map((factor, index) => (
-          <li key={`${factor.baseLabel}-${index}`}>
-            <span className="font-medium text-forest">{factor.baseLabel}</span>
-            {factor.source ? (
-              <span className="font-light text-forest/55"> ({factor.source})</span>
-            ) : null}
-            : {formatQty(factor.baseValue)} neste evento × fator {formatQty(factor.multiplier)} ={" "}
-            {formatQty(factor.product)}
-          </li>
-        ))}
-      </ul>
-      <p className="font-light">
-        Cálculo: {formula} = {formatQty(explanation.product)}
+      <p>
+        Cálculo: {steps} = {formatQty(explanation.product)}
         {explanation.rounded !== explanation.product
-          ? `, arredondado para cima: ${explanation.rounded}`
+          ? `, arredondado para ${formatQty(explanation.rounded)}`
           : ""}
         {row.unit ? ` ${row.unit}` : ""}.
       </p>
@@ -966,14 +948,14 @@ function EventSummary({ event }: { event: EventRecord }) {
     { label: "Pratos", value: (event.selectedDishIds ?? []).length },
   ];
   return (
-    <div className="grid grid-cols-3 gap-2 rounded-2xl border border-forest/10 bg-white p-4 sm:grid-cols-7">
+    <Card as="div" className="grid grid-cols-3 gap-x-2 gap-y-4 sm:grid-cols-7">
       {items.map((item) => (
-        <div key={item.label} className="text-center">
-          <p className="text-[15px] font-semibold text-forest">{item.value}</p>
-          <p className="field-label mt-0.5">{item.label}</p>
+        <div key={item.label} className="min-w-0 text-center">
+          <p className="text-[22px] font-semibold leading-tight text-forest tabular">{item.value}</p>
+          <p className="field-label mt-0.5 truncate">{item.label}</p>
         </div>
       ))}
-    </div>
+    </Card>
   );
 }
 
@@ -1008,21 +990,20 @@ function KitsOnEvent({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-semibold text-forest">Kits de materiais</h2>
+        <h2 className="section-title">Kits de materiais</h2>
         <Link
           href="/cadastros/kits"
-          className={cn(buttonVariants(), "h-9 bg-forest px-4 text-cream hover:bg-petrol")}
+          className={cn(buttonVariants({ variant: "outline" }), "h-9 px-4")}
         >
           Gerenciar kits
         </Link>
       </div>
 
       {kits.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-forest/20 bg-white p-8 text-center">
-          <p className="text-sm font-light text-forest/55">
-            Nenhum kit cadastrado. Crie kits em Cadastros → Kits de Materiais.
-          </p>
-        </div>
+        <EmptyBlock
+          title="Nenhum kit cadastrado"
+          description="Crie kits em Cadastros → Kits de Materiais."
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {kits.map((kit) => {
@@ -1032,28 +1013,27 @@ function KitsOnEvent({
             return (
               <article
                 key={kit.id}
-                className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-forest/10 bg-white"
+                className="surface-card flex min-h-0 flex-col overflow-hidden"
               >
-                <header className="flex items-start justify-between gap-2 bg-petrol px-3 py-2 text-cream">
+                <header className="flex items-start justify-between gap-3 border-b border-line px-3 py-2.5">
                   <div className="min-w-0">
-                    <h3 className="text-[12px] font-semibold leading-tight">{kit.name}</h3>
+                    <h3 className="section-title">{kit.name}</h3>
                     {kit.scaleBaseId !== "base-fixo" ? (
-                      <p className="mt-1 text-[10px] leading-tight opacity-80">{scaleLabel}</p>
+                      <p className="meta-text mt-0.5">{scaleLabel}</p>
                     ) : null}
                   </div>
-                  <label className="flex shrink-0 flex-col items-end gap-0.5 text-[10px]">
-                    <span className="opacity-80">Kits</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className="h-7 w-14 rounded-md border-0 bg-white px-1.5 text-center text-xs text-forest"
+                  <label className="flex shrink-0 items-center gap-2">
+                    <span className="field-label">Kits</span>
+                    <QtyInput
+                      size="sm"
+                      ariaLabel={`Quantidade de kits ${kit.name}`}
                       value={qty}
-                      onChange={(e) => patchKit(kit.id, { quantity: Number(e.target.value) })}
+                      onChange={(value) => patchKit(kit.id, { quantity: value })}
                     />
                   </label>
                 </header>
                 {kit.items.length === 0 ? (
-                  <p className="px-3 py-2 text-xs font-light text-forest/45">Sem materiais neste kit.</p>
+                  <p className="meta-text px-3 py-2">Sem materiais neste kit.</p>
                 ) : (
                   <ul className="max-h-44 overflow-y-auto">
                     {kit.items.map((item, index) => {
@@ -1070,43 +1050,44 @@ function KitsOnEvent({
                         <li
                           key={`${item.materialId}-${index}`}
                           className={cn(
-                            "flex items-center gap-2 border-b border-forest/8 px-3 py-1.5 last:border-0",
-                            ruptureIds.has(item.materialId) && "bg-terracotta/[0.06]",
+                            "flex items-center gap-2 border-b border-line px-3 py-1.5 last:border-0",
+                            ruptureIds.has(item.materialId) && "bg-danger/[0.06]",
                           )}
                         >
-                          <span className="min-w-0 flex-1 text-[11px] leading-tight text-forest">
-                            {item.qtyPerKit}× {material?.name ?? "Removido"}
+                          <span className="min-w-0 flex-1 text-[13px] leading-snug text-forest">
+                            <span className="tabular">{item.qtyPerKit}×</span> {material?.name ?? "Removido"}
                             {ruptureIds.has(item.materialId) ? (
-                              <span className="ml-1 text-terracotta">ruptura</span>
+                              <span className="ml-1 text-danger">ruptura</span>
                             ) : null}
                           </span>
-                          <input
-                            type="number"
-                            min={0}
-                            aria-label={`Total de ${material?.name ?? "material"}`}
-                            className={cn(fieldControlClass, "h-7 w-14 px-1.5 text-center text-xs")}
+                          <QtyInput
+                            size="sm"
+                            ariaLabel={`Total de ${material?.name ?? "material"}`}
+                            edited={total !== computedTotal}
                             value={total}
-                            onChange={(e) => {
+                            onChange={(value) => {
                               const itemTotals = {
                                 ...(state?.itemTotals ?? {}),
-                                [item.materialId]: Number(e.target.value),
+                                [item.materialId]: value,
                               };
                               patchKit(kit.id, { itemTotals });
                             }}
                           />
-                          {total !== computedTotal ? (
-                            <button
-                              type="button"
-                              className="text-[10px] font-light text-forest/45 hover:text-forest"
-                              onClick={() => {
-                                const itemTotals = { ...(state?.itemTotals ?? {}) };
-                                delete itemTotals[item.materialId];
-                                patchKit(kit.id, { itemTotals });
-                              }}
-                            >
-                              restaurar
-                            </button>
-                          ) : null}
+                          <span className="w-14 shrink-0 text-right">
+                            {total !== computedTotal ? (
+                              <button
+                                type="button"
+                                className="text-xs text-forest/50 hover:text-forest"
+                                onClick={() => {
+                                  const itemTotals = { ...(state?.itemTotals ?? {}) };
+                                  delete itemTotals[item.materialId];
+                                  patchKit(kit.id, { itemTotals });
+                                }}
+                              >
+                                restaurar
+                              </button>
+                            ) : null}
+                          </span>
                         </li>
                       );
                     })}
@@ -1141,28 +1122,31 @@ function ExtrasOnEvent({
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-forest/10 bg-white">
-      <header className="flex items-center justify-between gap-3 bg-forest/[0.06] px-4 py-3">
-        <h2 className="text-[15px] font-semibold text-forest">Extras / Equipamentos</h2>
-        <Button
-          variant="outline"
-          className="h-8 px-3"
-          onClick={() =>
-            onChange({
-              ...sep,
-              extras: [
-                ...sep.extras,
-                { id: uid(), name: "", category: "Extras", unit: "un", quantity: 1 },
-              ],
-            })
-          }
-        >
-          <Plus data-icon="inline-start" />
-          Item avulso
-        </Button>
-      </header>
+    <Card flush>
+      <CardHeader
+        title="Extras / Equipamentos"
+        className="border-b border-line px-4 py-3"
+        actions={
+          <Button
+            variant="outline"
+            className="h-8 px-3"
+            onClick={() =>
+              onChange({
+                ...sep,
+                extras: [
+                  ...sep.extras,
+                  { id: uid(), name: "", category: "Extras", unit: "un", quantity: 1 },
+                ],
+              })
+            }
+          >
+            <Plus data-icon="inline-start" />
+            Item avulso
+          </Button>
+        }
+      />
       {extras.length === 0 && sep.extras.length === 0 ? (
-        <p className="px-4 py-6 text-sm font-light text-forest/50">
+        <p className="meta-text px-4 py-6">
           Cadastre extras em Cadastros → Kits de Materiais, ou adicione um item avulso.
         </p>
       ) : (
@@ -1174,7 +1158,7 @@ function ExtrasOnEvent({
             return (
               <li
                 key={item.id}
-                className="flex items-center gap-3 border-b border-forest/8 px-4 py-2.5"
+                className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0"
               >
                 <input
                   type="checkbox"
@@ -1184,25 +1168,24 @@ function ExtrasOnEvent({
                   onChange={(e) => setSelection(item.id, e.target.checked, quantity || 1)}
                 />
                 <span className="min-w-0 flex-1 text-sm text-forest">{item.name}</span>
-                <span className="field-label">Quantidade</span>
-                <input
-                  type="number"
-                  min={0}
-                  className={cn(fieldControlClass, "h-9 w-20")}
+                <span className="field-label hidden sm:inline">Quantidade</span>
+                <QtyInput
+                  ariaLabel={`Quantidade de ${item.name}`}
                   value={quantity}
                   disabled={!included}
-                  onChange={(e) => setSelection(item.id, included, Number(e.target.value))}
+                  onChange={(value) => setSelection(item.id, included, value)}
                 />
+                <span className="size-8 shrink-0" aria-hidden />
               </li>
             );
           })}
           {sep.extras.map((extra) => (
             <li
               key={extra.id}
-              className="flex items-center gap-3 border-b border-forest/8 px-4 py-2.5 last:border-0"
+              className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0"
             >
               <input
-                className={cn(fieldControlClass, "h-9 flex-1")}
+                className={cn(fieldControlClass, "h-9 min-w-0 flex-1")}
                 placeholder="Material avulso"
                 value={extra.name}
                 onChange={(e) =>
@@ -1214,17 +1197,15 @@ function ExtrasOnEvent({
                   })
                 }
               />
-              <span className="field-label">Quantidade</span>
-              <input
-                type="number"
-                min={0}
-                className={cn(fieldControlClass, "h-9 w-20")}
+              <span className="field-label hidden sm:inline">Quantidade</span>
+              <QtyInput
+                ariaLabel={`Quantidade de ${extra.name || "material avulso"}`}
                 value={extra.quantity}
-                onChange={(e) =>
+                onChange={(value) =>
                   onChange({
                     ...sep,
                     extras: sep.extras.map((item) =>
-                      item.id === extra.id ? { ...item, quantity: Number(e.target.value) } : item,
+                      item.id === extra.id ? { ...item, quantity: value } : item,
                     ),
                   })
                 }
@@ -1232,7 +1213,7 @@ function ExtrasOnEvent({
               <button
                 type="button"
                 aria-label="Remover extra"
-                className="flex size-8 items-center justify-center rounded-lg text-forest/35 hover:bg-terracotta/10 hover:text-terracotta"
+                className="flex size-8 shrink-0 items-center justify-center rounded-md text-forest/35 hover:bg-danger/10 hover:text-danger"
                 onClick={() =>
                   onChange({
                     ...sep,
@@ -1246,6 +1227,6 @@ function ExtrasOnEvent({
           ))}
         </ul>
       )}
-    </section>
+    </Card>
   );
 }

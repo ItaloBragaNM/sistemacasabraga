@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireModule } from "@/lib/auth/server";
+import { applyReceivableHistory } from "@/lib/financeiro/changelog";
 import { readContasAReceber, writeContasAReceber } from "@/lib/financeiro/store.server";
 import type { ContasAReceberData } from "@/lib/financeiro/types";
 
@@ -21,6 +22,9 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { user, error } = await requireModule("financeiro");
   if (error) return error;
+  if (!user) {
+    return NextResponse.json({ error: "Sessão inválida." }, { status: 401 });
+  }
   let payload: ContasAReceberData;
   try {
     payload = (await request.json()) as ContasAReceberData;
@@ -30,15 +34,11 @@ export async function PUT(request: Request) {
 
   try {
     const previous = await readContasAReceber();
-    const data = await writeContasAReceber(payload);
-    const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
-    await appendAudit(user, [
-      ...tagged(
-        diffRecords(previous.receivables, data.receivables, (item) => item.clientName || item.description || item.id),
-        "financeiro",
-        "conta a receber",
-      ),
-    ]);
+    const stamped = applyReceivableHistory(previous.receivables, payload.receivables ?? [], {
+      id: user.id,
+      name: user.name,
+    });
+    const data = await writeContasAReceber({ receivables: stamped });
     return NextResponse.json({ data });
   } catch (error) {
     console.error("Falha ao salvar contas a receber", error);

@@ -11,7 +11,7 @@ export function usageIdFor(eventId: string, vehicleId: string) {
   return `uso-${eventId}-${vehicleId}`;
 }
 
-/** Controle de uso: um PDF de entrada/saída por veículo em um evento. */
+/** Status antigo do checklist por evento. O registro semanal fica na página Registro de Uso. */
 export interface VehicleUsageRecord {
   id: string;
   eventId: string;
