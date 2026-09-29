@@ -18,6 +18,7 @@ interface FichasTecnicasContextValue {
   ready: boolean;
   upsertSheet: (sheet: TechnicalSheet) => void;
   removeSheet: (id: string) => void;
+  replaceSheets: (sheets: TechnicalSheet[]) => void;
 }
 
 const FichasTecnicasContext = createContext<FichasTecnicasContextValue | null>(null);
@@ -91,9 +92,16 @@ export function FichasTecnicasProvider({ children }: { children: React.ReactNode
     [data, persist],
   );
 
+  const replaceSheets = useCallback(
+    (sheets: TechnicalSheet[]) => {
+      persist({ sheets });
+    },
+    [persist],
+  );
+
   const value = useMemo(
-    () => ({ data, ready, upsertSheet, removeSheet }),
-    [data, ready, upsertSheet, removeSheet],
+    () => ({ data, ready, upsertSheet, removeSheet, replaceSheets }),
+    [data, ready, upsertSheet, removeSheet, replaceSheets],
   );
 
   return <FichasTecnicasContext.Provider value={value}>{children}</FichasTecnicasContext.Provider>;

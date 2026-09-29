@@ -4,7 +4,7 @@ import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer
 import { formatBRL, formatDecimal } from "@/lib/crm/format";
 import { downloadBlob, slugify } from "@/lib/download";
 import { adjustedQuantity, costPerPortion, ingredientTotal, projectedCmv, recipeCost } from "@/lib/fichas-tecnicas/calc";
-import type { TechnicalSheet } from "@/lib/fichas-tecnicas/types";
+import { TECHNICAL_SHEET_KIND_LABELS, type TechnicalSheet } from "@/lib/fichas-tecnicas/types";
 import {
   PDF,
   PdfFooter,
@@ -51,6 +51,7 @@ export function SheetDocument({ sheet }: { sheet: TechnicalSheet }) {
     .join(" · ");
   const meta = [
     { label: "Item", value: sheet.name },
+    { label: "Tipo", value: TECHNICAL_SHEET_KIND_LABELS[sheet.kind] },
     { label: "Classificação", value: sheet.classification || "—" },
     { label: "Setor", value: sheet.sector || "—" },
     { label: "Tamanho da porção", value: sheet.portionSize || "—" },
@@ -61,7 +62,10 @@ export function SheetDocument({ sheet }: { sheet: TechnicalSheet }) {
   return (
     <Document>
       <Page size="A4" style={pdfStyles.page}>
-        <PdfHeader title={sheet.name || "Ficha técnica"} meta="Ficha técnica" />
+        <PdfHeader
+          title={sheet.name || "Ficha técnica"}
+          meta={TECHNICAL_SHEET_KIND_LABELS[sheet.kind]}
+        />
 
         <View style={styles.meta}>
           {meta.map((item) => (
@@ -121,7 +125,7 @@ export function SheetDocument({ sheet }: { sheet: TechnicalSheet }) {
         </Text>
         <Text style={styles.method}>{sheet.method || "—"}</Text>
 
-        <PdfFooter label={`Ficha técnica · ${sheet.name || "receita"}`} />
+        <PdfFooter label={`${TECHNICAL_SHEET_KIND_LABELS[sheet.kind]} · ${sheet.name || "receita"}`} />
       </Page>
     </Document>
   );

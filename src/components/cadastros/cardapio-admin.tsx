@@ -18,12 +18,25 @@ import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
 import { StatusPill } from "@/components/ui/status-pill";
+import { useFichasTecnicas } from "@/components/cozinha/fichas-tecnicas-provider";
 import type { DishRecord, InsumoRecord, MaterialRecord } from "@/lib/cadastros/types";
+import {
+  assignDishSheets,
+  dishSheetSlots,
+  sheetsForDish,
+  TECHNICAL_SHEET_KIND_LABELS,
+  TECHNICAL_SHEET_KINDS,
+  unlinkDishFromSheets,
+  type TechnicalSheet,
+  type TechnicalSheetKind,
+} from "@/lib/fichas-tecnicas/types";
 import { uid } from "@/lib/event-factory";
 import { cn } from "@/lib/utils";
 
 export function CardapioAdmin() {
   const { data, ready, upsertDish, removeDish, removeMany, duplicateMany } = useCadastros();
+  const { data: fichas, replaceSheets } = useFichasTecnicas();
+  const sheets = fichas?.sheets ?? [];
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [materialsFilter, setMaterialsFilter] = useState("");
@@ -87,6 +100,11 @@ export function CardapioAdmin() {
 
   const removeSelected = () => {
     if (!confirmBulkDelete(selection.selectedVisible.length)) return;
+    if (fichas) {
+      let nextSheets = sheets;
+      for (const id of selection.selectedVisible) nextSheets = unlinkDishFromSheets(nextSheets, id);
+      replaceSheets(nextSheets);
+    }
     removeMany("dishes", selection.selectedVisible);
     toast.success("Pratos excluídos.");
     selection.clear();
@@ -246,6 +264,17 @@ export function CardapioAdmin() {
                                 </div>
                               ) : null}
                             </div>
+                            {sheetsForDish(sheets, dish.id).length > 0 ? (
+                              <p className="mt-2 flex flex-wrap gap-1">
+                                {sheetsForDish(sheets, dish.id).map((sheet) => (
+                                  <StatusPill key={sheet.id} tone={sheet.kind === "completa" ? "ok" : "info"}>
+                                    {TECHNICAL_SHEET_KIND_LABELS[sheet.kind].replace("Ficha de ", "").replace("Ficha ", "")}
+                                    {": "}
+                                    {sheet.name}
+                                  </StatusPill>
+                                ))}
+                              </p>
+                            ) : null}
                             {dish.hasRechaud || dish.hasFritadeira ? (
                               <p className="mt-2 flex flex-wrap gap-1">
                                 {dish.hasRechaud ? <StatusPill tone="info">rechaud</StatusPill> : null}
@@ -260,6 +289,7 @@ export function CardapioAdmin() {
                           onDuplicate={() => duplicate([dish.id])}
                           onDelete={() => {
                             if (window.confirm(`Excluir "${dish.name}"?`)) {
+                              if (fichas) replaceSheets(unlinkDishFromSheets(sheets, dish.id));
                               removeDish(dish.id);
                               toast.success("Prato excluído.");
                             }
@@ -284,8 +314,10 @@ export function CardapioAdmin() {
             insumos={data.insumos}
             categories={data.dishCategories}
             onCancel={() => setOpen(false)}
-            onSubmit={(dish) => {
+            sheets={sheets}
+            onSubmit={(dish, slots) => {
               upsertDish(dish);
+              if (fichas) replaceSheets(assignDishSheets(sheets, dish.id, slots));
               toast.success(editing ? "Prato atualizado." : "Prato cadastrado.");
               setOpen(false);
             }}
@@ -301,6 +333,7 @@ function DishForm({
   materials,
   insumos,
   categories,
+  sheets,
   onSubmit,
   onCancel,
 }: {
@@ -308,7 +341,8 @@ function DishForm({
   materials: MaterialRecord[];
   insumos: InsumoRecord[];
   categories: string[];
-  onSubmit: (dish: DishRecord) => void;
+  sheets: TechnicalSheet[];
+  onSubmit: (dish: DishRecord, slots: Record<TechnicalSheetKind, string>) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
@@ -319,6 +353,9 @@ function DishForm({
   const [hasFritadeira, setHasFritadeira] = useState(Boolean(initial?.hasFritadeira));
   const [materialSearch, setMaterialSearch] = useState("");
   const [insumoSearch, setInsumoSearch] = useState("");
+  const [sheetSlots, setSheetSlots] = useState<Record<TechnicalSheetKind, string>>(() =>
+    dishSheetSlots(sheets, initial?.id ?? ""),
+  );
 
   const filteredMaterials = useMemo(() => {
     const term = materialSearch.trim().toLowerCase();
@@ -367,17 +404,20 @@ function DishForm({
       return;
     }
     const now = new Date().toISOString();
-    onSubmit({
-      id: initial?.id ?? uid(),
-      name: name.trim(),
-      category,
-      materialIds,
-      insumoIds,
-      hasRechaud,
-      hasFritadeira,
-      createdAt: initial?.createdAt ?? now,
-      updatedAt: now,
-    });
+    onSubmit(
+      {
+        id: initial?.id ?? uid(),
+        name: name.trim(),
+        category,
+        materialIds,
+        insumoIds,
+        hasRechaud,
+        hasFritadeira,
+        createdAt: initial?.createdAt ?? now,
+        updatedAt: now,
+      },
+      sheetSlots,
+    );
   };
 
   return (
@@ -430,6 +470,38 @@ function DishForm({
         As bases de cálculo Rechauds e Fritadeiras contam quantos pratos do evento estão marcados
         aqui.
       </p>
+
+      <div>
+        <p className="field-label mb-1">Fichas técnicas</p>
+        <p className="meta-text mb-3">
+          Até uma ficha de cada tipo. Um prato simples pode ter só a completa; uma torta usa as três.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {TECHNICAL_SHEET_KINDS.map((kind) => {
+            const options = sheets
+              .filter((sheet) => sheet.kind === kind)
+              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+            return (
+              <Field key={kind} label={TECHNICAL_SHEET_KIND_LABELS[kind]}>
+                <select
+                  className={fieldControlClass}
+                  value={sheetSlots[kind]}
+                  onChange={(event) =>
+                    setSheetSlots((current) => ({ ...current, [kind]: event.target.value }))
+                  }
+                >
+                  <option value="">Sem vínculo</option>
+                  {options.map((sheet) => (
+                    <option key={sheet.id} value={sheet.id}>
+                      {sheet.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            );
+          })}
+        </div>
+      </div>
 
       <div>
         <div className="mb-2 flex items-center justify-between">

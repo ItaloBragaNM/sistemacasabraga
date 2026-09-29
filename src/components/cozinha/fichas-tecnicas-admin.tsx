@@ -11,7 +11,8 @@ import { fieldControlClass, Field, SectionTitle } from "@/components/events/fiel
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
-import { KpiCard } from "@/components/ui/status-pill";
+import { SegmentedControl } from "@/components/ui/segmented";
+import { KpiCard, StatusPill } from "@/components/ui/status-pill";
 import { formatBRL, formatDecimal } from "@/lib/crm/format";
 import { uid } from "@/lib/event-factory";
 import {
@@ -24,18 +25,32 @@ import {
 import {
   blankRecipeIngredient,
   blankTechnicalSheet,
+  dishLinkError,
   RECIPE_UNITS,
+  sheetDishIds,
+  TECHNICAL_SHEET_KIND_HINTS,
+  TECHNICAL_SHEET_KIND_LABELS,
+  TECHNICAL_SHEET_KINDS,
   type RecipeIngredient,
   type TechnicalSheet,
+  type TechnicalSheetKind,
 } from "@/lib/fichas-tecnicas/types";
 import { cn } from "@/lib/utils";
+
+type KindFilter = "todas" | TechnicalSheetKind;
 
 export function FichasTecnicasAdmin() {
   const { data, ready, upsertSheet, removeSheet } = useFichasTecnicas();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pdfId, setPdfId] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<KindFilter>("todas");
 
-  const sheets = [...(data?.sheets ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const sheets = [...(data?.sheets ?? [])].sort(
+    (a, b) =>
+      TECHNICAL_SHEET_KINDS.indexOf(a.kind) - TECHNICAL_SHEET_KINDS.indexOf(b.kind) ||
+      a.name.localeCompare(b.name, "pt-BR"),
+  );
+  const visible = kindFilter === "todas" ? sheets : sheets.filter((item) => item.kind === kindFilter);
   const editing = sheets.find((item) => item.id === editingId) ?? null;
 
   if (editing) {
@@ -59,7 +74,8 @@ export function FichasTecnicasAdmin() {
           <Button
             className="px-5"
             onClick={() => {
-              const sheet = blankTechnicalSheet(uid());
+              const kind = kindFilter === "todas" ? "completa" : kindFilter;
+              const sheet = blankTechnicalSheet(uid(), kind);
               sheet.name = "Nova receita";
               upsertSheet(sheet);
               setEditingId(sheet.id);
@@ -71,34 +87,61 @@ export function FichasTecnicasAdmin() {
       }
     >
 
+      <SegmentedControl
+        ariaLabel="Tipo de ficha"
+        value={kindFilter}
+        onChange={setKindFilter}
+        options={[
+          { value: "todas", label: "Todas" },
+          { value: "base", label: "Bases" },
+          { value: "recheio", label: "Recheios" },
+          { value: "completa", label: "Completas" },
+        ]}
+      />
+
       {!ready ? (
         <LoadingBlock />
       ) : sheets.length === 0 ? (
         <EmptyBlock
           title="Nenhuma ficha técnica"
-          description="Crie a receita no modelo da ficha de papel: ingredientes, rendimento, custo e modo de preparo."
+          description="Separe o que a cozinha produz em lote (base e recheio) da montagem final do prato."
+        />
+      ) : visible.length === 0 ? (
+        <EmptyBlock
+          title={
+            kindFilter === "todas"
+              ? "Nenhuma ficha técnica"
+              : `Nenhuma ${TECHNICAL_SHEET_KIND_LABELS[kindFilter].toLowerCase()}`
+          }
+          description="Crie uma ficha neste tipo ou volte para Todas."
         />
       ) : (
         <Card flush>
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-line">
                 <th className="field-label py-3 pl-5 font-normal">Item</th>
-                <th className="field-label py-3 font-normal">Classificação</th>
+                <th className="field-label py-3 font-normal">Tipo</th>
+                <th className="field-label py-3 font-normal">Pratos</th>
                 <th className="field-label py-3 text-right font-normal">Custo</th>
                 <th className="field-label py-3 pl-6 text-right font-normal">CMV</th>
                 <th className="field-label py-3 pr-5 text-right font-normal">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {sheets.map((sheet) => (
+              {visible.map((sheet) => (
                 <tr key={sheet.id} className="border-b border-line align-middle last:border-0">
                   <td className="py-3 pl-5">
                     <p className="font-medium text-forest">{sheet.name}</p>
                     {sheet.sector ? <p className="meta-text">{sheet.sector}</p> : null}
                   </td>
-                  <td className="py-3 text-forest/70">{sheet.classification || "—"}</td>
+                  <td className="py-3">
+                    <StatusPill tone={sheet.kind === "completa" ? "ok" : "info"}>
+                      {TECHNICAL_SHEET_KIND_LABELS[sheet.kind]}
+                    </StatusPill>
+                  </td>
+                  <td className="py-3 text-forest/70">{sheetDishIds(sheet).length || "—"}</td>
                   <td className="py-3 text-right tabular text-forest/70">{formatBRL(recipeCost(sheet))}</td>
                   <td className="py-3 pl-6 text-right tabular text-forest/70">{formatDecimal(projectedCmv(sheet), 1)}%</td>
                   <td className="whitespace-nowrap py-3 pr-5 pl-4 text-right">
@@ -164,10 +207,19 @@ function FichaEditor({
   onSave: (sheet: TechnicalSheet) => void;
 }) {
   const { data: cadastros } = useCadastros();
-  const [draft, setDraft] = useState(initial);
+  const { data: fichas } = useFichasTecnicas();
+  const [draft, setDraft] = useState(() => ({
+    ...initial,
+    kind: initial.kind ?? "completa",
+    dishIds: sheetDishIds(initial),
+    dishId: sheetDishIds(initial)[0] ?? "",
+  }));
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
-  const dishes = cadastros?.dishes ?? [];
+  const dishes = [...(cadastros?.dishes ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const sheets = fichas?.sheets ?? [];
   const insumos = cadastros?.insumos ?? [];
+  const linkedIds = sheetDishIds(draft);
+  const previewSheets = sheets.map((item) => (item.id === draft.id ? draft : item));
   const cost = recipeCost(draft);
   const cmv = projectedCmv(draft);
   const perPortion = costPerPortion(draft);
@@ -234,10 +286,15 @@ function FichaEditor({
             className="px-5"
             onClick={() => {
               if (!draft.name.trim()) {
-                toast.error("Informe o nome do prato.");
+                toast.error("Informe o nome da ficha.");
                 return;
               }
-              onSave({ ...draft, updatedAt: new Date().toISOString() });
+              onSave({
+                ...draft,
+                dishIds: sheetDishIds(draft),
+                dishId: sheetDishIds(draft)[0] ?? "",
+                updatedAt: new Date().toISOString(),
+              });
             }}
           >
             Salvar ficha
@@ -247,38 +304,40 @@ function FichaEditor({
     >
       <Card>
         <SectionTitle title="Cabeçalho da receita" />
+        <div className="mb-4">
+          <p className="field-label mb-2">Tipo da ficha</p>
+          <SegmentedControl
+            ariaLabel="Tipo da ficha"
+            value={draft.kind}
+            onChange={(kind) => {
+              const next = { ...draft, kind };
+              const blocked = sheetDishIds(draft).find((dishId) =>
+                dishLinkError(previewSheets, next, dishId),
+              );
+              if (blocked) {
+                const dish = dishes.find((item) => item.id === blocked);
+                toast.error(
+                  `${dish?.name || "Um prato"} já tem outra ${TECHNICAL_SHEET_KIND_LABELS[kind].toLowerCase()}.`,
+                );
+                return;
+              }
+              update("kind", kind);
+            }}
+            options={[
+              { value: "base", label: "Base" },
+              { value: "recheio", label: "Recheio" },
+              { value: "completa", label: "Completa" },
+            ]}
+          />
+          <p className="meta-text mt-2">{TECHNICAL_SHEET_KIND_HINTS[draft.kind]}</p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Item (nome do prato)" className="sm:col-span-2">
+          <Field label="Nome da ficha" className="sm:col-span-2">
             <input
               className={fieldControlClass}
               value={draft.name}
               onChange={(event) => update("name", event.target.value)}
             />
-          </Field>
-          <Field label="Prato do cardápio">
-            <select
-              className={fieldControlClass}
-              value={draft.dishId}
-              onChange={(event) => {
-                const dish = dishes.find((item) => item.id === event.target.value);
-                update("dishId", event.target.value);
-                if (dish) {
-                  setDraft((current) => ({
-                    ...current,
-                    dishId: dish.id,
-                    name: current.name.trim() ? current.name : dish.name,
-                    classification: current.classification || dish.category,
-                  }));
-                }
-              }}
-            >
-              <option value="">Sem vínculo</option>
-              {dishes.map((dish) => (
-                <option key={dish.id} value={dish.id}>
-                  {dish.name}
-                </option>
-              ))}
-            </select>
           </Field>
           <Field label="Classificação da receita">
             <input
@@ -352,6 +411,60 @@ function FichaEditor({
           <Field label="Preço de custo (calculado)">
             <input className={cn(fieldControlClass, "tabular bg-forest/[0.03]")} value={formatBRL(cost)} readOnly />
           </Field>
+        </div>
+        <div className="mt-5">
+          <p className="field-label">Pratos do cardápio</p>
+          <p className="meta-text mb-2">
+            Cada prato pode ter até uma ficha de cada tipo (base, recheio e completa).
+          </p>
+          {dishes.length === 0 ? (
+            <p className="meta-text rounded-lg border border-dashed border-line p-3">
+              Cadastre pratos no cardápio para vinculá-los.
+            </p>
+          ) : (
+            <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
+              {dishes.map((dish) => {
+                const checked = linkedIds.includes(dish.id);
+                const error = dishLinkError(previewSheets, draft, dish.id);
+                return (
+                  <label
+                    key={dish.id}
+                    className={cn(
+                      "flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm",
+                      checked ? "bg-forest/8" : "hover:bg-forest/[0.03]",
+                      error && !checked ? "opacity-55" : "",
+                    )}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-forest"
+                        checked={checked}
+                        disabled={Boolean(error) && !checked}
+                        onChange={() => {
+                          if (!checked && error) {
+                            toast.error(error);
+                            return;
+                          }
+                          const dishIds = checked
+                            ? linkedIds.filter((id) => id !== dish.id)
+                            : [...linkedIds, dish.id];
+                          setDraft((current) => ({
+                            ...current,
+                            dishIds,
+                            dishId: dishIds[0] ?? "",
+                            classification: current.classification || dish.category,
+                          }));
+                        }}
+                      />
+                      <span className="text-forest">{dish.name}</span>
+                    </span>
+                    <span className="meta-text">{error && !checked ? error : dish.category}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
       </Card>
 

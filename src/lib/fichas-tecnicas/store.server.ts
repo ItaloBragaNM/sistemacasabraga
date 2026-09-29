@@ -1,6 +1,8 @@
 import { readState, writeState } from "@/lib/store/kv.server";
 import {
   emptyFichasTecnicas,
+  parseTechnicalSheetKind,
+  sheetDishIds,
   type FichasTecnicasData,
   type RecipeIngredient,
   type TechnicalSheet,
@@ -30,9 +32,15 @@ function normalizeIngredient(input: Partial<RecipeIngredient> | null | undefined
 
 function normalizeSheet(input: Partial<TechnicalSheet> | null | undefined): TechnicalSheet | null {
   if (!input?.id || !input.name) return null;
+  const dishIds = sheetDishIds({
+    dishIds: Array.isArray(input.dishIds) ? input.dishIds.filter((id): id is string => typeof id === "string") : [],
+    dishId: typeof input.dishId === "string" ? input.dishId : "",
+  });
   return {
     id: input.id,
-    dishId: typeof input.dishId === "string" ? input.dishId : "",
+    kind: parseTechnicalSheetKind(input.kind),
+    dishId: dishIds[0] ?? "",
+    dishIds,
     name: input.name.trim(),
     classification: typeof input.classification === "string" ? input.classification : "",
     sector: typeof input.sector === "string" && input.sector.trim() ? input.sector : "Alimentos e Bebidas",

@@ -124,7 +124,9 @@ async function main() {
     <SheetDocument
       sheet={{
         id: "ft-1",
+        kind: "completa",
         dishId: "dish-1",
+        dishIds: ["dish-1"],
         name: "Risoto de camarão",
         classification: "Prato quente",
         sector: "Cozinha quente",
