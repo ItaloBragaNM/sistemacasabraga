@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 export function MaoDeObraAdmin() {
   const { data, ready, upsertWorker, removeWorker, setRates } = useMaoDeObra();
   const [search, setSearch] = useState("");
+  const [sexFilter, setSexFilter] = useState<"todos" | Exclude<WorkerSex, "">>("todos");
   const [editing, setEditing] = useState<ExternalWorker | null>(null);
   const [open, setOpen] = useState(false);
   const [ratesOpen, setRatesOpen] = useState(false);
@@ -55,14 +56,16 @@ export function MaoDeObraAdmin() {
       return compareSort(value, other, sort.dir) || a.name.localeCompare(b.name, "pt-BR");
     });
     const term = search.trim().toLowerCase();
-    if (!term) return list;
-    return list.filter(
-      (item) =>
+    return list.filter((item) => {
+      if (sexFilter !== "todos" && item.sex !== sexFilter) return false;
+      if (!term) return true;
+      return (
         item.name.toLowerCase().includes(term) ||
         item.cpf.toLowerCase().includes(term) ||
-        item.pix.toLowerCase().includes(term),
-    );
-  }, [data?.workers, search, sort.key, sort.dir]);
+        item.pix.toLowerCase().includes(term)
+      );
+    });
+  }, [data?.workers, search, sexFilter, sort.key, sort.dir]);
 
   const stats = useMemo(() => {
     const list = data?.workers ?? [];
@@ -79,7 +82,7 @@ export function MaoDeObraAdmin() {
     <PageShell>
       <CadastrosHeader
         eyebrow="Cadastros"
-        title="Cadastro de equipe externa"
+        title="Equipe Externa"
         action={
           <Button
             className="h-10 px-5"
@@ -107,21 +110,42 @@ export function MaoDeObraAdmin() {
           </section>
 
           <section className="space-y-4">
-            <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nome, CPF ou PIX…" />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-[180px] flex-1">
+                <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nome, CPF ou PIX…" />
+              </div>
+              <SegmentedControl
+                ariaLabel="Filtrar por sexo"
+                value={sexFilter}
+                onChange={setSexFilter}
+                options={[
+                  { value: "todos", label: "Todos" },
+                  { value: "masculino", label: "Homens" },
+                  { value: "feminino", label: "Mulheres" },
+                ]}
+              />
+            </div>
             {workers.length === 0 ? (
               <EmptyBlock
-                title="Nenhum prestador"
+                title={search.trim() || sexFilter !== "todos" ? "Nenhum resultado" : "Nenhum prestador"}
+                description={
+                  search.trim() || sexFilter !== "todos"
+                    ? "Ajuste a busca ou o filtro de sexo."
+                    : undefined
+                }
                 action={
-                  <Button
-                    className="h-10"
-                    onClick={() => {
-                      setEditing(null);
-                      setOpen(true);
-                    }}
-                  >
-                    <Plus data-icon="inline-start" />
-                    Novo prestador
-                  </Button>
+                  search.trim() || sexFilter !== "todos" ? undefined : (
+                    <Button
+                      className="h-10"
+                      onClick={() => {
+                        setEditing(null);
+                        setOpen(true);
+                      }}
+                    >
+                      <Plus data-icon="inline-start" />
+                      Novo prestador
+                    </Button>
+                  )
                 }
               />
             ) : (

@@ -12,13 +12,15 @@ import {
   suggestedMinimum,
 } from "@/lib/cozinha/calc";
 import type { InsumoMeta, InsumoMovement } from "@/lib/cozinha/types";
-import { createBlankEvent } from "@/lib/event-factory";
+import { createBlankEvent, emptyUniforms } from "@/lib/event-factory";
 import { contractedAmount, receivableStatus, receivableSummary, remainingAmount } from "@/lib/financeiro/calc";
 import type { ReceivableRecord } from "@/lib/financeiro/types";
 import { allocationWindow, buildAllocationWeek, clipBarToWeek } from "@/lib/logistica/alocacao";
 import { controlLossQty, stockMovementsFromControl } from "@/lib/logistica/event-control";
 import type { EventMaterialControl } from "@/lib/logistica/types";
-import { drinkSeparationLines } from "@/lib/types";
+import { applyLaborUniformDelta } from "@/lib/mao-de-obra/uniforms";
+import type { ExternalWorker } from "@/lib/mao-de-obra/types";
+import { drinkSeparationLines, laborUniformPieces, normalizeLaborAllocations } from "@/lib/types";
 
 function cadastrosWithOneMaterial(): CadastrosData {
   const base = defaultCadastros();
@@ -229,5 +231,45 @@ describe("bebidas da separação", () => {
       lines.map((line) => line.qty),
       ["34", "30", "3"],
     );
+  });
+});
+
+describe("fardamento da equipe na ficha", () => {
+  it("migra uma peça antiga e aceita várias no mesmo prestador", () => {
+    const legacy = normalizeLaborAllocations([
+      { workerId: "w1", functionKey: "garcom", uniformPiece: "dolma" },
+    ]);
+    assert.deepEqual(laborUniformPieces(legacy[0]), ["dolma"]);
+
+    const multi = normalizeLaborAllocations([
+      { workerId: "w1", functionKey: "garcom", uniformPieces: ["dolma", "bata"] },
+    ]);
+    assert.deepEqual(laborUniformPieces(multi[0]), ["dolma", "bata"]);
+  });
+
+  it("soma o tamanho de cada peça selecionada", () => {
+    const worker = {
+      id: "w1",
+      uniformSizes: { dolma: "m", bata: "p", avental: "" },
+    } as ExternalWorker;
+    const next = applyLaborUniformDelta(
+      emptyUniforms(),
+      [],
+      [
+        {
+          id: "w1",
+          workerId: "w1",
+          functionKey: "garcom",
+          overtime: false,
+          overtimeHours: 0,
+          applyAllowance: true,
+          uniformPieces: ["dolma", "bata"],
+        },
+      ],
+      [worker],
+    );
+    assert.equal(next.dolma.m, 1);
+    assert.equal(next.bata.p, 1);
+    assert.equal(next.avental.p, 0);
   });
 });

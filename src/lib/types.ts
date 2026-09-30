@@ -740,8 +740,19 @@ export interface EventLaborAllocation {
   applyAllowance: boolean;
   /** Diária neste evento. Se omitida, usa a tabela de valores da função. */
   daily?: number;
-  /** Peça de fardamento deste prestador neste evento. */
+  /** Peças de fardamento deste prestador neste evento (dólmã, bata, avental). */
+  uniformPieces?: UniformPieceKey[];
+  /** @deprecated use uniformPieces */
   uniformPiece?: UniformPieceKey | "";
+}
+
+export function laborUniformPieces(
+  row: Pick<EventLaborAllocation, "uniformPieces" | "uniformPiece">,
+): UniformPieceKey[] {
+  if (Array.isArray(row.uniformPieces) && row.uniformPieces.length > 0) {
+    return [...new Set(row.uniformPieces.filter(isUniformPieceKey))];
+  }
+  return isUniformPieceKey(row.uniformPiece) ? [row.uniformPiece] : [];
 }
 
 export function emptyLaborAllocations(): EventLaborAllocation[] {
@@ -760,7 +771,7 @@ export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[
     seen.add(workerId);
     const dailyRaw = (row as { daily?: unknown }).daily;
     const dailyParsed = Number(dailyRaw);
-    const uniformPiece = isUniformPieceKey(row.uniformPiece) ? row.uniformPiece : "";
+    const uniformPieces = laborUniformPieces(row);
     next.push({
       id: typeof row.id === "string" && row.id ? row.id : workerId,
       workerId,
@@ -769,7 +780,8 @@ export function normalizeLaborAllocations(input: unknown): EventLaborAllocation[
       overtimeHours: Number(row.overtimeHours) || 0,
       applyAllowance: row.applyAllowance !== false,
       daily: Number.isFinite(dailyParsed) ? dailyParsed : undefined,
-      uniformPiece,
+      uniformPieces,
+      uniformPiece: uniformPieces[0] ?? "",
     });
   }
   return next;

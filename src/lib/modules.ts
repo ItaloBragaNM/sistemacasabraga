@@ -90,7 +90,7 @@ export const APP_MODULES: AppModule[] = [
       { href: "/cadastros/insumos", label: "Insumos" },
       { href: "/cadastros/clientes", label: "Clientes" },
       { href: "/cadastros/veiculos", label: "Veículos" },
-      { href: "/cadastros/equipe-externa", label: "Cadastro de equipe externa" },
+      { href: "/cadastros/equipe-externa", label: "Equipe Externa" },
     ],
   },
   {

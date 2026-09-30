@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/events/status-badge";
 import { useEvents } from "@/components/events/events-provider";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { PageShell } from "@/components/ui/page-shell";
 import type { DishRecord } from "@/lib/cadastros/types";
 import { formatBRL } from "@/lib/crm/format";
@@ -38,6 +39,7 @@ import {
   suggestedDrinkQuantities,
   DEFAULT_DRINK_PREMISES,
   UNIFORM_PIECES,
+  laborUniformPieces,
   type ExtraStaffRoleKey,
   type EventLaborAllocation,
   type EventMenuSection,
@@ -45,7 +47,6 @@ import {
   type EventSaveMeta,
   type Guests,
   type Logistics,
-  type UniformPieceKey,
   type VenueKind,
   type YesNo,
 } from "@/lib/types";
@@ -572,7 +573,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         <p className="group-title mb-2 mt-6 border-t border-line pt-4">Externa</p>
         {(maoDeObra?.workers ?? []).length === 0 ? (
           <p className="meta-text">
-            Cadastre os prestadores em Cadastros → Equipe externa.
+            Cadastre os prestadores em Cadastros → Equipe Externa.
           </p>
         ) : (
           <EventLaborAllocations
@@ -1087,7 +1088,7 @@ function EventLaborAllocations({
         return (
           <div
             key={row.workerId}
-            className="grid grid-cols-2 items-end gap-2 border-b border-line py-3 last:border-0 sm:grid-cols-[minmax(8rem,1.1fr)_minmax(9rem,1.3fr)_minmax(7rem,1fr)_6rem_2rem]"
+            className="grid grid-cols-2 items-end gap-2 border-b border-line py-3 last:border-0 sm:grid-cols-[minmax(8rem,1.1fr)_minmax(9rem,1.3fr)_6rem_2rem]"
           >
             <div className="col-span-2 min-w-0 sm:col-span-1 sm:pb-1">
               <p className="truncate text-sm font-medium text-forest">{worker?.name || "Prestador removido"}</p>
@@ -1119,32 +1120,6 @@ function EventLaborAllocations({
                 ))}
               </select>
             </Field>
-            <Field label="Fardamento">
-              <select
-                className={fieldControlCompactClass}
-                value={row.uniformPiece || ""}
-                onChange={(event) =>
-                  onChange(
-                    allocations.map((item) =>
-                      item.workerId === row.workerId
-                        ? { ...item, uniformPiece: (event.target.value || "") as UniformPieceKey | "" }
-                        : item,
-                    ),
-                  )
-                }
-              >
-                <option value="">Sem farda</option>
-                {UNIFORM_PIECES.map((piece) => {
-                  const size = worker?.uniformSizes?.[piece.key];
-                  return (
-                    <option key={piece.key} value={piece.key}>
-                      {piece.label}
-                      {size ? ` · ${UNIFORM_SIZE_LABELS[size]}` : " · sem tamanho"}
-                    </option>
-                  );
-                })}
-              </select>
-            </Field>
             <Field label="Diária (R$)">
               <input
                 type="number"
@@ -1171,6 +1146,41 @@ function EventLaborAllocations({
             >
               <Trash2 className="size-4" />
             </button>
+            <div className="col-span-2 space-y-1.5 sm:col-span-4">
+              <span className="field-label">Fardamento</span>
+              <div className="flex flex-wrap gap-1.5">
+                {UNIFORM_PIECES.map((piece) => {
+                  const selected = laborUniformPieces(row).includes(piece.key);
+                  const size = worker?.uniformSizes?.[piece.key];
+                  return (
+                    <FilterChip
+                      key={piece.key}
+                      active={selected}
+                      onClick={() => {
+                        const current = laborUniformPieces(row);
+                        const nextPieces = selected
+                          ? current.filter((key) => key !== piece.key)
+                          : [...current, piece.key];
+                        onChange(
+                          allocations.map((item) =>
+                            item.workerId === row.workerId
+                              ? {
+                                  ...item,
+                                  uniformPieces: nextPieces,
+                                  uniformPiece: nextPieces[0] ?? "",
+                                }
+                              : item,
+                          ),
+                        );
+                      }}
+                    >
+                      {piece.label}
+                      {size ? ` · ${UNIFORM_SIZE_LABELS[size]}` : " · sem tamanho"}
+                    </FilterChip>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         );
       })}
@@ -1192,6 +1202,7 @@ function EventLaborAllocations({
                 overtimeHours: extras.overtimeHours,
                 applyAllowance: extras.applyAllowance,
                 daily: rateFor(rates, functionKey).daily,
+                uniformPieces: [],
                 uniformPiece: "",
               },
             ]);

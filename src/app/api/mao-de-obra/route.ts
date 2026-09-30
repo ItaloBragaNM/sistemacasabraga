@@ -33,14 +33,14 @@ export async function PUT(request: Request) {
     const data = await writeMaoDeObra(payload);
     const { appendAudit, diffRecords, scalarChange, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(user, [
-      ...tagged(diffRecords(previous.workers, data.workers, (item) => item.name), "cadastros", "prestador", "Cadastros · Equipe externa"),
+      ...tagged(diffRecords(previous.workers, data.workers, (item) => item.name), "cadastros", "prestador", "Cadastros · Equipe Externa"),
       ...tagged(
         diffRecords(previous.payments, data.payments, (item) => `${item.workerName} · ${item.eventCode}`),
         "financeiro",
         "pagamento",
         "Financeiro · Pagamento de Mão de Obra",
       ),
-      ...scalarChange("cadastros", "tabela de valores", previous.rates, data.rates, "Cadastros · Equipe externa"),
+      ...scalarChange("cadastros", "tabela de valores", previous.rates, data.rates, "Cadastros · Equipe Externa"),
     ]);
     return NextResponse.json({ data });
   } catch (error) {

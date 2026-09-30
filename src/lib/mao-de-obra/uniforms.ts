@@ -1,6 +1,7 @@
 import {
   isUniformPieceKey,
   isUniformSize,
+  laborUniformPieces,
   type EventLaborAllocation,
   type UniformPieceKey,
   type UniformSize,
@@ -19,12 +20,15 @@ function bumpUniform(uniforms: Uniforms, piece: UniformPieceKey, size: UniformSi
 }
 
 function applyRow(uniforms: Uniforms, row: EventLaborAllocation, workers: ExternalWorker[], delta: number) {
-  const piece = row.uniformPiece;
-  if (!piece || !isUniformPieceKey(piece)) return uniforms;
   const worker = workers.find((item) => item.id === row.workerId);
-  const size = worker?.uniformSizes?.[piece];
-  if (!size || !isUniformSize(size)) return uniforms;
-  return bumpUniform(uniforms, piece, size, delta);
+  let current = uniforms;
+  for (const piece of laborUniformPieces(row)) {
+    if (!isUniformPieceKey(piece)) continue;
+    const size = worker?.uniformSizes?.[piece];
+    if (!size || !isUniformSize(size)) continue;
+    current = bumpUniform(current, piece, size, delta);
+  }
+  return current;
 }
 
 /** Ajusta as quantidades de farda da ficha quando a alocação ou o tipo muda. */
