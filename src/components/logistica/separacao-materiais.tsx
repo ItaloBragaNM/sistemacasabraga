@@ -16,11 +16,12 @@ import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { CatalogFilters, Chip, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
 import { EventDrinksFields } from "@/components/events/drinks-uniforms";
 import { useEvents } from "@/components/events/events-provider";
-import { StatusBadge } from "@/components/events/status-badge";
-import { DateSortSelect, compareDateSort } from "@/components/date-sort";
+import { compareDateSort } from "@/components/date-sort";
+import { EventCalendar } from "@/components/events/event-calendar";
 import { fieldControlClass } from "@/components/events/field";
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { QtyInput } from "@/components/ui/qty-input";
@@ -86,7 +87,6 @@ export function SeparacaoMateriais() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [dateSort, setDateSort] = useState<"desc" | "asc">("desc");
 
   const paramId = searchParams.get("evento") ?? "";
   useEffect(() => {
@@ -107,7 +107,7 @@ export function SeparacaoMateriais() {
     const term = search.trim().toLowerCase();
     return [...events]
       .sort((a, b) => {
-        const byDate = compareDateSort(a.date, b.date, dateSort);
+        const byDate = compareDateSort(a.date, b.date, "desc");
         return byDate || a.title.localeCompare(b.title, "pt-BR");
       })
       .filter((event) => {
@@ -124,24 +124,29 @@ export function SeparacaoMateriais() {
           client.toLowerCase().includes(term)
         );
       });
-  }, [events, search, statusFilter, typeFilter, dateSort, clientNames]);
+  }, [events, search, statusFilter, typeFilter, clientNames]);
 
   return (
-    <PageShell eyebrow="Logística" title="Separação de Materiais">
+    <PageShell fillViewport width="wide" eyebrow="Logística" title="Separação de Materiais">
       {!ready ? (
-        <LoadingBlock />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <LoadingBlock />
+        </div>
       ) : events.length === 0 ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
         <EmptyBlock
           title="Nenhum evento"
-          description="Crie uma ficha de evento para separar materiais."
+          description="Crie um relatório de evento para separar materiais."
           action={
             <Link href="/eventos/novo" className={cn(buttonVariants(), "h-10 px-5")}>
-              Nova ficha
+              Novo relatório
             </Link>
           }
         />
+        </div>
       ) : (
         <>
+          <div className="shrink-0">
           <CatalogFilters
             compact
             search={search}
@@ -169,48 +174,26 @@ export function SeparacaoMateriais() {
                 })),
               },
             ]}
-            extra={
-              <DateSortSelect value={dateSort} onChange={setDateSort} />
-            }
           />
+          </div>
           {filtered.length === 0 ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
             <EmptyBlock
               title="Nenhum evento encontrado"
-              description="Ajuste a busca ou os filtros para localizar a ficha."
+              description="Ajuste a busca ou os filtros para localizar o relatório."
             />
+            </div>
           ) : (
-            <Card flush>
-              {filtered.map((event, index) => {
-                const client = event.clientId ? clientNames.get(event.clientId) : "";
-                return (
-                  <Link
-                    key={event.id}
-                    href={`/logistica/separacao-materiais/${event.id}`}
-                    className={cn(
-                      "grid gap-2 px-4 py-3 transition-colors hover:bg-cream md:grid-cols-[110px_1fr_auto] md:items-center md:px-5",
-                      index > 0 && "border-t border-line",
-                    )}
-                  >
-                    <p className="text-sm text-forest/60 tabular">
-                      {event.date ? formatShortDate(event.date) : "Sem data"}
-                    </p>
-                    <div className="min-w-0">
-                      <p className="text-forest">
-                        {event.title || "Evento sem nome"}
-                      </p>
-                      <p className="meta-text mt-0.5">
-                        {event.venue.name || "Local a definir"}
-                        {client ? ` · ${client}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5 md:flex-col md:items-end">
-                      {ruptureIds.has(event.id) ? <StatusPill tone="danger">Ruptura</StatusPill> : null}
-                      <StatusBadge status={event.status} />
-                    </div>
-                  </Link>
-                );
-              })}
-            </Card>
+            <EventCalendar
+              fill
+              events={filtered}
+              hrefForEvent={(event) => `/logistica/separacao-materiais/${event.id}`}
+              emptyDescription="Ajuste a busca ou os filtros, ou mude o mês para localizar o relatório."
+              marked={(event) => ruptureIds.has(event.id)}
+              badge={(event) =>
+                ruptureIds.has(event.id) ? <StatusPill tone="danger">Ruptura</StatusPill> : null
+              }
+            />
           )}
         </>
       )}
@@ -233,7 +216,7 @@ export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
       <PageShell title="Evento não encontrado">
         <EmptyBlock
           title="Evento não encontrado"
-          description="Esta ficha pode ter sido excluída neste aparelho."
+          description="Este relatório pode ter sido excluído neste aparelho."
           action={
             <Link
               href="/logistica/separacao-materiais"
@@ -278,7 +261,7 @@ export function SeparacaoMateriaisEvent({ eventId }: { eventId: string }) {
           href={`/eventos/${event.id}`}
           className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
         >
-          Abrir ficha
+          Abrir relatório
         </Link>
       }
     >
@@ -534,7 +517,7 @@ function SeparationEditor({
       {warnings.length > 0 ? (
         <CollapsibleAlert
           tone="warn"
-          title={`Complete a ficha para uma separação precisa${warnings.length ? ` · ${warnings.length}` : ""}`}
+          title={`Complete o relatório para uma separação precisa${warnings.length ? ` · ${warnings.length}` : ""}`}
         >
           <p>{warnings.map((w) => w.label).join(" · ")}</p>
         </CollapsibleAlert>
@@ -619,18 +602,17 @@ function SeparationEditor({
       <div className="flex flex-wrap items-end gap-2">
         <label className="block min-w-[220px] flex-1 space-y-1.5">
           <span className="field-label">Incluir material do cadastro</span>
-          <select
-            className={fieldControlClass}
+          <SearchableSelect
             value={pickMaterialId}
-            onChange={(event) => setPickMaterialId(event.target.value)}
-          >
-            <option value="">Material não vinculado aos pratos…</option>
-            {addableMaterials.map((material) => (
-              <option key={material.id} value={material.id}>
-                {material.category} · {material.name}
-              </option>
-            ))}
-          </select>
+            onChange={setPickMaterialId}
+            emptyLabel="Material não vinculado aos pratos…"
+            searchPlaceholder="Pesquisar material…"
+            options={addableMaterials.map((material) => ({
+              value: material.id,
+              label: material.name,
+              hint: material.category,
+            }))}
+          />
         </label>
         <Button
           variant="outline"
@@ -646,7 +628,7 @@ function SeparationEditor({
       {rows.length === 0 ? (
         <EmptyBlock
           title="Lista vazia"
-          description="Selecione pratos na ficha do evento ou inclua um material do cadastro. Kits e extras ficam nas seções abaixo."
+          description="Selecione pratos no relatório do evento ou inclua um material do cadastro. Kits e extras ficam nas seções abaixo."
         />
       ) : (
         <Card flush>
@@ -1013,7 +995,7 @@ function KitsOnEvent({
             return (
               <article
                 key={kit.id}
-                className="surface-card flex min-h-0 flex-col overflow-hidden"
+                className="surface-card flex flex-col"
               >
                 <header className="flex items-start justify-between gap-3 border-b border-line px-3 py-2.5">
                   <div className="min-w-0">
@@ -1035,7 +1017,7 @@ function KitsOnEvent({
                 {kit.items.length === 0 ? (
                   <p className="meta-text px-3 py-2">Sem materiais neste kit.</p>
                 ) : (
-                  <ul className="max-h-44 overflow-y-auto">
+                  <ul>
                     {kit.items.map((item, index) => {
                       const material = materialById.get(item.materialId);
                       const computedTotal = kitItemComputedTotal(item.qtyPerKit, qty);

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { CadastrosProvider } from "@/components/cadastros/cadastros-provider";
+import { CompromissosProvider } from "@/components/compromissos/compromissos-provider";
 import { CozinhaInsumosProvider } from "@/components/cozinha/cozinha-insumos-provider";
 import { FichasTecnicasProvider } from "@/components/cozinha/fichas-tecnicas-provider";
 import { AppShell } from "@/components/layout/app-shell";
@@ -14,17 +15,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <CadastrosProvider>
-      <LogisticaProvider>
-        <VeiculosUsoProvider>
-          <MaoDeObraProvider>
-            <FichasTecnicasProvider>
-              <CozinhaInsumosProvider>
-                <AppShell user={user}>{children}</AppShell>
-              </CozinhaInsumosProvider>
-            </FichasTecnicasProvider>
-          </MaoDeObraProvider>
-        </VeiculosUsoProvider>
-      </LogisticaProvider>
+      <CompromissosProvider>
+        <LogisticaProvider>
+          <VeiculosUsoProvider>
+            <MaoDeObraProvider>
+              <FichasTecnicasProvider>
+                <CozinhaInsumosProvider>
+                  <AppShell user={user}>{children}</AppShell>
+                </CozinhaInsumosProvider>
+              </FichasTecnicasProvider>
+            </MaoDeObraProvider>
+          </VeiculosUsoProvider>
+        </LogisticaProvider>
+      </CompromissosProvider>
     </CadastrosProvider>
   );
 }

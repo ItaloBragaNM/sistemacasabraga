@@ -84,4 +84,11 @@ export function isoDaysInRange(start: string, end: string): string[] {
   return days;
 }
 
+export {
+  defaultFoodDepartureTime,
+  normalizeClockTime,
+  subtractHoursFromClock,
+  syncedFoodDepartureTime,
+} from "./clock";
+
 export { isSameDay, isSameMonth };

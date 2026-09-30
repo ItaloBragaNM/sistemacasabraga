@@ -18,6 +18,7 @@ import type {
   DishRecord,
   ExtraCatalogItem,
   InsumoRecord,
+  LocalRecord,
   MaterialKit,
   MaterialRecord,
   StockLocation,
@@ -31,6 +32,7 @@ export type CatalogListKey =
   | "dishes"
   | "insumos"
   | "clientes"
+  | "locais"
   | "veiculos"
   | "kits"
   | "extras"
@@ -54,6 +56,8 @@ interface CadastrosContextValue {
   setInsumoCategories: (categories: string[]) => void;
   upsertCliente: (cliente: ClienteRecord) => void;
   removeCliente: (id: string) => void;
+  upsertLocal: (local: LocalRecord) => void;
+  removeLocal: (id: string) => void;
   upsertVeiculo: (veiculo: VeiculoRecord) => void;
   removeVeiculo: (id: string) => void;
   upsertKit: (kit: MaterialKit) => void;
@@ -83,7 +87,9 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const dataRef = useRef<CadastrosData | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
+  dataRef.current = data;
 
   useEffect(() => {
     let active = true;
@@ -99,6 +105,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
             kits: json.data.kits ?? [],
             extras: json.data.extras ?? [],
             stockLocations: json.data.stockLocations ?? [],
+            locais: json.data.locais ?? [],
             drinkPremises: json.data.drinkPremises ?? DEFAULT_DRINK_PREMISES,
           });
         }
@@ -114,6 +121,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback((next: CadastrosData) => {
+    dataRef.current = next;
     setData(next);
     setSaving(true);
     queue.current = queue.current
@@ -122,7 +130,7 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch("/api/cadastros", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
+          body: JSON.stringify(dataRef.current),
         });
         assertSaved(res);
       })
@@ -134,10 +142,11 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
 
   const mutate = useCallback(
     (mutator: (current: CadastrosData) => CadastrosData) => {
-      if (!data) return;
-      persist(mutator(data));
+      const current = dataRef.current;
+      if (!current) return;
+      persist(mutator(current));
     },
-    [data, persist],
+    [persist],
   );
 
   const value = useMemo<CadastrosContextValue>(
@@ -184,6 +193,13 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
         mutate((current) => ({
           ...current,
           clientes: current.clientes.filter((item) => item.id !== id),
+        })),
+      upsertLocal: (local) =>
+        mutate((current) => ({ ...current, locais: upsert(current.locais ?? [], local) })),
+      removeLocal: (id) =>
+        mutate((current) => ({
+          ...current,
+          locais: (current.locais ?? []).filter((item) => item.id !== id),
         })),
       upsertVeiculo: (veiculo) =>
         mutate((current) => ({ ...current, veiculos: upsert(current.veiculos, veiculo) })),

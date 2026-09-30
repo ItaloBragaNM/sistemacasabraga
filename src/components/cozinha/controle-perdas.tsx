@@ -12,6 +12,7 @@ import { downloadLossRegisterPdf } from "@/components/cozinha/perdas-pdf";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { KpiCard, StatusPill } from "@/components/ui/status-pill";
@@ -321,13 +322,12 @@ function LossForm({
   return (
     <div className="space-y-5">
       <Field label="Insumo">
-        <select className={fieldControlClass} value={insumoId} onChange={(e) => setInsumoId(e.target.value)}>
-          {sorted.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+        <SearchableSelect
+          value={insumoId}
+          onChange={setInsumoId}
+          searchPlaceholder="Pesquisar insumo…"
+          options={sorted.map((item) => ({ value: item.id, label: item.name }))}
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={`Quantidade${insumo ? ` (${insumo.unit})` : ""}`}>

@@ -1,3 +1,5 @@
+import { defaultFoodDepartureTime, normalizeClockTime } from "./clock";
+
 export const EVENT_STATUSES = [
   "rascunho",
   "confirmado",
@@ -228,6 +230,12 @@ export function normalizeAttachments(input: unknown): EventAttachment[] {
     if (next.length >= EVENT_ATTACHMENT_MAX_FILES) break;
   }
   return next;
+}
+
+export function eventImageAttachments(attachments: EventAttachment[] | undefined) {
+  return (attachments ?? []).filter(
+    (file) => file.mime.startsWith("image/") || file.dataUrl.startsWith("data:image/"),
+  );
 }
 
 export const STAFF_ROLES = [
@@ -831,9 +839,14 @@ export interface EventRecord {
   materialDeliveryDate: string;
   /** Último dia em que o material ainda está no evento (inclusive). */
   materialPickupDate: string;
+  /** Mantido para eventos antigos; a UI usa `foodDepartureTime`. */
   foodDeliveryDate: string;
+  /** Horário de saída da comida. Padrão: duas horas antes de `serviceTime`. */
+  foodDepartureTime: string;
   perCapita: number;
   venue: Venue;
+  /** Local da base de Cadastros → Locais. */
+  venueId?: string;
   guests: Guests;
   /** Quantidade de ilhas (estações) — usada no cálculo de materiais. */
   islands?: number;
@@ -964,6 +977,7 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     staff: normalizeStaff(event.staff),
     extraStaff: extrasFromLegacyStaff(event.staff, normalizeExtraStaff(event.extraStaff)),
     clientId: event.clientId ?? "",
+    venueId: typeof event.venueId === "string" ? event.venueId : "",
     outOfTown: Boolean(event.outOfTown),
     ...laborExtras,
     vehicleIds: normalizeVehicleIds(event.vehicleIds),
@@ -980,6 +994,8 @@ export function normalizeEventRecord(event: EventRecord): EventRecord {
     materialDeliveryDate: normalizeIsoDate(event.materialDeliveryDate),
     materialPickupDate: normalizeIsoDate(event.materialPickupDate),
     foodDeliveryDate: normalizeIsoDate(event.foodDeliveryDate),
+    foodDepartureTime:
+      normalizeClockTime(event.foodDepartureTime) || defaultFoodDepartureTime(event.serviceTime),
     drinksAuto,
     drinks: normalizeDrinks(event.drinks),
     changeLog: normalizeChangeLog(event.changeLog),

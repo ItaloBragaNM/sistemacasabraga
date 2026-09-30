@@ -1,3 +1,4 @@
+import { defaultFoodDepartureTime } from "./clock";
 import type {
   EventMenuSection,
   EventRecord,
@@ -127,6 +128,33 @@ export function upsertMenuPlanFromDishes(
   return plan;
 }
 
+/** True when the catalog selection is not yet reflected in the event menu plan. */
+export function menuPlanNeedsPerCapita(
+  selectedDishIds: string[],
+  dishes: { id: string; name: string }[],
+  sections: EventMenuSection[],
+): boolean {
+  const selected = new Set(selectedDishIds.filter(Boolean));
+  const dishById = new Map(dishes.map((dish) => [dish.id, dish]));
+  const nameToId = new Map(
+    dishes.map((dish) => [dish.name.trim().toLocaleLowerCase("pt-BR"), dish.id]),
+  );
+  const inPlan = new Set<string>();
+  for (const section of sections) {
+    for (const item of section.items) {
+      if (item.sourceDishId && dishById.has(item.sourceDishId)) {
+        inPlan.add(item.sourceDishId);
+        continue;
+      }
+      const id = nameToId.get(item.name.trim().toLocaleLowerCase("pt-BR"));
+      if (id) inPlan.add(id);
+    }
+  }
+  if (selected.size !== inPlan.size) return true;
+  for (const id of selected) if (!inPlan.has(id)) return true;
+  return false;
+}
+
 export function insertDishesIntoMenu(
   menu: Menu,
   dishes: { name: string; category: string }[],
@@ -201,6 +229,7 @@ export function createBlankEvent(
     ...partial,
     type: normalizeEventType(partial.type ?? "social"),
     clientId: partial.clientId ?? "",
+    venueId: typeof partial.venueId === "string" ? partial.venueId : "",
     venue: { ...casaBragaVenue(), ...partial.venue },
     guests,
     staff: normalizeStaff(partial.staff),
@@ -212,6 +241,10 @@ export function createBlankEvent(
     vehicleIds: Array.isArray(partial.vehicleIds) ? partial.vehicleIds.filter((id): id is string => typeof id === "string") : [],
     laborAllocations: Array.isArray(partial.laborAllocations) ? partial.laborAllocations : [],
     ceremonyTime: typeof partial.ceremonyTime === "string" ? partial.ceremonyTime : "",
+    foodDepartureTime:
+      typeof partial.foodDepartureTime === "string" && partial.foodDepartureTime.trim()
+        ? partial.foodDepartureTime
+        : defaultFoodDepartureTime(typeof partial.serviceTime === "string" ? partial.serviceTime : ""),
     serviceDuration: typeof partial.serviceDuration === "string" ? partial.serviceDuration : "",
     drinksNotes: typeof partial.drinksNotes === "string" ? partial.drinksNotes : "",
     logisticsNotes: typeof partial.logisticsNotes === "string" ? partial.logisticsNotes : "",

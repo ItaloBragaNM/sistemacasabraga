@@ -1,7 +1,11 @@
 import { uid } from "@/lib/event-factory";
+import { VENUE_KIND_LABELS, YES_NO_LABELS } from "@/lib/labels";
+import type { VenueKind, YesNo } from "@/lib/types";
+import { emptyLocal } from "./locais";
 import type { Cell } from "./xlsx";
 import {
   CLIENT_KIND_LABELS,
+  LOCAL_SPACE_FLAGS,
   MATERIAL_KIND_LABELS,
   VEHICLE_KIND_LABELS,
   parseMaterialKind,
@@ -13,19 +17,21 @@ import {
   type ClientKind,
   type DishRecord,
   type InsumoRecord,
+  type LocalRecord,
   type MaterialRecord,
   type ProportionFactor,
   type VehicleKind,
   type VeiculoRecord,
 } from "./types";
 
-export type EntityKey = "materials" | "dishes" | "insumos" | "clientes" | "veiculos";
+export type EntityKey = "materials" | "dishes" | "insumos" | "clientes" | "locais" | "veiculos";
 
 export const ENTITY_LABELS: Record<EntityKey, string> = {
   materials: "materiais",
   dishes: "cardápio",
   insumos: "insumos",
   clientes: "clientes",
+  locais: "locais",
   veiculos: "veículos",
 };
 
@@ -138,6 +144,40 @@ export function buildExport(entity: EntityKey, data: CadastrosData): ExportPaylo
       );
       return { fileName: "clientes", sheetName: "Clientes", headers, rows };
     }
+    case "locais": {
+      const headers = [
+        "Nome",
+        "Tipo",
+        "Endereço",
+        "Contato",
+        "Telefone",
+        "E-mail",
+        "Fora da cidade",
+        "Estacionamento",
+        "Acesso",
+        "Carga e descarga",
+        ...LOCAL_SPACE_FLAGS.map((flag) => flag.label),
+        "Observações",
+      ];
+      const rows = (data.locais ?? []).map((local) => {
+        const yesNo = (value: YesNo) => (value ? YES_NO_LABELS[value] : "");
+        return [
+          local.name,
+          VENUE_KIND_LABELS[local.kind],
+          local.address,
+          local.contactName,
+          local.phone,
+          local.email,
+          local.outOfTown ? "Sim" : "Não",
+          local.parkingNotes,
+          local.accessNotes,
+          local.loadingNotes,
+          ...LOCAL_SPACE_FLAGS.map((flag) => yesNo(local.logistics[flag.key])),
+          local.notes,
+        ] as Cell[];
+      });
+      return { fileName: "locais", sheetName: "Locais", headers, rows };
+    }
     case "veiculos": {
       const headers = [
         "Identificação",
@@ -191,6 +231,27 @@ function vehicleKindFromLabel(value: string): VehicleKind {
   if (lower.includes("moto")) return "moto";
   if (lower.includes("carro")) return "carro";
   return "outro";
+}
+
+function venueKindFromLabel(value: string): VenueKind {
+  const lower = value.trim().toLowerCase();
+  if (lower.includes("braga") || lower === "casa_braga") return "casa_braga";
+  return "externo";
+}
+
+function parseYesNo(value: string): YesNo {
+  const lower = value.trim().toLowerCase();
+  if (!lower) return "";
+  if (["sim", "s", "yes", "1", "true"].includes(lower)) return "sim";
+  if (["nao", "não", "n", "no", "0", "false"].includes(lower)) return "nao";
+  return "";
+}
+
+function parseOutOfTown(value: string) {
+  const parsed = parseYesNo(value);
+  if (parsed) return parsed === "sim";
+  const lower = value.trim().toLowerCase();
+  return lower.includes("fora") || lower === "x";
 }
 
 function usageCategoryFromLabel(value: string) {
@@ -385,6 +446,44 @@ export function applyImport(
           const record: ClienteRecord = { id: uid(), createdAt: now(), ...patch };
           next.clientes.push(record);
           byKey.set(key, record);
+          created += 1;
+        }
+      }
+      break;
+    }
+    case "locais": {
+      const keyOf = (local: LocalRecord) => local.name.toLowerCase();
+      const byKey = new Map((next.locais ?? []).map((local) => [keyOf(local), local]));
+      for (const row of rows) {
+        const name = pick(row, "Nome");
+        if (!name) continue;
+        const logistics = emptyLocal().logistics;
+        for (const flag of LOCAL_SPACE_FLAGS) {
+          logistics[flag.key] = parseYesNo(pick(row, flag.label));
+        }
+        const patch = {
+          name,
+          kind: venueKindFromLabel(pick(row, "Tipo")),
+          address: pick(row, "Endereço", "Endereco"),
+          contactName: pick(row, "Contato"),
+          phone: pick(row, "Telefone"),
+          email: pick(row, "E-mail", "Email"),
+          outOfTown: parseOutOfTown(pick(row, "Fora da cidade")),
+          parkingNotes: pick(row, "Estacionamento"),
+          accessNotes: pick(row, "Acesso"),
+          loadingNotes: pick(row, "Carga e descarga"),
+          logistics,
+          notes: pick(row, "Observações", "Observacoes"),
+          updatedAt: now(),
+        };
+        const existing = byKey.get(name.toLowerCase());
+        if (existing) {
+          Object.assign(existing, patch);
+          updated += 1;
+        } else {
+          const record = emptyLocal({ id: uid(), createdAt: now(), ...patch });
+          next.locais = [...(next.locais ?? []), record];
+          byKey.set(keyOf(record), record);
           created += 1;
         }
       }

@@ -8,7 +8,6 @@ import {
   addWeeks,
   eachDayOfInterval,
   format,
-  isSameMonth,
   isToday,
   parseISO,
 } from "date-fns";
@@ -26,6 +25,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { SegmentedControl } from "@/components/ui/segmented";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
+import { MonthCalendarGrid } from "@/components/events/month-calendar-grid";
 import { formatDayHeading, formatMonthTitle, monthGrid, weekDays } from "@/lib/dates";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
 import { EVENT_STATUSES, EVENT_TYPES, guestTotal, type EventRecord } from "@/lib/types";
@@ -160,6 +160,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
   return (
     <PageShell
       width="wide"
+      fillViewport
       eyebrow="Eventos"
       title="Calendário de Eventos"
       actions={
@@ -169,8 +170,8 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
         </Link>
       }
     >
-      <div className="space-y-3">
-        <Card className="flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <Card className="flex shrink-0 flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -193,7 +194,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           />
         </Card>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon-sm" aria-label="Período anterior" onClick={() => shift(-1)}>
               <ChevronLeft />
@@ -261,7 +262,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
           <p className="text-[13px] text-danger">A data final precisa ser igual ou posterior à inicial.</p>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-forest/65">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-forest/65">
           {EVENT_STATUSES.map((status) => (
             <span key={status} className="inline-flex items-center gap-1.5">
               <span className={cn("size-2.5 rounded-sm", `cal-chip-${status}`)} />
@@ -271,7 +272,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
         </div>
 
         {view === "lista" ? (
-          <div className="space-y-6">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
             {listDays.length === 0 && (
               <EmptyState />
             )}
@@ -336,7 +337,7 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
             })}
           </div>
         ) : view === "semana" ? (
-          <div className="space-y-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
             {range && range.length > 45 ? (
               <p className="meta-text">
                 Neste intervalo longo, a visão de semana mostra só os dias com evento.
@@ -370,64 +371,20 @@ export function CalendarBoard({ events }: { events: EventRecord[] }) {
             })}
           </div>
         ) : (
-          <Card flush>
-            <div className="grid grid-cols-7 border-b border-line bg-cream/80">
-              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
-                <p
-                  key={label}
-                  className="px-1 py-1.5 text-center text-[11px] font-medium text-forest/50"
-                >
-                  {label}
-                </p>
-              ))}
-            </div>
-            <div className="grid grid-cols-7">
-              {days.map((day) => {
-                const dayEvents = eventsOnDay(filtered, day);
-                const outside = !isSameMonth(day, cursor);
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={cn(
-                      "min-h-[84px] min-w-0 border-r border-b border-line p-1 last:border-r-0",
-                      outside && "bg-cream/40",
-                      isToday(day) && "bg-forest/5",
-                    )}
-                  >
-                    <div className="mb-1 flex items-center justify-between">
-                      <span
-                        className={cn(
-                          "tabular flex size-5 items-center justify-center rounded text-[11px]",
-                          isToday(day)
-                            ? "bg-forest text-cream"
-                            : outside
-                              ? "text-forest/30"
-                              : "text-forest",
-                        )}
-                      >
-                        {format(day, "d")}
-                      </span>
-                      {dayEvents.length > 0 && (
-                        <span className="tabular text-[11px] text-forest/40">
-                          {dayEvents.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-0.5">
-                      {dayEvents.map((event) => (
-                        <EventChip key={event.id} event={event} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {filtered.length === 0 && (
-              <div className="border-t border-line p-4">
-                <EmptyState />
-              </div>
-            )}
-          </Card>
+          <>
+            <MonthCalendarGrid
+              days={days}
+              cursor={cursor}
+              headerExtra={(day) => {
+                const count = eventsOnDay(filtered, day).length;
+                return count > 0 ? (
+                  <span className="tabular text-[11px] text-forest/40">{count}</span>
+                ) : null;
+              }}
+            >
+              {(day) => eventsOnDay(filtered, day).map((event) => <EventChip key={event.id} event={event} />)}
+            </MonthCalendarGrid>
+          </>
         )}
       </div>
     </PageShell>

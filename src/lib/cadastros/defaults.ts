@@ -1,4 +1,5 @@
 import { DEFAULT_DRINK_PREMISES, MENU_SECTIONS } from "@/lib/types";
+import { defaultCasaBragaLocal } from "./locais";
 import type {
   CadastrosData,
   CalcBase,
@@ -49,7 +50,7 @@ export const DEFAULT_BASES: CalcBase[] = [
   {
     id: "base-convidados",
     label: "Convidados",
-    description: "Total de convidados da ficha (adultos + crianças + profissionais).",
+    description: "Total de convidados do relatório (adultos + crianças + profissionais).",
     kind: { type: "guests" },
     builtIn: true,
   },
@@ -291,6 +292,7 @@ export function defaultCadastros(): CadastrosData {
     insumos: structuredClone(DEFAULT_INSUMOS),
     insumoCategories: [...DEFAULT_INSUMO_CATEGORIES],
     clientes: [],
+    locais: [defaultCasaBragaLocal()],
     veiculos: [],
     kits: [],
     extras: structuredClone(DEFAULT_EXTRAS),

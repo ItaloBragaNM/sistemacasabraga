@@ -62,7 +62,7 @@ export async function PUT(request: Request) {
         }, (event) => ({ ...event, changeLog: undefined, updatedAt: undefined })),
         "eventos",
         "evento",
-        "Eventos · Ficha do Evento",
+        "Eventos · Relatório do Evento",
       ),
     );
     try {

@@ -11,6 +11,7 @@ import { Modal } from "@/components/cadastros/ui";
 import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { casaBragaVenue } from "@/lib/event-factory";
@@ -35,7 +36,7 @@ export function NewEventForm() {
   );
 
   return (
-    <PageShell width="narrow" eyebrow="Eventos" title="Nova ficha">
+    <PageShell width="narrow" eyebrow="Eventos" title="Novo relatório">
       <form
         className="space-y-6"
         action="#"
@@ -65,12 +66,12 @@ export function NewEventForm() {
               drinks: suggestedDrinkQuantities(guestTotal(guests), cadastros?.drinkPremises ?? DEFAULT_DRINK_PREMISES),
               venue: { ...casaBragaVenue(), address },
             });
-            toast.success("Ficha criada. Complete os demais campos.");
+            toast.success("Relatório criado. Complete os demais campos.");
             router.push(`/eventos/${created.id}`);
           } catch (error) {
             console.error(error);
             setSaving(false);
-            toast.error("Não foi possível criar a ficha. Tente de novo.");
+            toast.error("Não foi possível criar o relatório. Tente de novo.");
           }
         }}
       >
@@ -107,18 +108,14 @@ export function NewEventForm() {
             </Field>
             <Field label="Cliente">
               <div className="flex gap-2">
-                <select
-                  className={cn(fieldControlClass, "min-w-0 flex-1")}
+                <SearchableSelect
+                  className="min-w-0 flex-1"
                   value={clientId}
-                  onChange={(event) => setClientId(event.target.value)}
-                >
-                  <option value="">Sem cliente vinculado</option>
-                  {clientes.map((cliente) => (
-                    <option key={cliente.id} value={cliente.id}>
-                      {cliente.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setClientId}
+                  emptyLabel="Sem cliente vinculado"
+                  searchPlaceholder="Pesquisar cliente…"
+                  options={clientes.map((cliente) => ({ value: cliente.id, label: cliente.name }))}
+                />
                 <Button
                   type="button"
                   variant="outline"
@@ -152,7 +149,7 @@ export function NewEventForm() {
 
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={saving} className="px-5">
-            {saving ? "Criando…" : "Criar ficha"}
+            {saving ? "Criando…" : "Criar relatório"}
           </Button>
           <Link
             href="/eventos"

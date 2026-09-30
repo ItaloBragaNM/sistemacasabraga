@@ -4,6 +4,7 @@ import { ChevronDown, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { fieldControlClass } from "@/components/events/field";
 import { PageHeader } from "@/components/ui/page-shell";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 
 export function CadastrosHeader({
@@ -99,20 +100,16 @@ export function CatalogFilters({
         <SearchInput value={search} onChange={onSearch} placeholder={searchPlaceholder} />
       </div>
       {facets.map((facet) => (
-        <select
+        <SearchableSelect
           key={facet.id}
-          aria-label={facet.label}
-          className={cn(fieldControlClass, "h-10 w-auto min-w-[9.5rem] shrink-0")}
           value={facet.value}
-          onChange={(event) => facet.onChange(event.target.value)}
-        >
-          <option value="">{compact ? facet.label : `Todos · ${facet.label}`}</option>
-          {facet.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          onChange={facet.onChange}
+          emptyLabel={compact ? facet.label : `Todos · ${facet.label}`}
+          searchPlaceholder={`Pesquisar ${facet.label.toLocaleLowerCase("pt-BR")}…`}
+          className="w-auto min-w-[9.5rem] shrink-0"
+          triggerClassName="h-10 w-auto min-w-[9.5rem]"
+          options={facet.options}
+        />
       ))}
       {multiFacets.map((facet) => (
         <FilterMultiSelect
@@ -154,10 +151,16 @@ export function FilterMultiSelect({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const allowed = new Set(options.map((item) => item.key));
   const selected = value.filter((item) => allowed.has(item));
   const labels = new Map(options.map((item) => [item.key, item.label]));
+  const term = query.trim().toLocaleLowerCase("pt-BR");
+  const visible = term
+    ? options.filter((item) => item.label.toLocaleLowerCase("pt-BR").includes(term))
+    : options;
 
   useEffect(() => {
     if (!open) return;
@@ -176,6 +179,14 @@ export function FilterMultiSelect({
       window.removeEventListener("mousedown", onPointer);
       window.removeEventListener("keydown", onKey);
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      return;
+    }
+    window.requestAnimationFrame(() => searchRef.current?.focus());
   }, [open]);
 
   const label =
@@ -201,8 +212,20 @@ export function FilterMultiSelect({
         <div
           role="listbox"
           aria-multiselectable="true"
-          className="absolute z-20 mt-1 max-h-72 w-[13.5rem] overflow-y-auto rounded-lg border border-forest/10 bg-white p-1 shadow-xl"
+          className="absolute z-20 mt-1 w-[13.5rem] overflow-hidden rounded-lg border border-forest/10 bg-white shadow-xl"
         >
+          <div className="relative border-b border-line p-1.5">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-forest/35" />
+            <input
+              ref={searchRef}
+              className="h-8 w-full rounded-md border border-forest/15 bg-white py-0 pl-8 pr-2 text-sm text-forest outline-none placeholder:text-forest/35 focus-visible:border-forest"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={`Pesquisar ${countedNoun}…`}
+              autoComplete="off"
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1">
           <button
             type="button"
             className={cn(
@@ -216,7 +239,8 @@ export function FilterMultiSelect({
           >
             {emptyLabel}
           </button>
-          {options.map((item) => {
+          {visible.length === 0 ? <p className="meta-text px-3 py-2">Nenhum resultado.</p> : null}
+          {visible.map((item) => {
             const checked = selected.includes(item.key);
             return (
               <label
@@ -237,6 +261,7 @@ export function FilterMultiSelect({
               </label>
             );
           })}
+          </div>
         </div>
       ) : null}
     </div>

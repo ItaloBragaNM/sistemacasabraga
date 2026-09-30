@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { menuItem, menuPlanNeedsPerCapita } from "../src/lib/event-factory";
 import {
   assignDishSheets,
   dishLinkError,
@@ -71,4 +72,12 @@ test("excluir o prato limpa os vínculos", () => {
   const next = unlinkDishFromSheets(sheets, "torta");
   assert.deepEqual(sheetDishIds(next[0]), ["bolo"]);
   assert.deepEqual(sheetDishIds(next[1]), []);
+});
+
+test("selecionar prato exige gerar per capita até o cardápio acompanhar", () => {
+  const dishes = [{ id: "risoto", name: "Risoto" }];
+  const planned = [{ id: "s1", title: "Menu", time: "", items: [menuItem("Risoto", "", "", "risoto")] }];
+  assert.equal(menuPlanNeedsPerCapita(["risoto"], dishes, []), true);
+  assert.equal(menuPlanNeedsPerCapita(["risoto"], dishes, planned), false);
+  assert.equal(menuPlanNeedsPerCapita([], dishes, planned), true);
 });

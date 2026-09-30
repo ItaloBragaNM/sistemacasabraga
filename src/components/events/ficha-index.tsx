@@ -28,22 +28,22 @@ export function FichaIndex() {
   return (
     <PageShell
       eyebrow="Eventos"
-      title="Ficha do Evento"
+      title="Relatório do Evento"
       actions={
         <>
           <DateSortSelect value={dateSort} onChange={setDateSort} />
           <Link href="/eventos/novo" className={cn(buttonVariants(), "px-4")}>
             <Plus data-icon="inline-start" />
-            Nova ficha
+            Novo relatório
           </Link>
         </>
       }
     >
       {!ready ? (
-        <LoadingBlock label="Carregando fichas…" />
+        <LoadingBlock label="Carregando relatórios…" />
       ) : sorted.length === 0 ? (
         <EmptyBlock
-          title="Nenhuma ficha ainda"
+          title="Nenhum relatório ainda"
           description="Crie o primeiro evento da casa para começar a operação."
         />
       ) : (

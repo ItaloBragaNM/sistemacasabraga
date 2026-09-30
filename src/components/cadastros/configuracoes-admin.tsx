@@ -7,6 +7,7 @@ import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { ChipRow, EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -27,11 +28,11 @@ const FIELD_OPTIONS: { value: string; label: string; kind: BaseKind }[] = [
 function describeKind(kind: BaseKind): string {
   switch (kind.type) {
     case "guests":
-      return "Convidados da ficha";
+      return "Convidados do relatório";
     case "staff":
       return `Equipe: ${kind.role}`;
     case "islands":
-      return "Ilhas da ficha";
+      return "Ilhas do relatório";
     case "serviceTeam":
       return "Garçons + garçonetes";
     case "perGuests":
@@ -504,7 +505,7 @@ function BasesSection() {
   return (
     <SettingsCard
       title="Bases de cálculo"
-      description="Definem como a quantidade de cada material acompanha a ficha do evento."
+      description="Definem como a quantidade de cada material acompanha o relatório do evento."
       action={
         <Button variant="outline" size="sm" onClick={() => setAdding((value) => !value)}>
           <Plus data-icon="inline-start" />
@@ -589,7 +590,7 @@ function NewBaseForm({
       description:
         type === "perGuests"
           ? `1 a cada ${per} convidados.`
-          : `Campo da ficha: ${FIELD_OPTIONS.find((o) => o.value === field)?.label}.`,
+          : `Campo do relatório: ${FIELD_OPTIONS.find((o) => o.value === field)?.label}.`,
       kind,
       builtIn: false,
     });
@@ -612,23 +613,18 @@ function NewBaseForm({
             value={type}
             onChange={(event) => setType(event.target.value as "field" | "perGuests")}
           >
-            <option value="field">Campo da ficha</option>
+            <option value="field">Campo do relatório</option>
             <option value="perGuests">1 a cada N convidados</option>
           </select>
         </Field>
         {type === "field" ? (
           <Field label="Campo">
-            <select
-              className={fieldControlClass}
+            <SearchableSelect
               value={field}
-              onChange={(event) => setField(event.target.value)}
-            >
-              {FIELD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={setField}
+              searchPlaceholder="Pesquisar campo…"
+              options={FIELD_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+            />
           </Field>
         ) : (
           <Field label="A cada N convidados">

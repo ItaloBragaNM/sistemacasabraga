@@ -109,7 +109,7 @@ export function PagamentoMaoDeObraPage() {
       ) : payments.length === 0 ? (
         <EmptyBlock
           title="Nenhum pagamento gerado"
-          description="Alocar prestadores na ficha do evento cria automaticamente os lançamentos nesta tela."
+          description="Alocar prestadores no relatório do evento cria automaticamente os lançamentos nesta tela."
         />
       ) : (
         <>

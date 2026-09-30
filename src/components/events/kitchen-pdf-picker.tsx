@@ -10,7 +10,7 @@ import {
   type KitchenPdfSectionKey,
 } from "@/components/events/kitchen-pdf";
 import { Button } from "@/components/ui/button";
-import type { EventRecord } from "@/lib/types";
+import { eventImageAttachments, type EventRecord } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function KitchenPdfPicker({
@@ -41,7 +41,9 @@ function KitchenPdfPickerForm({
   onWorking: (value: boolean) => void;
 }) {
   const [mode, setMode] = useState<"completa" | "especifica">("completa");
-  const [sections, setSections] = useState<KitchenPdfSectionKey[]>(ALL_KITCHEN_PDF_SECTIONS);
+  const [sections, setSections] = useState<KitchenPdfSectionKey[]>([...ALL_KITCHEN_PDF_SECTIONS]);
+  const [includeAttachments, setIncludeAttachments] = useState(false);
+  const imageCount = eventImageAttachments(event.attachments).length;
 
   const toggle = (key: KitchenPdfSectionKey) => {
     setMode("especifica");
@@ -51,7 +53,9 @@ function KitchenPdfPickerForm({
   };
 
   const download = async () => {
-    const chosen = mode === "completa" ? ALL_KITCHEN_PDF_SECTIONS : sections;
+    const chosen: KitchenPdfSectionKey[] =
+      mode === "completa" ? [...ALL_KITCHEN_PDF_SECTIONS] : [...sections];
+    if (includeAttachments) chosen.push("anexos");
     if (chosen.length === 0) {
       toast.error("Selecione ao menos uma seção.");
       return;
@@ -59,7 +63,7 @@ function KitchenPdfPickerForm({
     try {
       onWorking(true);
       await downloadKitchenPdf(event, chosen);
-      toast.success(mode === "completa" ? "PDF completo baixado." : "PDF da ficha baixado.");
+      toast.success(mode === "completa" ? "PDF completo baixado." : "PDF do relatório baixado.");
       onClose();
     } catch (error) {
       console.error(error);
@@ -70,7 +74,7 @@ function KitchenPdfPickerForm({
   };
 
   return (
-    <Modal open onClose={onClose} title="Baixar PDF da ficha">
+    <Modal open onClose={onClose} title="Baixar PDF do relatório">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -86,7 +90,7 @@ function KitchenPdfPickerForm({
                 : "border-forest/15 text-forest/70 hover:border-forest/30",
             )}
           >
-            Ficha completa
+            Relatório completo
           </button>
           <button
             type="button"
@@ -102,7 +106,7 @@ function KitchenPdfPickerForm({
           </button>
         </div>
         <div className={cn("space-y-2", mode === "completa" && "opacity-55")}>
-          <p className="text-xs font-medium text-forest/50">Seções da ficha</p>
+          <p className="text-xs font-medium text-forest/50">Seções do relatório</p>
           {KITCHEN_PDF_SECTIONS.map((item) => {
             const checked = mode === "completa" || sections.includes(item.key);
             return (
@@ -119,6 +123,28 @@ function KitchenPdfPickerForm({
             );
           })}
         </div>
+        <label
+          className={cn(
+            "flex cursor-pointer items-start gap-2 rounded-lg border border-forest/15 px-3 py-2 text-sm text-forest",
+            imageCount === 0 && "cursor-not-allowed opacity-55",
+          )}
+        >
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 accent-forest"
+            checked={includeAttachments}
+            disabled={imageCount === 0}
+            onChange={(event) => setIncludeAttachments(event.target.checked)}
+          />
+          <span>
+            Incluir imagens anexadas
+            <span className="mt-0.5 block text-xs text-forest/50">
+              {imageCount === 0
+                ? "Nenhuma imagem neste relatório. Anexe em Fotos e vídeos."
+                : `${imageCount} imagem${imageCount === 1 ? "" : "ns"} no PDF.`}
+            </span>
+          </span>
+        </label>
         <div className="flex justify-end gap-2 border-t border-forest/10 pt-4">
           <Button type="button" variant="outline" className="h-10" onClick={onClose}>
             Cancelar

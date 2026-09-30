@@ -16,6 +16,7 @@ import { CadastrosHeader, CatalogFilters, Chip, EmptyBlock, LoadingBlock, Modal 
 import { SortableTh, compareSort, useColumnSort } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import type { InsumoRecord } from "@/lib/cadastros/types";
@@ -275,13 +276,12 @@ function InsumoForm({
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Categoria">
-          <select className={fieldControlClass} value={category} onChange={(e) => setCategory(e.target.value)}>
-            {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            value={category}
+            onChange={setCategory}
+            searchPlaceholder="Pesquisar categoria…"
+            options={categories.map((item) => ({ value: item, label: item }))}
+          />
         </Field>
         <Field label="Unidade">
           <input

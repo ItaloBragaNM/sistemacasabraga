@@ -1,6 +1,6 @@
 "use client";
 
-import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import { formatShortDate, formatWeekday } from "@/lib/dates";
 import { downloadBlob, slugify } from "@/lib/download";
 import { PDF_FONT } from "@/lib/pdf/fonts";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/labels";
 import {
   alcoholSummary,
+  eventImageAttachments,
   eventMenuSections,
   eventStaffLines,
   formatUniformSizeLine,
@@ -41,7 +42,7 @@ export const KITCHEN_PDF_SECTIONS = [
   { key: "cozinha", label: "Observações da cozinha" },
 ] as const;
 
-export type KitchenPdfSectionKey = (typeof KITCHEN_PDF_SECTIONS)[number]["key"];
+export type KitchenPdfSectionKey = (typeof KITCHEN_PDF_SECTIONS)[number]["key"] | "anexos";
 
 export const ALL_KITCHEN_PDF_SECTIONS = KITCHEN_PDF_SECTIONS.map((item) => item.key);
 
@@ -56,9 +57,10 @@ const styles = StyleSheet.create({
   alert: {
     borderWidth: 0.8,
     borderColor: PDF.danger,
-    paddingVertical: 4,
+    backgroundColor: "#F8D9D7",
+    paddingVertical: 5,
     paddingHorizontal: 6,
-    marginTop: 6,
+    marginBottom: 8,
   },
   alertTitle: {
     color: PDF.danger,
@@ -67,9 +69,17 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     letterSpacing: 1,
     textTransform: "uppercase",
-    marginBottom: 1,
+    marginBottom: 2,
+  },
+  alertNote: {
+    color: PDF.danger,
+    fontSize: PDF.body,
+    lineHeight: 1.35,
   },
   note: { fontSize: PDF.body, lineHeight: 1.35 },
+  attachmentGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  attachmentCard: { width: "48%" },
+  attachmentImage: { width: "100%", maxHeight: 220, objectFit: "contain", marginBottom: 3 },
   columns: { flexDirection: "row", gap: 14 },
   column: { flex: 1 },
   label: { flex: 1, fontSize: PDF.body },
@@ -115,6 +125,7 @@ function EventLines({ event }: { event: EventRecord }) {
     event.ceremonyTime ? `Cerimônia ${event.ceremonyTime}` : "",
     event.invitationTime ? `Convite ${event.invitationTime}` : "",
     event.serviceTime ? `Serviço ${event.serviceTime}` : "",
+    event.foodDepartureTime ? `Saída da comida ${event.foodDepartureTime}` : "",
     event.serviceDuration ? `Duração ${event.serviceDuration}` : "",
     event.teamArrival ? `Chegada da equipe ${event.teamArrival}` : "",
   ]);
@@ -146,6 +157,8 @@ export function KitchenDocument({
   const showLogistica = selected.has("logistica");
   const showLogisticaNotes = selected.has("logisticaNotes");
   const showCozinha = selected.has("cozinha");
+  const showAnexos = selected.has("anexos");
+  const images = eventImageAttachments(event.attachments);
   const showStaff = showEquipe && (staff.length > 0 || labor.length > 0);
   const showUniforms = showEquipe && uniforms.length > 0;
   const alcohol = alcoholSummary(event.logistics);
@@ -158,14 +171,14 @@ export function KitchenDocument({
           meta={joinParts([event.code, EVENT_TYPE_LABELS[event.type], EVENT_STATUS_LABELS[event.status]])}
         />
 
-        {showEvento ? <EventLines event={event} /> : null}
-
-        {showCozinha && event.dietaryNotes ? (
+        {(event.dietaryNotes ?? "").trim() ? (
           <View style={styles.alert} wrap={false}>
             <Text style={styles.alertTitle}>Restrições alimentares</Text>
-            <Text style={styles.note}>{event.dietaryNotes}</Text>
+            <Text style={styles.alertNote}>{event.dietaryNotes}</Text>
           </View>
         ) : null}
+
+        {showEvento ? <EventLines event={event} /> : null}
 
         {showCardapio
           ? eventMenuSections(event).map((section) => {
@@ -274,13 +287,26 @@ export function KitchenDocument({
           </View>
         ) : null}
 
-        <PdfFooter
-          label={joinParts([
-            event.code,
-            showLogistica ? `Material dia anterior: ${yn(event.logistics.materialPreviousDay)}` : "",
-            showLogistica ? `Cavalete: ${yn(event.logistics.trestleTable)}` : "",
-          ])}
-        />
+        {showAnexos ? (
+          <View>
+            <SectionTitle>Imagens anexadas</SectionTitle>
+            {images.length === 0 ? (
+              <Text style={pdfStyles.hint}>Nenhuma imagem anexada neste evento.</Text>
+            ) : (
+              <View style={styles.attachmentGrid}>
+                {images.map((file) => (
+                  <View key={file.id} style={styles.attachmentCard} wrap={false}>
+                    {/* eslint-disable-next-line jsx-a11y/alt-text -- Image do react-pdf não aceita alt */}
+                    <Image src={file.dataUrl} style={styles.attachmentImage} />
+                    <Text style={pdfStyles.cellMuted}>{file.name}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        <PdfFooter label={event.code} />
       </Page>
     </Document>
   );
@@ -289,7 +315,11 @@ export function KitchenDocument({
 export async function downloadKitchenPdf(event: EventRecord, sections?: KitchenPdfSectionKey[]) {
   const chosen = sections?.length ? sections : ALL_KITCHEN_PDF_SECTIONS;
   const blob = await pdf(<KitchenDocument event={event} sections={chosen} />).toBlob();
-  const suffix = chosen.length === ALL_KITCHEN_PDF_SECTIONS.length ? "completa" : chosen.join("-");
+  const core = chosen.filter((key) => key !== "anexos");
+  const complete =
+    core.length === ALL_KITCHEN_PDF_SECTIONS.length &&
+    ALL_KITCHEN_PDF_SECTIONS.every((key) => core.includes(key));
+  const suffix = complete ? (chosen.includes("anexos") ? "completa-anexos" : "completa") : chosen.join("-");
   downloadBlob(
     blob,
     `ficha-${event.code.toLowerCase()}-${slugify(event.title) || "evento"}-${suffix}.pdf`,

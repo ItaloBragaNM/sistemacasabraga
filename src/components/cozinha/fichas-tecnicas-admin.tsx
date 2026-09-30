@@ -4,11 +4,12 @@ import { FileDown, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
 import { downloadTechnicalSheetPdf } from "@/components/cozinha/ficha-tecnica-pdf";
 import { useFichasTecnicas } from "@/components/cozinha/fichas-tecnicas-provider";
 import { fieldControlClass, Field, SectionTitle } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { SegmentedControl } from "@/components/ui/segmented";
@@ -215,7 +216,16 @@ function FichaEditor({
     dishId: sheetDishIds(initial)[0] ?? "",
   }));
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
+  const [dishQuery, setDishQuery] = useState("");
   const dishes = [...(cadastros?.dishes ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const dishTerm = dishQuery.trim().toLocaleLowerCase("pt-BR");
+  const visibleDishes = dishTerm
+    ? dishes.filter(
+        (dish) =>
+          dish.name.toLocaleLowerCase("pt-BR").includes(dishTerm) ||
+          dish.category.toLocaleLowerCase("pt-BR").includes(dishTerm),
+      )
+    : dishes;
   const sheets = fichas?.sheets ?? [];
   const insumos = cadastros?.insumos ?? [];
   const linkedIds = sheetDishIds(draft);
@@ -422,8 +432,15 @@ function FichaEditor({
               Cadastre pratos no cardápio para vinculá-los.
             </p>
           ) : (
+            <>
+            <div className="mb-2">
+              <SearchInput value={dishQuery} onChange={setDishQuery} placeholder="Pesquisar prato…" />
+            </div>
             <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
-              {dishes.map((dish) => {
+              {visibleDishes.length === 0 ? (
+                <p className="meta-text px-3 py-2">Nenhum prato encontrado.</p>
+              ) : null}
+              {visibleDishes.map((dish) => {
                 const checked = linkedIds.includes(dish.id);
                 const error = dishLinkError(previewSheets, draft, dish.id);
                 return (
@@ -464,6 +481,7 @@ function FichaEditor({
                 );
               })}
             </div>
+            </>
           )}
         </div>
       </Card>
@@ -491,18 +509,15 @@ function FichaEditor({
               {draft.ingredients.map((item) => (
                 <tr key={item.id} className="border-b border-line align-top">
                   <td className="py-2 pr-2">
-                    <select
-                      className={cn(fieldControlClass, "mb-1 h-9")}
+                    <SearchableSelect
+                      compact
+                      className="mb-1"
                       value={item.insumoId}
-                      onChange={(event) => applyInsumo(item.id, event.target.value)}
-                    >
-                      <option value="">Insumo avulso</option>
-                      {insumos.map((insumo) => (
-                        <option key={insumo.id} value={insumo.id}>
-                          {insumo.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => applyInsumo(item.id, value)}
+                      emptyLabel="Insumo avulso"
+                      searchPlaceholder="Pesquisar insumo…"
+                      options={insumos.map((insumo) => ({ value: insumo.id, label: insumo.name }))}
+                    />
                     <input
                       className={cn(fieldControlClass, "mb-1 h-9")}
                       value={item.name}

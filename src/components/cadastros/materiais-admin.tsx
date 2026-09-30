@@ -15,7 +15,9 @@ import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, Chip, ChipRow, EmptyBlock, LoadingBlock, Modal } from "@/components/cadastros/ui";
 import { SortableTh } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
+import { MediaActions } from "@/components/ui/attached-media";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { PageShell } from "@/components/ui/page-shell";
@@ -24,6 +26,7 @@ import { basesMap, describeProportion } from "@/lib/cadastros/calc";
 import { MAX_FACTORS, MATERIAL_KIND_LABELS, MATERIAL_KINDS, type MaterialKind, type MaterialRecord, type ProportionFactor } from "@/lib/cadastros/types";
 import { uid } from "@/lib/event-factory";
 import { compressImageToDataUrl } from "@/lib/images";
+import { openDataUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 type MaterialSortKey = "photo" | "name" | "kind" | "proportion" | "category" | "unit";
@@ -216,12 +219,18 @@ export function MateriaisAdmin() {
                       </td>
                       <td className="py-3 pr-3">
                         {material.photoDataUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={material.photoDataUrl}
-                            alt=""
-                            className="size-10 rounded-md object-cover ring-1 ring-line"
-                          />
+                          <button
+                            type="button"
+                            title="Abrir foto"
+                            onClick={() => openDataUrl(material.photoDataUrl!)}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={material.photoDataUrl}
+                              alt=""
+                              className="size-10 rounded-md object-cover ring-1 ring-line"
+                            />
+                          </button>
                         ) : (
                           <span className="flex size-10 items-center justify-center rounded-md bg-forest/[0.04] text-forest/25">
                             <ImagePlus className="size-4" />
@@ -385,17 +394,12 @@ function MaterialForm({
           />
         </Field>
         <Field label="Categoria">
-          <select
-            className={fieldControlClass}
+          <SearchableSelect
             value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
+            onChange={setCategory}
+            searchPlaceholder="Pesquisar categoria…"
+            options={categories.map((item) => ({ value: item, label: item }))}
+          />
         </Field>
         <Field label="Unidade">
           <input
@@ -406,18 +410,13 @@ function MaterialForm({
           />
         </Field>
         <Field label="Local do estoque">
-          <select
-            className={fieldControlClass}
+          <SearchableSelect
             value={locationId}
-            onChange={(event) => setLocationId(event.target.value)}
-          >
-            <option value="">Sem local definido</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
+            onChange={setLocationId}
+            emptyLabel="Sem local definido"
+            searchPlaceholder="Pesquisar local…"
+            options={locations.map((location) => ({ value: location.id, label: location.name }))}
+          />
         </Field>
         <Field label="Tipo (estoque)" className="sm:col-span-2">
           <select
@@ -481,13 +480,16 @@ function MaterialForm({
               />
             </label>
             {photoDataUrl ? (
-              <button
-                type="button"
-                className="meta-text block hover:text-danger"
-                onClick={() => setPhotoDataUrl("")}
-              >
-                Remover foto
-              </button>
+              <div className="space-y-1">
+                <MediaActions dataUrl={photoDataUrl} fileName={name.trim() || "material"} />
+                <button
+                  type="button"
+                  className="meta-text block hover:text-danger"
+                  onClick={() => setPhotoDataUrl("")}
+                >
+                  Remover foto
+                </button>
+              </div>
             ) : (
               <p className="meta-text">JPEG compactado, só para identificação.</p>
             )}
@@ -540,21 +542,17 @@ function MaterialForm({
         <div className="space-y-2">
           {factors.map((factor, index) => (
             <div key={index} className="flex items-center gap-2">
-              <select
-                className={cn(fieldControlClass, "flex-1")}
+              <SearchableSelect
+                className="flex-1"
                 value={factor.baseId}
-                onChange={(event) => {
+                onChange={(baseId) => {
                   const next = [...factors];
-                  next[index] = { ...factor, baseId: event.target.value };
+                  next[index] = { ...factor, baseId };
                   setFactors(next);
                 }}
-              >
-                {bases.map((base) => (
-                  <option key={base.id} value={base.id}>
-                    {base.label}
-                  </option>
-                ))}
-              </select>
+                searchPlaceholder="Pesquisar base…"
+                options={bases.map((base) => ({ value: base.id, label: base.label }))}
+              />
               <span className="text-forest/40">×</span>
               <QtyInput
                 step={0.01}

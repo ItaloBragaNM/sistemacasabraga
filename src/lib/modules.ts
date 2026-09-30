@@ -15,7 +15,8 @@ export const APP_MODULES: AppModule[] = [
     ready: true,
     pages: [
       { href: "/eventos", label: "Calendário de Eventos" },
-      { href: "/eventos/fichas", label: "Ficha do Evento" },
+      { href: "/eventos/compromissos", label: "Calendário Geral de Compromissos" },
+      { href: "/eventos/fichas", label: "Relatório do Evento" },
     ],
   },
   {
@@ -89,6 +90,7 @@ export const APP_MODULES: AppModule[] = [
       { href: "/cadastros/kits", label: "Kits de Materiais" },
       { href: "/cadastros/insumos", label: "Insumos" },
       { href: "/cadastros/clientes", label: "Clientes" },
+      { href: "/cadastros/locais", label: "Locais" },
       { href: "/cadastros/veiculos", label: "Veículos" },
       { href: "/cadastros/equipe-externa", label: "Equipe Externa" },
     ],

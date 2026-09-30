@@ -1,12 +1,14 @@
 "use client";
 
-import { addMonths, format, isSameMonth, isToday } from "date-fns";
+import { addMonths, format } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
+import { MonthCalendarGrid } from "@/components/events/month-calendar-grid";
 import { useEvents } from "@/components/events/events-provider";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { VEHICLE_USAGE_CATEGORY_LABELS } from "@/lib/cadastros/types";
@@ -72,97 +74,62 @@ export function VeiculosUsoPage() {
       ) : (vehicles ?? []).length === 0 ? (
         <EmptyBlock
           title="Cadastre a frota"
-          description="O cadastro dos veículos fica em Cadastros → Veículos. Depois, vincule-os na ficha do evento."
+          description="O cadastro dos veículos fica em Cadastros → Veículos. Depois, vincule-os no relatório do evento."
         />
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="section-title capitalize">{formatMonthTitle(cursor)}</h2>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
+          <div className="flex h-[calc(100dvh-13rem)] min-h-[20rem] flex-col gap-3 lg:h-[calc(100dvh-12rem)]">
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon-sm"
                 aria-label="Mês anterior"
-                className="flex size-9 items-center justify-center rounded-md text-forest/50 hover:bg-forest/5 hover:text-forest"
                 onClick={() => setCursor((current) => addMonths(current, -1))}
               >
-                <ChevronLeft className="size-4" />
-              </button>
-              <button
-                type="button"
-                className="h-9 rounded-md px-3 text-sm text-forest/60 hover:text-forest"
-                onClick={() => setCursor(new Date())}
-              >
-                Hoje
-              </button>
-              <button
-                type="button"
+                <ChevronLeft />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
                 aria-label="Próximo mês"
-                className="flex size-9 items-center justify-center rounded-md text-forest/50 hover:bg-forest/5 hover:text-forest"
                 onClick={() => setCursor((current) => addMonths(current, 1))}
               >
-                <ChevronRight className="size-4" />
-              </button>
+                <ChevronRight />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>
+                Hoje
+              </Button>
+              <h2 className="section-title ml-1 capitalize">{formatMonthTitle(cursor)}</h2>
             </div>
-          </div>
 
-          <Card flush>
-            <div className="grid grid-cols-7 border-b border-line bg-cream/80">
-              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
-                <p key={label} className="field-label px-1 py-3 text-center text-forest/50 sm:px-2">
-                  {label}
-                </p>
-              ))}
-            </div>
-            <div className="grid grid-cols-7">
-              {days.map((day) => {
+            <MonthCalendarGrid days={days} cursor={cursor}>
+              {(day) => {
                 const key = format(day, "yyyy-MM-dd");
                 const dayEvents = datedEvents.filter((event) => event.date === key);
-                const outside = !isSameMonth(day, cursor);
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={cn(
-                      "min-h-[118px] min-w-0 border-r border-b border-line p-1 last:border-r-0 sm:p-2",
-                      outside && "bg-cream/40",
-                      isToday(day) && "bg-forest/5",
-                    )}
-                  >
-                    <span
+                return dayEvents.map((event) => {
+                  const names = (event.vehicleIds ?? [])
+                    .map((id) => vehicleById.get(id)?.name)
+                    .filter(Boolean);
+                  const missing = names.length === 0;
+                  return (
+                    <Link
+                      key={event.id}
+                      href={`/eventos/${event.id}`}
                       className={cn(
-                        "mb-2 flex size-7 items-center justify-center rounded-md text-xs tabular",
-                        isToday(day) ? "bg-forest text-cream" : outside ? "text-forest/30" : "text-forest",
+                        "block truncate rounded-md px-2 py-1 text-[12px] leading-4 font-medium",
+                        missing ? "bg-danger/10 text-danger" : "bg-forest/8 text-forest",
                       )}
                     >
-                      {format(day, "d")}
-                    </span>
-                    <div className="space-y-1">
-                      {dayEvents.map((event) => {
-                        const names = (event.vehicleIds ?? [])
-                          .map((id) => vehicleById.get(id)?.name)
-                          .filter(Boolean);
-                        const missing = names.length === 0;
-                        return (
-                          <Link
-                            key={event.id}
-                            href={`/eventos/${event.id}`}
-                            className={cn(
-                              "block rounded-md px-1.5 py-1 text-[12px] leading-snug",
-                              missing ? "bg-danger/10 text-danger" : "bg-forest/8 text-forest",
-                            )}
-                          >
-                            <span className="block truncate font-medium">{event.title || "Evento"}</span>
-                            <span className="block truncate opacity-80">
-                              {missing ? "Sem veículo" : names.join(" · ")}
-                            </span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+                      {event.title || "Evento"}
+                      <span className="block truncate font-normal opacity-80">
+                        {missing ? "Sem veículo" : names.join(" · ")}
+                      </span>
+                    </Link>
+                  );
+                });
+              }}
+            </MonthCalendarGrid>
+          </div>
 
           {withoutVehicle.length > 0 ? (
             <Card>
@@ -192,7 +159,7 @@ export function VeiculosUsoPage() {
           {rows.length === 0 ? (
             <EmptyBlock
               title="Nenhum veículo alocado"
-              description="Na ficha do evento, selecione o veículo. O registro semanal em PDF fica em Registro de Uso."
+              description="No relatório do evento, selecione o veículo. O registro semanal em PDF fica em Registro de Uso."
             />
           ) : (
             <Card flush>

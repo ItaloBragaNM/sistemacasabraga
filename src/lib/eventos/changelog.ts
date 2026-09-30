@@ -103,6 +103,7 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
     EVENT_STATUS_LABELS[next.status] ?? next.status,
   );
   push(changes, "Cliente", previous.clientId ?? "", next.clientId ?? "");
+  push(changes, "Local", previous.venueId ?? "", next.venueId ?? "");
   push(changes, "Data do evento", formatDate(previous.date), formatDate(next.date));
   push(
     changes,
@@ -118,9 +119,9 @@ export function diffEvent(previous: EventRecord, next: EventRecord): EventFieldC
   );
   push(
     changes,
-    "Entrega de comida",
-    formatDate(previous.foodDeliveryDate),
-    formatDate(next.foodDeliveryDate),
+    "Horário de saída da comida",
+    previous.foodDepartureTime ?? "",
+    next.foodDepartureTime ?? "",
   );
   push(changes, "Ilhas", String(previous.islands || 0), String(next.islands || 0));
   push(changes, "Chegada da equipe", previous.teamArrival, next.teamArrival);
@@ -288,7 +289,7 @@ function actorName(actor: ChangeActor | null | undefined) {
 }
 
 export function eventChangeLabels(previous: EventRecord | null, next: EventRecord) {
-  if (!previous) return ["Ficha criada"];
+  if (!previous) return ["Relatório criado"];
   return diffEvent(previous, next).map((change) => change.label);
 }
 
@@ -305,14 +306,27 @@ export function withChangeLog(
       at: createdAt,
       userId: actor?.id ?? "",
       userName: actorName(actor),
-      changes: [{ label: "Ficha", from: EMPTY, to: "criada" }],
+      changes: [{ label: "Relatório", from: EMPTY, to: "criado" }],
     };
     return { ...next, changeLog: [created] };
   }
 
   const changes = diffEvent(previous, next);
+  const reason = meta?.reason?.trim() || undefined;
+  const clientLabel = meta?.clientLabel?.trim() || undefined;
   if (changes.length === 0) {
-    return { ...next, changeLog: previous.changeLog ?? [] };
+    if (!reason) return { ...next, changeLog: previous.changeLog ?? [] };
+    const log = [...(previous.changeLog ?? [])];
+    log.push({
+      id: uid(),
+      at: new Date().toISOString(),
+      userId: actor?.id ?? "",
+      userName: actorName(actor),
+      changes: [{ label: "Follow-up", from: EMPTY, to: "registrado" }],
+      reason,
+      clientLabel,
+    });
+    return { ...next, changeLog: log.slice(-MAX_ENTRIES) };
   }
 
   const at = new Date().toISOString();
@@ -322,13 +336,13 @@ export function withChangeLog(
   const last = log[log.length - 1];
   const sameUser = last && (userId ? last.userId === userId : last.userName === userName);
   const recent = last && Math.abs(Date.parse(at) - Date.parse(last.at)) <= COALESCE_MS;
-  const reason = meta?.reason?.trim() || undefined;
-  const clientLabel = meta?.clientLabel?.trim() || undefined;
   const canCoalesce =
     last &&
     sameUser &&
     recent &&
     last.changes[0]?.label !== "Ficha" &&
+    last.changes[0]?.label !== "Relatório" &&
+    last.changes[0]?.label !== "Follow-up" &&
     !last.reason &&
     !reason;
 

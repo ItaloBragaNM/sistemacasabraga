@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { ImagePlus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
@@ -15,7 +15,9 @@ import { ImportExport } from "@/components/cadastros/import-export";
 import { CadastrosHeader, CatalogFilters, Chip, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
 import { compareSort, SortButton, useColumnSort } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
+import { MediaActions } from "@/components/ui/attached-media";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { PageShell } from "@/components/ui/page-shell";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useFichasTecnicas } from "@/components/cozinha/fichas-tecnicas-provider";
@@ -31,6 +33,8 @@ import {
   type TechnicalSheetKind,
 } from "@/lib/fichas-tecnicas/types";
 import { uid } from "@/lib/event-factory";
+import { compressImageToDataUrl } from "@/lib/images";
+import { openDataUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 export function CardapioAdmin() {
@@ -40,6 +44,7 @@ export function CardapioAdmin() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [materialsFilter, setMaterialsFilter] = useState("");
+  const [insumosFilter, setInsumosFilter] = useState("");
   const [linkView, setLinkView] = useState<"both" | "insumos" | "materiais">("both");
   const nameSort = useColumnSort<"name">("name");
   const [editing, setEditing] = useState<DishRecord | null>(null);
@@ -60,6 +65,7 @@ export function CardapioAdmin() {
     const dishes = data.dishes.filter((dish) => {
       if (categoryFilter && dish.category !== categoryFilter) return false;
       if (materialsFilter === "none" && dish.materialIds.length > 0) return false;
+      if (insumosFilter === "none" && (dish.insumoIds ?? []).length > 0) return false;
       if (term && !dish.name.toLowerCase().includes(term)) return false;
       return true;
     });
@@ -77,7 +83,7 @@ export function CardapioAdmin() {
           .sort((a, b) => compareSort(a.name, b.name, nameSort.dir)),
       }))
       .filter((group) => group.dishes.length > 0);
-  }, [data, search, categoryFilter, materialsFilter, nameSort.dir]);
+  }, [data, search, categoryFilter, materialsFilter, insumosFilter, nameSort.dir]);
 
   const startNew = () => {
     setEditing(null);
@@ -153,6 +159,13 @@ export function CardapioAdmin() {
                 onChange: setMaterialsFilter,
                 options: [{ value: "none", label: "Sem materiais vinculados" }],
               },
+              {
+                id: "insumos",
+                label: "Insumos",
+                value: insumosFilter,
+                onChange: setInsumosFilter,
+                options: [{ value: "none", label: "Sem insumos vinculados" }],
+              },
             ]}
             extra={
               <select
@@ -218,6 +231,21 @@ export function CardapioAdmin() {
                             checked={selection.selected.has(dish.id)}
                             onChange={() => selection.toggle(dish.id)}
                           />
+                          {dish.photoDataUrl ? (
+                            <button
+                              type="button"
+                              className="shrink-0"
+                              title="Abrir foto"
+                              onClick={() => openDataUrl(dish.photoDataUrl!)}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={dish.photoDataUrl}
+                                alt=""
+                                className="size-12 rounded-md object-cover ring-1 ring-line"
+                              />
+                            </button>
+                          ) : null}
                           <div className="min-w-0">
                             <p className="font-medium text-forest">{dish.name}</p>
                             <div className="mt-3 space-y-2">
@@ -356,6 +384,8 @@ function DishForm({
   const [sheetSlots, setSheetSlots] = useState<Record<TechnicalSheetKind, string>>(() =>
     dishSheetSlots(sheets, initial?.id ?? ""),
   );
+  const [photoDataUrl, setPhotoDataUrl] = useState(initial?.photoDataUrl ?? "");
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const filteredMaterials = useMemo(() => {
     const term = materialSearch.trim().toLowerCase();
@@ -413,6 +443,7 @@ function DishForm({
         insumoIds,
         hasRechaud,
         hasFritadeira,
+        photoDataUrl: photoDataUrl || undefined,
         createdAt: initial?.createdAt ?? now,
         updatedAt: now,
       },
@@ -432,18 +463,74 @@ function DishForm({
           />
         </Field>
         <Field label="Categoria">
-          <select
-            className={fieldControlClass}
+          <SearchableSelect
             value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
+            onChange={setCategory}
+            searchPlaceholder="Pesquisar categoria…"
+            options={categories.map((item) => ({ value: item, label: item }))}
+          />
         </Field>
+      </div>
+
+      <div>
+        <p className="field-label mb-2">Foto do prato</p>
+        <div className="flex items-center gap-4">
+          {photoDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoDataUrl}
+              alt={name || "Prato"}
+              className="size-20 rounded-lg object-cover ring-1 ring-line"
+            />
+          ) : (
+            <span className="flex size-20 items-center justify-center rounded-lg bg-forest/[0.04] text-forest/25">
+              <ImagePlus className="size-6" />
+            </span>
+          )}
+          <div className="space-y-2">
+            <label className="inline-flex h-10 cursor-pointer items-center rounded-md border border-forest/15 px-4 text-sm text-forest/80 hover:border-forest/30">
+              {photoBusy ? "Compactando…" : photoDataUrl ? "Trocar foto" : "Enviar foto"}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                disabled={photoBusy}
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  try {
+                    setPhotoBusy(true);
+                    setPhotoDataUrl(await compressImageToDataUrl(file));
+                  } catch (error) {
+                    console.error(error);
+                    toast.error(
+                      error instanceof Error && error.message === "too-large"
+                        ? "A foto ficou grande demais. Use outra imagem."
+                        : "Não foi possível ler a foto.",
+                    );
+                  } finally {
+                    setPhotoBusy(false);
+                  }
+                }}
+              />
+            </label>
+            {photoDataUrl ? (
+              <div className="space-y-1">
+                <MediaActions dataUrl={photoDataUrl} fileName={name.trim() || "prato"} />
+                <button
+                  type="button"
+                  className="meta-text block hover:text-danger"
+                  onClick={() => setPhotoDataUrl("")}
+                >
+                  Remover foto
+                </button>
+              </div>
+            ) : (
+              <p className="meta-text">JPEG compactado, só para identificação.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-4">
@@ -483,20 +570,13 @@ function DishForm({
               .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
             return (
               <Field key={kind} label={TECHNICAL_SHEET_KIND_LABELS[kind]}>
-                <select
-                  className={fieldControlClass}
+                <SearchableSelect
                   value={sheetSlots[kind]}
-                  onChange={(event) =>
-                    setSheetSlots((current) => ({ ...current, [kind]: event.target.value }))
-                  }
-                >
-                  <option value="">Sem vínculo</option>
-                  {options.map((sheet) => (
-                    <option key={sheet.id} value={sheet.id}>
-                      {sheet.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setSheetSlots((current) => ({ ...current, [kind]: value }))}
+                  emptyLabel="Sem vínculo"
+                  searchPlaceholder="Pesquisar ficha…"
+                  options={options.map((sheet) => ({ value: sheet.id, label: sheet.name }))}
+                />
               </Field>
             );
           })}

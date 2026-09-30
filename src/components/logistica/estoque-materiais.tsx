@@ -8,6 +8,7 @@ import { CatalogFilters, EmptyBlock, LoadingBlock, Modal } from "@/components/ca
 import { useLogistica } from "@/components/logistica/logistica-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -29,6 +30,7 @@ import { formatInt } from "@/lib/crm/format";
 import { exportToXlsx } from "@/lib/cadastros/xlsx";
 import { uid } from "@/lib/event-factory";
 import { formatShortDate } from "@/lib/dates";
+import { openDataUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 type SortKey = "name" | "qty" | "location";
@@ -284,12 +286,22 @@ export function EstoqueMateriais() {
                         <td className="py-3 pl-4 sm:pl-5">
                           <div className="flex items-center gap-3">
                             {material.photoDataUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={material.photoDataUrl}
-                                alt=""
-                                className="size-10 shrink-0 rounded-md object-cover"
-                              />
+                              <button
+                                type="button"
+                                title="Abrir foto"
+                                className="shrink-0"
+                                onClick={(click) => {
+                                  click.stopPropagation();
+                                  openDataUrl(material.photoDataUrl!);
+                                }}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={material.photoDataUrl}
+                                  alt=""
+                                  className="size-10 rounded-md object-cover"
+                                />
+                              </button>
                             ) : null}
                             <div className="min-w-0">
                               <p className="text-forest">{material.name}</p>
@@ -451,12 +463,19 @@ function MaterialStockPanel({
       <div className="surface-card px-4 py-3">
         <div className="flex items-start gap-3">
           {material.photoDataUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={material.photoDataUrl}
-              alt=""
-              className="size-16 shrink-0 rounded-md object-cover"
-            />
+            <button
+              type="button"
+              title="Abrir foto"
+              className="shrink-0"
+              onClick={() => openDataUrl(material.photoDataUrl!)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={material.photoDataUrl}
+                alt=""
+                className="size-16 rounded-md object-cover"
+              />
+            </button>
           ) : null}
           <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
             <div className="min-w-0">
@@ -541,18 +560,13 @@ function MaterialStockPanel({
           />
         </Field>
         <Field label="Local">
-          <select
-            className={fieldControlClass}
+          <SearchableSelect
             value={locationId}
-            onChange={(e) => setLocationId(e.target.value)}
-          >
-            <option value="">Sem local definido</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
+            onChange={setLocationId}
+            emptyLabel="Sem local definido"
+            searchPlaceholder="Pesquisar local…"
+            options={locations.map((location) => ({ value: location.id, label: location.name }))}
+          />
         </Field>
         <Button variant="outline" className="h-10 px-4" onClick={() => onMeta(min, locationId)}>
           Salvar

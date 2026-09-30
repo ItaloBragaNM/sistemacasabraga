@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ClienteForm } from "@/components/cadastros/cliente-form";
+import { LocalForm } from "@/components/cadastros/local-form";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { Modal, SearchInput } from "@/components/cadastros/ui";
 import { EventDrinksFields, EventUniformsFields } from "@/components/events/drinks-uniforms";
@@ -15,13 +16,17 @@ import { fieldControlClass, fieldControlCompactClass, Field, FichaSection } from
 import { StatusBadge } from "@/components/events/status-badge";
 import { useEvents } from "@/components/events/events-provider";
 import { useMaoDeObra } from "@/components/mao-de-obra/mao-de-obra-provider";
+import { AttachedMediaRow } from "@/components/ui/attached-media";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { SearchablePicker, SearchableSelect } from "@/components/ui/searchable-select";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { PageShell } from "@/components/ui/page-shell";
-import type { DishRecord } from "@/lib/cadastros/types";
+import { applyLocalLogistics, venueFromLocal } from "@/lib/cadastros/locais";
+import type { DishRecord, LocalRecord } from "@/lib/cadastros/types";
 import { formatBRL } from "@/lib/crm/format";
-import { formatDateTime } from "@/lib/dates";
-import { menuFromPlan, menuItem, uid, upsertMenuPlanFromDishes } from "@/lib/event-factory";
+import { formatDateTime, syncedFoodDepartureTime } from "@/lib/dates";
+import { compressImageToDataUrl } from "@/lib/images";
+import { menuFromPlan, menuItem, menuPlanNeedsPerCapita, uid, upsertMenuPlanFromDishes } from "@/lib/event-factory";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, UNIFORM_SIZE_LABELS, VENUE_KIND_LABELS } from "@/lib/labels";
 import {
   ALCOHOL_TYPES,
@@ -41,6 +46,7 @@ import {
   UNIFORM_PIECES,
   laborUniformPieces,
   type ExtraStaffRoleKey,
+  type EventAttachment,
   type EventLaborAllocation,
   type EventMenuSection,
   type EventRecord,
@@ -69,13 +75,14 @@ function snapshotForDirty(event: EventRecord) {
 export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
   const { events } = useEvents();
-  const { data: cadastros, upsertCliente } = useCadastros();
+  const { data: cadastros, upsertCliente, upsertLocal } = useCadastros();
   const { data: maoDeObra, reload: reloadLabor } = useMaoDeObra();
   const [draft, setDraft] = useState(() => normalizeEventRecord(event));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
   const [pdfModal, setPdfModal] = useState(false);
   const [clientModal, setClientModal] = useState(false);
+  const [localModal, setLocalModal] = useState(false);
   const [reasonModal, setReasonModal] = useState(false);
   const [reason, setReason] = useState("");
   const [changeAtLabel, setChangeAtLabel] = useState("");
@@ -87,7 +94,14 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const clientName = clientes.find((cliente) => cliente.id === draft.clientId)?.name;
   const clientMissing = Boolean(draft.clientId) && !clientName;
   const clientLabel = clientName || (clientMissing ? "Cliente não encontrado" : "Sem cliente");
+  const locais = [...(cadastros?.locais ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const selectedLocal = locais.find((local) => local.id === draft.venueId);
+  const localMissing = Boolean(draft.venueId) && !selectedLocal;
   const dirty = useMemo(() => snapshotForDirty(draft) !== baseline, [baseline, draft]);
+  const draftRef = useRef(draft);
+  const baselineRef = useRef(baseline);
+  draftRef.current = draft;
+  baselineRef.current = baseline;
   const dishPopularity = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of events) {
@@ -133,14 +147,23 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
     }));
   };
 
+  const applyLocal = (local: LocalRecord | null) => {
+    setDraft((current) => {
+      if (!local) return { ...current, venueId: "" };
+      return {
+        ...current,
+        venueId: local.id,
+        venue: venueFromLocal(local),
+        outOfTown: local.outOfTown,
+        logistics: applyLocalLogistics(current.logistics, local),
+      };
+    });
+  };
+
   const addAttachments = async (files: FileList | null) => {
     if (!files?.length) return;
-    const next = [...(draft.attachments ?? [])];
+    const additions: EventAttachment[] = [];
     for (const file of Array.from(files)) {
-      if (next.length >= EVENT_ATTACHMENT_MAX_FILES) {
-        toast.error(`Máximo de ${EVENT_ATTACHMENT_MAX_FILES} arquivos.`);
-        break;
-      }
       if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
         toast.error(`“${file.name}” não é foto ou vídeo.`);
         continue;
@@ -150,18 +173,37 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         continue;
       }
       try {
-        next.push({
+        const dataUrl = file.type.startsWith("image/")
+          ? await compressImageToDataUrl(file)
+          : await readFileAsDataUrl(file);
+        additions.push({
           id: uid(),
           name: file.name,
-          mime: file.type,
+          mime: file.type.startsWith("image/") ? "image/jpeg" : file.type,
           size: file.size,
-          dataUrl: await readFileAsDataUrl(file),
+          dataUrl,
         });
-      } catch {
-        toast.error(`Não foi possível ler “${file.name}”.`);
+      } catch (error) {
+        toast.error(
+          error instanceof Error && error.message === "too-large"
+            ? `“${file.name}” ficou grande demais. Use outra imagem.`
+            : `Não foi possível ler “${file.name}”.`,
+        );
       }
     }
-    update("attachments", next);
+    if (!additions.length) return;
+    setDraft((current) => {
+      const existing = current.attachments ?? [];
+      const room = EVENT_ATTACHMENT_MAX_FILES - existing.length;
+      if (room <= 0) {
+        toast.error(`Máximo de ${EVENT_ATTACHMENT_MAX_FILES} arquivos.`);
+        return current;
+      }
+      if (additions.length > room) {
+        toast.error(`Máximo de ${EVENT_ATTACHMENT_MAX_FILES} arquivos.`);
+      }
+      return { ...current, attachments: [...existing, ...additions.slice(0, room)] };
+    });
   };
 
   const setGuests = (guests: Guests) => {
@@ -177,48 +219,93 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   };
 
   const generatePerCapita = () => {
-    const selected = new Set(draft.selectedDishIds ?? []);
+    const selectedIds = draft.selectedDishIds ?? [];
+    const selected = new Set(selectedIds);
     const dishes = (cadastros?.dishes ?? []).filter((dish) => selected.has(dish.id));
-    if (dishes.length === 0) {
+    const currentPlan = eventMenuSections(draft);
+    if (
+      dishes.length === 0 &&
+      !menuPlanNeedsPerCapita(selectedIds, cadastros?.dishes ?? [], currentPlan)
+    ) {
       toast.error("Selecione ao menos um prato do catálogo.");
       return;
     }
-    const plan = upsertMenuPlanFromDishes(eventMenuSections(draft), dishes);
+    const plan = upsertMenuPlanFromDishes(currentPlan, dishes);
     setDraft((current) => ({
       ...current,
       menuPlan: plan,
       menu: menuFromPlan(plan),
     }));
+    toast.dismiss("gerar-per-capita");
     toast.success(
-      `${dishes.length} prato${dishes.length === 1 ? "" : "s"} no cardápio do evento. Preencha o per capita e as observações.`,
+      dishes.length === 0
+        ? "Cardápio atualizado. Os pratos do catálogo foram removidos."
+        : `${dishes.length} prato${dishes.length === 1 ? "" : "s"} no cardápio do evento. Preencha o per capita e as observações.`,
     );
   };
 
-  const openSaveModal = () => {
-    if (!dirty) {
-      toast.message("Nenhuma alteração para salvar.");
-      return;
-    }
+  const needsPerCapita = useMemo(
+    () =>
+      menuPlanNeedsPerCapita(
+        draft.selectedDishIds ?? [],
+        cadastros?.dishes ?? [],
+        eventMenuSections(draft),
+      ),
+    [cadastros?.dishes, draft],
+  );
+
+  const persistDraft = useCallback(
+    (meta?: EventSaveMeta) => {
+      const toSave = normalizeEventRecord(draftRef.current);
+      const snap = snapshotForDirty(toSave);
+      const hasReason = Boolean(meta?.reason?.trim());
+      if (snap === baselineRef.current && !hasReason) return false;
+      setSaveState("saving");
+      const saved = onSave(toSave, meta);
+      const next = normalizeEventRecord(saved || toSave);
+      if (snapshotForDirty(draftRef.current) === snap) {
+        setDraft(next);
+        setBaseline(snapshotForDirty(next));
+      } else {
+        setDraft((current) => ({
+          ...current,
+          changeLog: next.changeLog,
+          updatedAt: next.updatedAt,
+        }));
+      }
+      setSaveState("saved");
+      return true;
+    },
+    [onSave],
+  );
+
+  useEffect(() => {
+    if (!dirty || reasonModal) return;
+    const timer = window.setTimeout(() => {
+      persistDraft();
+      window.setTimeout(() => {
+        void reloadLabor();
+      }, 600);
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [dirty, draft, reasonModal, persistDraft, reloadLabor]);
+
+  const openFollowUp = () => {
     setReason("");
     setChangeAtLabel(formatDateTime(new Date().toISOString()));
     setReasonModal(true);
   };
 
-  const confirmSave = () => {
+  const confirmFollowUp = () => {
     const trimmed = reason.trim();
     if (!trimmed) {
-      toast.error("Informe o motivo da alteração.");
+      toast.error("Informe o motivo da atualização.");
       return;
     }
-    setSaveState("saving");
-    const saved = onSave(draft, { reason: trimmed, clientLabel });
-    const next = normalizeEventRecord(saved || draft);
-    setDraft(next);
-    setBaseline(snapshotForDirty(next));
+    persistDraft({ reason: trimmed, clientLabel });
     setReasonModal(false);
     setReason("");
-    setSaveState("saved");
-    toast.success("Alterações salvas.");
+    toast.success("Follow-up registrado.");
     window.setTimeout(() => {
       void reloadLabor();
     }, 600);
@@ -243,12 +330,8 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         <span className="flex flex-wrap items-center gap-2">
           <StatusBadge status={draft.status} />
           {saveState === "saving" || dirty || saveState === "saved" ? (
-            <span className={dirty && saveState !== "saving" ? "text-warn" : undefined}>
-              {saveState === "saving"
-                ? "Salvando…"
-                : dirty
-                  ? "Alterações não salvas"
-                  : "Alterações salvas"}
+            <span className={saveState === "saving" || dirty ? "text-forest/55" : undefined}>
+              {saveState === "saving" ? "Salvando…" : dirty ? "Salvando em instantes…" : "Salvo"}
             </span>
           ) : null}
         </span>
@@ -256,20 +339,19 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       actions={
         <>
           <FichaActionButtons
-            dirty={dirty}
             saveState={saveState}
             pdfState={pdfState}
-            onSave={openSaveModal}
+            onFollowUp={openFollowUp}
             onPdf={() => setPdfModal(true)}
           />
           <Button
             variant="destructive"
             size="icon"
-            aria-label="Excluir ficha"
+            aria-label="Excluir relatório"
             onClick={() => {
-              if (window.confirm("Excluir esta ficha? A ação não pode ser desfeita neste aparelho.")) {
+              if (window.confirm("Excluir este relatório? A ação não pode ser desfeita neste aparelho.")) {
                 onDelete(draft.id);
-                toast.success("Ficha excluída.");
+                toast.success("Relatório excluído.");
                 router.push("/eventos");
               }
             }}
@@ -303,21 +385,20 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </Field>
           <Field label="Cliente">
             <div className="flex gap-2">
-              <select
-                className={cn(fieldControlCompactClass, "min-w-0 flex-1")}
+              <SearchableSelect
+                compact
+                className="min-w-0 flex-1"
                 value={draft.clientId ?? ""}
-                onChange={(event) => update("clientId", event.target.value)}
-              >
-                <option value="">Sem cliente vinculado</option>
-                {clientMissing ? (
-                  <option value={draft.clientId}>Cliente removido da base</option>
-                ) : null}
-                {clientes.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => update("clientId", value)}
+                emptyLabel="Sem cliente vinculado"
+                searchPlaceholder="Pesquisar cliente…"
+                options={[
+                  ...(clientMissing && draft.clientId
+                    ? [{ value: draft.clientId, label: "Cliente removido da base" }]
+                    : []),
+                  ...clientes.map((cliente) => ({ value: cliente.id, label: cliente.name })),
+                ]}
+              />
               <Button
                 type="button"
                 variant="outline"
@@ -352,29 +433,36 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </Field>
         </div>
         <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
-          <Field label="Entrega de material">
-            <input
-              type="date"
-              className={fieldControlCompactClass}
-              value={draft.materialDeliveryDate}
-              onChange={(event) => update("materialDeliveryDate", event.target.value)}
-            />
-          </Field>
-          <Field label="Recolhimento de material">
-            <input
-              type="date"
-              className={fieldControlCompactClass}
-              value={draft.materialPickupDate ?? ""}
-              onChange={(event) => update("materialPickupDate", event.target.value)}
-            />
-          </Field>
-          <Field label="Entrega de comida">
-            <input
-              type="date"
-              className={fieldControlCompactClass}
-              value={draft.foodDeliveryDate}
-              onChange={(event) => update("foodDeliveryDate", event.target.value)}
-            />
+          <Field label="Local">
+            <div className="flex gap-2">
+              <SearchableSelect
+                compact
+                className="min-w-0 flex-1"
+                value={draft.venueId ?? ""}
+                onChange={(value) => {
+                  const local = locais.find((item) => item.id === value) ?? null;
+                  applyLocal(local);
+                }}
+                emptyLabel="Sem local vinculado"
+                searchPlaceholder="Pesquisar local…"
+                options={[
+                  ...(localMissing && draft.venueId
+                    ? [{ value: draft.venueId, label: "Local removido da base" }]
+                    : []),
+                  ...locais.map((local) => ({ value: local.id, label: local.name })),
+                ]}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 shrink-0 px-2"
+                onClick={() => setLocalModal(true)}
+                aria-label="Cadastrar local"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+            {selectedLocal?.outOfTown ? <p className="meta-text mt-1">Fora da cidade</p> : null}
           </Field>
           <Field label="Tipo de local">
             <select
@@ -412,6 +500,29 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
                 update("venue", { ...draft.venue, address: event.target.value })
               }
             />
+            {selectedLocal &&
+            (selectedLocal.parkingNotes || selectedLocal.accessNotes || selectedLocal.loadingNotes) ? (
+              <p className="meta-text mt-1">
+                {[
+                  selectedLocal.parkingNotes && `Estacionamento: ${selectedLocal.parkingNotes}`,
+                  selectedLocal.accessNotes && `Acesso: ${selectedLocal.accessNotes}`,
+                  selectedLocal.loadingNotes && `Carga: ${selectedLocal.loadingNotes}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            ) : null}
+          </Field>
+          <Field label="Fora da cidade">
+            <label className="flex h-8 cursor-pointer items-center gap-2 text-sm text-forest">
+              <input
+                type="checkbox"
+                className="size-4 accent-forest"
+                checked={draft.outOfTown}
+                onChange={(event) => update("outOfTown", event.target.checked)}
+              />
+              Ajuda de custo da equipe
+            </label>
           </Field>
           <Field label="★ Adultos">
             <input
@@ -460,12 +571,31 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               }
             />
           </Field>
-          <Field label="Chegada da equipe">
+          <Field label="Horário do serviço">
             <input
               type="time"
               className={fieldControlCompactClass}
-              value={draft.teamArrival}
-              onChange={(event) => update("teamArrival", event.target.value)}
+              value={draft.serviceTime}
+              onChange={(event) => {
+                const nextServiceTime = event.target.value;
+                setDraft((current) => ({
+                  ...current,
+                  serviceTime: nextServiceTime,
+                  foodDepartureTime: syncedFoodDepartureTime(
+                    current.serviceTime,
+                    nextServiceTime,
+                    current.foodDepartureTime,
+                  ),
+                }));
+              }}
+            />
+          </Field>
+          <Field label="Horário de saída da comida">
+            <input
+              type="time"
+              className={fieldControlCompactClass}
+              value={draft.foodDepartureTime ?? ""}
+              onChange={(event) => update("foodDepartureTime", event.target.value)}
             />
           </Field>
           <Field label="Horário da cerimônia">
@@ -484,12 +614,12 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
               onChange={(event) => update("invitationTime", event.target.value)}
             />
           </Field>
-          <Field label="Horário do serviço">
+          <Field label="Chegada da equipe">
             <input
               type="time"
               className={fieldControlCompactClass}
-              value={draft.serviceTime}
-              onChange={(event) => update("serviceTime", event.target.value)}
+              value={draft.teamArrival}
+              onChange={(event) => update("teamArrival", event.target.value)}
             />
           </Field>
         </div>
@@ -625,7 +755,15 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         title="Pratos do cardápio"
         actions={
           <>
-            <Button size="sm" onClick={generatePerCapita}>
+            <Button
+              size="sm"
+              onClick={generatePerCapita}
+              className={
+                needsPerCapita
+                  ? "bg-warn text-white hover:bg-warn/90 focus-visible:border-warn focus-visible:ring-warn/30"
+                  : undefined
+              }
+            >
               Gerar Per Capita
             </Button>
             <Link
@@ -638,12 +776,27 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </>
         }
       >
+        {needsPerCapita ? (
+          <p className="mb-4 rounded-lg border border-warn/25 bg-warn-soft px-4 py-3 text-sm text-warn">
+            Os pratos selecionados ainda não foram aplicados ao cardápio do evento. Clique em{" "}
+            <strong>Gerar Per Capita</strong> para atualizar as quantidades.
+          </p>
+        ) : null}
         <CatalogDishPicker
           dishes={cadastros?.dishes ?? []}
           categoryOrder={cadastros?.dishCategories ?? []}
           selected={draft.selectedDishIds ?? []}
           popularity={dishPopularity}
-          onChange={(ids) => update("selectedDishIds", ids)}
+          onChange={(ids) => {
+            update("selectedDishIds", ids);
+            if (menuPlanNeedsPerCapita(ids, cadastros?.dishes ?? [], eventMenuSections(draft))) {
+              toast.warning("Clique em Gerar Per Capita para aplicar os pratos ao cardápio do evento.", {
+                id: "gerar-per-capita",
+              });
+            } else {
+              toast.dismiss("gerar-per-capita");
+            }
+          }}
         />
       </FichaSection>
 
@@ -656,6 +809,12 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           </Button>
         }
       >
+        {needsPerCapita ? (
+          <p className="mb-4 rounded-lg border border-warn/25 bg-warn-soft px-4 py-3 text-sm text-warn">
+            Este cardápio está desatualizado em relação aos pratos selecionados. Clique em{" "}
+            <strong>Gerar Per Capita</strong> na seção acima.
+          </p>
+        ) : null}
         <MenuPlanEditor sections={eventMenuSections(draft)} onChange={setMenuPlan} />
       </FichaSection>
 
@@ -725,25 +884,18 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
           {(draft.attachments ?? []).length ? (
             <ul className="mt-3 space-y-2">
               {(draft.attachments ?? []).map((file) => (
-                <li
+                <AttachedMediaRow
                   key={file.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2 text-sm"
-                >
-                  <span className="min-w-0 truncate text-forest">{file.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remover ${file.name}`}
-                    className="flex size-8 shrink-0 items-center justify-center text-forest/35 hover:text-danger"
-                    onClick={() =>
-                      update(
-                        "attachments",
-                        (draft.attachments ?? []).filter((item) => item.id !== file.id),
-                      )
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </li>
+                  name={file.name}
+                  dataUrl={file.dataUrl}
+                  mime={file.mime}
+                  onRemove={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      attachments: (current.attachments ?? []).filter((item) => item.id !== file.id),
+                    }))
+                  }
+                />
               ))}
             </ul>
           ) : null}
@@ -752,7 +904,25 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
 
       <FichaSection title="Observações - Logística">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <Field label="Entrega de material">
+            <input
+              type="date"
+              className={fieldControlCompactClass}
+              value={draft.materialDeliveryDate}
+              onChange={(event) => update("materialDeliveryDate", event.target.value)}
+            />
+          </Field>
+          <Field label="Recolhimento de material">
+            <input
+              type="date"
+              className={fieldControlCompactClass}
+              value={draft.materialPickupDate ?? ""}
+              onChange={(event) => update("materialPickupDate", event.target.value)}
+            />
+          </Field>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Ilhas (estações)">
             <input
               type="number"
@@ -912,6 +1082,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       <EventChangeHistory
         entries={draft.changeLog ?? []}
         clientNameById={new Map(clientes.map((cliente) => [cliente.id, cliente.name]))}
+        localNameById={new Map(locais.map((local) => [local.id, local.name]))}
       />
 
       <Modal open={clientModal} onClose={() => setClientModal(false)} title="Novo cliente" wide>
@@ -922,7 +1093,20 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             upsertCliente(cliente);
             update("clientId", cliente.id);
             setClientModal(false);
-            toast.success("Cliente cadastrado e vinculado à ficha.");
+            toast.success("Cliente cadastrado e vinculado ao relatório.");
+          }}
+        />
+      </Modal>
+
+      <Modal open={localModal} onClose={() => setLocalModal(false)} title="Novo local" wide>
+        <LocalForm
+          initial={null}
+          onCancel={() => setLocalModal(false)}
+          onSubmit={(local) => {
+            upsertLocal(local);
+            applyLocal(local);
+            setLocalModal(false);
+            toast.success("Local cadastrado e vinculado ao relatório.");
           }}
         />
       </Modal>
@@ -935,10 +1119,11 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
         onWorking={(value) => setPdfState(value ? "working" : "idle")}
       />
 
-      <Modal open={reasonModal} onClose={() => setReasonModal(false)} title="Motivo da alteração">
+      <Modal open={reasonModal} onClose={() => setReasonModal(false)} title="Novo follow-up">
         <div className="space-y-4">
           <p className="meta-text">
-            Informe por que esta ficha está sendo alterada. O registro fica no histórico.
+            Informe o motivo desta atualização. O relatório já salva sozinho; o follow-up fica no
+            histórico.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-line bg-white px-3 py-2">
@@ -963,8 +1148,8 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             <Button type="button" variant="outline" onClick={() => setReasonModal(false)}>
               Cancelar
             </Button>
-            <Button type="button" onClick={confirmSave}>
-              Confirmar e salvar
+            <Button type="button" onClick={confirmFollowUp}>
+              Registrar follow-up
             </Button>
           </div>
         </div>
@@ -980,10 +1165,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
             Abrir separação de materiais
           </Link>
           <FichaActionButtons
-            dirty={dirty}
             saveState={saveState}
             pdfState={pdfState}
-            onSave={openSaveModal}
+            onFollowUp={openFollowUp}
             onPdf={() => setPdfModal(true)}
           />
         </div>
@@ -993,26 +1177,20 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 }
 
 function FichaActionButtons({
-  dirty,
   saveState,
   pdfState,
-  onSave,
+  onFollowUp,
   onPdf,
 }: {
-  dirty: boolean;
   saveState: "idle" | "saving" | "saved";
   pdfState: "idle" | "working";
-  onSave: () => void;
+  onFollowUp: () => void;
   onPdf: () => void;
 }) {
   return (
     <div className="flex shrink-0 flex-nowrap items-center gap-2">
-      <Button
-        className="px-4"
-        disabled={!dirty || saveState === "saving"}
-        onClick={onSave}
-      >
-        {saveState === "saving" ? "Salvando…" : "Salvar"}
+      <Button className="px-4" disabled={saveState === "saving"} onClick={onFollowUp}>
+        Novo follow-up
       </Button>
       <Button
         variant="outline"
@@ -1099,11 +1277,10 @@ function EventLaborAllocations({
               </p>
             </div>
             <Field label="Função">
-              <select
-                className={fieldControlCompactClass}
+              <SearchableSelect
+                compact
                 value={functionKey}
-                onChange={(event) => {
-                  const nextKey = event.target.value;
+                onChange={(nextKey) => {
                   onChange(
                     allocations.map((item) =>
                       item.workerId === row.workerId
@@ -1112,13 +1289,9 @@ function EventLaborAllocations({
                     ),
                   );
                 }}
-              >
-                {LABOR_FUNCTIONS.map((role) => (
-                  <option key={role.key} value={role.key}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
+                searchPlaceholder="Pesquisar função…"
+                options={LABOR_FUNCTIONS.map((role) => ({ value: role.key, label: role.label }))}
+              />
             </Field>
             <Field label="Diária (R$)">
               <input
@@ -1185,11 +1358,10 @@ function EventLaborAllocations({
         );
       })}
       {available.length ? (
-        <select
-          className={fieldControlClass}
+        <SearchableSelect
           value=""
-          onChange={(event) => {
-            const worker = workers.find((item) => item.id === event.target.value);
+          onChange={(workerId) => {
+            const worker = workers.find((item) => item.id === workerId);
             if (!worker) return;
             const functionKey = LABOR_FUNCTIONS[0]?.key ?? "";
             onChange([
@@ -1207,14 +1379,10 @@ function EventLaborAllocations({
               },
             ]);
           }}
-        >
-          <option value="">Selecionar prestador…</option>
-          {available.map((worker) => (
-            <option key={worker.id} value={worker.id}>
-              {worker.name}
-            </option>
-          ))}
-        </select>
+          emptyLabel="Selecionar prestador…"
+          searchPlaceholder="Pesquisar prestador…"
+          options={available.map((worker) => ({ value: worker.id, label: worker.name }))}
+        />
       ) : allocations.length ? (
         <p className="meta-text">Todos os prestadores cadastrados já estão neste evento.</p>
       ) : null}
@@ -1229,48 +1397,32 @@ function ExtraStaffPicker({
   used: Set<string>;
   onAdd: (key: ExtraStaffRoleKey) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const available = PICKABLE_EXTRA_STAFF_ROLES.filter((role) => !used.has(role.key));
-  if (available.length === 0) return null;
-
   return (
-    <div className="relative">
-      <Button type="button" variant="outline" className="px-4" onClick={() => setOpen((value) => !value)}>
-        <Plus data-icon="inline-start" />
-        Acrescentar função
-      </Button>
-      {open ? (
-        <div className="absolute z-20 mt-2 max-h-64 w-72 max-w-[calc(100vw-3rem)] overflow-y-auto rounded-md border border-line bg-white p-1 shadow-pop">
-          {available.map((role) => (
-            <button
-              key={role.key}
-              type="button"
-              className="block w-full rounded-md px-3 py-2 text-left text-sm text-forest hover:bg-forest/[0.05]"
-              onClick={() => {
-                onAdd(role.key);
-                setOpen(false);
-              }}
-            >
-              {role.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    <SearchablePicker
+      label="Acrescentar função"
+      searchPlaceholder="Pesquisar função…"
+      options={available.map((role) => ({ value: role.key, label: role.label }))}
+      onSelect={(key) => onAdd(key as ExtraStaffRoleKey)}
+    />
   );
 }
 
 function EventChangeHistory({
   entries,
   clientNameById,
+  localNameById,
 }: {
   entries: EventRecord["changeLog"];
   clientNameById: Map<string, string>;
+  localNameById: Map<string, string>;
 }) {
   const [dateSort, setDateSort] = useState<DateSort>("desc");
   const pretty = (label: string, value: string) => {
-    if (label !== "Cliente" || value === "(vazio)" || !value) return value;
-    return clientNameById.get(value) ?? value;
+    if (value === "(vazio)" || !value) return value;
+    if (label === "Cliente") return clientNameById.get(value) ?? value;
+    if (label === "Local") return localNameById.get(value) ?? value;
+    return value;
   };
   const log = [...entries].sort((a, b) => compareDateSort(a.at, b.at, dateSort));
 
@@ -1286,8 +1438,8 @@ function EventChangeHistory({
     >
       {log.length === 0 ? (
         <p className="meta-text">
-          Ainda não há alterações registradas nesta ficha. As próximas edições aparecem aqui, com
-          data, horário e o usuário que salvou.
+          Ainda não há alterações registradas neste relatório. As edições entram sozinhas; o
+          follow-up guarda o motivo da atualização.
         </p>
       ) : (
         <ol className="space-y-4">

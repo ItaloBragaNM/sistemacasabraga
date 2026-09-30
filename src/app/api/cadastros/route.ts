@@ -40,6 +40,7 @@ export async function PUT(request: Request) {
       ...tagged(diffRecords(previous.materials, data.materials, (item) => item.name), "cadastros", "material", "Cadastros · Materiais"),
       ...tagged(diffRecords(previous.insumos, data.insumos, (item) => item.name), "cadastros", "insumo", "Cadastros · Insumos"),
       ...tagged(diffRecords(previous.clientes, data.clientes, (item) => item.name), "cadastros", "cliente", "Cadastros · Clientes"),
+      ...tagged(diffRecords(previous.locais, data.locais, (item) => item.name), "cadastros", "local", "Cadastros · Locais"),
       ...tagged(diffRecords(previous.veiculos, data.veiculos, (item) => item.name), "cadastros", "veículo", "Cadastros · Veículos"),
       ...tagged(diffRecords(previous.kits, data.kits, (item) => item.name), "cadastros", "kit", "Cadastros · Kits de Materiais"),
       ...tagged(diffRecords(previous.extras, data.extras, (item) => item.name), "cadastros", "extra", "Cadastros · Kits de Materiais"),

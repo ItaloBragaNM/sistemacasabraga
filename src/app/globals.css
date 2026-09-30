@@ -266,8 +266,19 @@
   color: #f7f6f4;
 }
 
-.cal-chip-cancelado {
+.cal-chip-cancelado,
+.cal-chip-cancelada {
   background: #c4453c;
+  color: #f7f6f4;
+}
+
+.cal-chip-interna {
+  background: #1e443e;
+  color: #f7f6f4;
+}
+
+.cal-chip-externa {
+  background: #8a4b28;
   color: #f7f6f4;
 }
 

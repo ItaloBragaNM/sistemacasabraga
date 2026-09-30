@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
 import { fieldControlClass } from "@/components/events/field";
 import { Card } from "@/components/ui/card";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { PageShell } from "@/components/ui/page-shell";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
@@ -90,19 +91,15 @@ export function MovimentacoesAdmin() {
                 placeholder="Buscar por pessoa, página ou registro…"
               />
             </div>
-            <select
-              className={cn(fieldControlClass, "h-10 w-full md:w-52")}
+            <SearchableSelect
               value={moduleFilter}
-              onChange={(event) => setModuleFilter(event.target.value)}
-              aria-label="Filtrar por módulo"
-            >
-              <option value="">Todos os módulos</option>
-              {modules.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+              onChange={setModuleFilter}
+              emptyLabel="Todos os módulos"
+              searchPlaceholder="Pesquisar módulo…"
+              className="w-full md:w-52"
+              triggerClassName="h-10"
+              options={modules.map((item) => ({ value: item.id, label: item.label }))}
+            />
             <select
               className={cn(fieldControlClass, "h-10 w-full md:w-44")}
               value={actionFilter}

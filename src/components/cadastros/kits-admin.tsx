@@ -8,6 +8,7 @@ import { CadastrosHeader, EmptyBlock, LoadingBlock, Modal, SearchInput } from "@
 import { SortButton, compareSort, useColumnSort } from "@/components/cadastros/sort-header";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { QtyInput } from "@/components/ui/qty-input";
@@ -414,17 +415,12 @@ function KitEditorForm({
           />
         </Field>
         <Field label="Base de cálculo">
-          <select
-            className={fieldControlClass}
+          <SearchableSelect
             value={scaleBaseId}
-            onChange={(event) => setScaleBaseId(event.target.value)}
-          >
-            {bases.map((base) => (
-              <option key={base.id} value={base.id}>
-                {base.label}
-              </option>
-            ))}
-          </select>
+            onChange={setScaleBaseId}
+            searchPlaceholder="Pesquisar base…"
+            options={bases.map((base) => ({ value: base.id, label: base.label }))}
+          />
         </Field>
         <p className="meta-text">
           A mesma lista de Configurações → Bases de cálculo. Na separação, a quantidade de kits

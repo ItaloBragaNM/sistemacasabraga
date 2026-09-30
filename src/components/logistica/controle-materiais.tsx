@@ -167,7 +167,7 @@ export function ControleMateriaisEventos() {
           {filteredEvents.length === 0 ? (
             <EmptyBlock
               title="Nenhum evento"
-              description="A conferência usa a lista da separação de materiais de cada ficha."
+              description="A conferência usa a lista da separação de materiais de cada relatório."
             />
           ) : (
             <Card flush>

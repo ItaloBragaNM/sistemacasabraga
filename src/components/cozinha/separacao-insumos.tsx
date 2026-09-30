@@ -4,8 +4,9 @@ import { FileDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
-import { EmptyBlock, LoadingBlock } from "@/components/cadastros/ui";
+import { EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
 import { downloadCatalogSeparationPdf } from "@/components/cozinha/insumos-separacao-pdf";
+import { EventCalendar } from "@/components/events/event-calendar";
 import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
@@ -13,21 +14,33 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { insumoListGroupedByDish } from "@/lib/cozinha/calc";
 import { formatLongDate } from "@/lib/dates";
+import { EVENT_TYPE_LABELS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 export function SeparacaoInsumos() {
   const { events, ready: eventsReady } = useEvents();
   const { data: cadastros, ready: cadReady } = useCadastros();
   const [eventId, setEventId] = useState("");
+  const [search, setSearch] = useState("");
   const [notes, setNotes] = useState("");
   const [working, setWorking] = useState(false);
 
   const ready = eventsReady && cadReady;
 
-  const sortedEvents = useMemo(
-    () => [...events].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
-    [events],
-  );
+  const filteredEvents = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return [...events]
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+      .filter((item) => {
+        if (!term) return true;
+        return (
+          item.title.toLowerCase().includes(term) ||
+          item.code.toLowerCase().includes(term) ||
+          EVENT_TYPE_LABELS[item.type].toLowerCase().includes(term) ||
+          item.venue.name.toLowerCase().includes(term)
+        );
+      });
+  }, [events, search]);
 
   const event = useMemo(() => events.find((item) => item.id === eventId) ?? null, [events, eventId]);
   const selectedDishIds = useMemo(() => event?.selectedDishIds ?? [], [event]);
@@ -64,29 +77,44 @@ export function SeparacaoInsumos() {
   };
 
   return (
-    <PageShell eyebrow="Cozinha" title="Separação de Insumos">
+    <PageShell width="wide" eyebrow="Cozinha" title="Separação de Insumos">
 
       {!ready ? (
         <LoadingBlock />
+      ) : events.length === 0 ? (
+        <EmptyBlock
+          title="Nenhum evento"
+          description="Crie um relatório de evento para separar insumos."
+        />
       ) : (
         <>
-          <Card>
-            <Field label="Evento">
-              <select className={fieldControlClass} value={eventId} onChange={(e) => selectEvent(e.target.value)}>
-                <option value="">Selecione o evento…</option>
-                {sortedEvents.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.code} · {item.title || "Sem nome"} {item.date ? `· ${formatLongDate(item.date)}` : ""}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </Card>
+          <SearchInput value={search} onChange={setSearch} placeholder="Buscar evento…" />
+          {filteredEvents.length === 0 ? (
+            <EmptyBlock
+              title="Nenhum evento encontrado"
+              description="Ajuste a busca ou mude o mês para localizar o relatório."
+            />
+          ) : (
+            <EventCalendar
+              events={filteredEvents}
+              selectedId={eventId}
+              onSelect={(item) => selectEvent(item.id)}
+              emptyDescription="Mude o mês ou a busca para localizar o relatório."
+            />
+          )}
+          {event ? (
+            <p className="meta-text">
+              Selecionado: {event.code} · {event.title || "Sem nome"}
+              {event.date ? ` · ${formatLongDate(event.date)}` : ""}
+            </p>
+          ) : (
+            <p className="meta-text">Clique em um evento no calendário para ver os insumos.</p>
+          )}
 
           {!event ? null : selectedDishIds.length === 0 ? (
             <EmptyBlock
               title="Nenhum prato no evento"
-              description="Selecione pratos do cardápio na ficha do evento para gerar a lista de insumos."
+              description="Selecione pratos do cardápio no relatório do evento para gerar a lista de insumos."
             />
           ) : catalogGroups.length === 0 ? (
             <EmptyBlock

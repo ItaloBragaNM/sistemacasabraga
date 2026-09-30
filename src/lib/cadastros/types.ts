@@ -1,4 +1,4 @@
-import type { DrinkPremises } from "@/lib/types";
+import type { DrinkPremises, VenueKind, YesNo } from "@/lib/types";
 
 /**
  * A "base" is a quantity taken from the event ficha (or derived from it) that
@@ -91,6 +91,8 @@ export interface DishRecord {
   hasRechaud?: boolean;
   /** O prato usa fritadeira — entra na base Fritadeiras. */
   hasFritadeira?: boolean;
+  /** Miniatura JPEG em data URL (cadastro operacional). */
+  photoDataUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -211,6 +213,58 @@ export interface StockLocation {
   updatedAt: string;
 }
 
+export const CASA_BRAGA_LOCAL_ID = "local-casa-braga";
+
+export const LOCAL_SPACE_FLAGS = [
+  { key: "hasKitchen", label: "Cozinha" },
+  { key: "hasSink", label: "Pia" },
+  { key: "hasFridge", label: "Geladeira" },
+  { key: "hasStove", label: "Fogão" },
+  { key: "hasFreezer", label: "Freezer" },
+  { key: "hasOven", label: "Forno" },
+  { key: "hasMicrowave", label: "Micro-ondas" },
+  { key: "trestleTable", label: "Mesa cavalete" },
+  { key: "materialPreviousDay", label: "Recebe material no dia anterior" },
+  { key: "mustCollectMaterial", label: "Recolher material ao final" },
+] as const;
+
+export type LocalSpaceFlagKey = (typeof LOCAL_SPACE_FLAGS)[number]["key"];
+
+export type LocalSpaceLogistics = Record<LocalSpaceFlagKey, YesNo>;
+
+export interface LocalRecord {
+  id: string;
+  name: string;
+  kind: VenueKind;
+  address: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  outOfTown: boolean;
+  parkingNotes: string;
+  accessNotes: string;
+  loadingNotes: string;
+  logistics: LocalSpaceLogistics;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function emptyLocalLogistics(): LocalSpaceLogistics {
+  return {
+    hasKitchen: "",
+    hasSink: "",
+    hasFridge: "",
+    hasStove: "",
+    hasFreezer: "",
+    hasOven: "",
+    hasMicrowave: "",
+    trestleTable: "",
+    materialPreviousDay: "",
+    mustCollectMaterial: "",
+  };
+}
+
 /** Extra / equipment items shown as a checklist on the event separation. */
 export interface ExtraCatalogItem {
   id: string;
@@ -228,6 +282,7 @@ export interface CadastrosData {
   insumos: InsumoRecord[];
   insumoCategories: string[];
   clientes: ClienteRecord[];
+  locais: LocalRecord[];
   veiculos: VeiculoRecord[];
   kits: MaterialKit[];
   extras: ExtraCatalogItem[];

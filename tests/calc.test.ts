@@ -60,6 +60,7 @@ function cadastros(materials: MaterialRecord[], kits: MaterialKit[] = []): Cadas
     insumos: [],
     insumoCategories: [],
     clientes: [],
+    locais: [],
     veiculos: [],
     kits,
     extras: [],

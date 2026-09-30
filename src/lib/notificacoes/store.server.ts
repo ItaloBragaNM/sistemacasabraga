@@ -91,7 +91,7 @@ function draft(
     eventCode: event.code,
     eventTitle: title,
     eventDate: event.date,
-    summary: `${actorName} ${verb} a ficha ${event.code} · ${title}`,
+    summary: `${actorName} ${verb} o relatório ${event.code} · ${title}`,
     actorId: actor?.id ?? "",
     actorName,
     action,

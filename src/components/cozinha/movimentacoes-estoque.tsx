@@ -8,6 +8,7 @@ import { useCozinhaInsumos } from "@/components/cozinha/cozinha-insumos-provider
 import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardHeader } from "@/components/ui/card";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { PageShell } from "@/components/ui/page-shell";
@@ -117,14 +118,13 @@ export function MovimentacoesEstoque() {
             <CardHeader title="Novo lançamento" />
             <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Insumo">
-                <select className={fieldControlClass} value={insumoId} onChange={(event) => setInsumoId(event.target.value)}>
-                  <option value="">Selecione</option>
-                  {insumos.map((insumo) => (
-                    <option key={insumo.id} value={insumo.id}>
-                      {insumo.name}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={insumoId}
+                  onChange={setInsumoId}
+                  emptyLabel="Selecione"
+                  searchPlaceholder="Pesquisar insumo…"
+                  options={insumos.map((insumo) => ({ value: insumo.id, label: insumo.name }))}
+                />
               </Field>
               <div className="space-y-1.5">
                 <span className="field-label block">Tipo</span>

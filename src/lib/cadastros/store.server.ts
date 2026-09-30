@@ -1,6 +1,7 @@
 import { MENU_SECTIONS, normalizeDrinkPremises } from "@/lib/types";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { defaultCadastros } from "./defaults";
+import { mergeDefaultLocais, normalizeLocal } from "./locais";
 import {
   isKitScale,
   isMaterialKind,
@@ -10,6 +11,7 @@ import {
   type CalcBase,
   type ExtraCatalogItem,
   type InsumoRecord,
+  type LocalRecord,
   type MaterialKit,
   type MaterialKitItem,
   type MaterialRecord,
@@ -19,6 +21,12 @@ import {
 
 const KEY = "cadastros";
 const FILE = "cadastros.json";
+
+function catalogPhoto(value: unknown): string | undefined {
+  return typeof value === "string" && value.startsWith("data:image/") && value.length < 220_000
+    ? value
+    : undefined;
+}
 
 function dishCategoryLabel(value: string): string {
   const section = MENU_SECTIONS.find((item) => item.key === value);
@@ -38,12 +46,7 @@ function normalizeMaterial(input: Partial<MaterialRecord>, fallbackCategory: str
       : [],
     factors: Array.isArray(input.factors) ? input.factors : [],
     locationId: typeof input.locationId === "string" && input.locationId.trim() ? input.locationId : undefined,
-    photoDataUrl:
-      typeof input.photoDataUrl === "string" &&
-      input.photoDataUrl.startsWith("data:image/") &&
-      input.photoDataUrl.length < 160_000
-        ? input.photoDataUrl
-        : undefined,
+    photoDataUrl: catalogPhoto(input.photoDataUrl),
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: input.updatedAt || input.createdAt || new Date().toISOString(),
   };
@@ -182,6 +185,7 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
         insumoIds: Array.isArray(dish.insumoIds) ? dish.insumoIds : [],
         hasRechaud: Boolean(dish.hasRechaud),
         hasFritadeira: Boolean(dish.hasFritadeira),
+        photoDataUrl: catalogPhoto(dish.photoDataUrl),
       }))
     : base.dishes;
 
@@ -205,6 +209,11 @@ function normalize(input: Partial<CadastrosData> | null): CadastrosData {
         ? input.insumoCategories
         : base.insumoCategories,
     clientes: Array.isArray(input.clientes) ? input.clientes : base.clientes,
+    locais: mergeDefaultLocais(
+      Array.isArray(input.locais)
+        ? input.locais.map((item) => normalizeLocal(item)).filter((item): item is LocalRecord => Boolean(item))
+        : base.locais,
+    ),
     veiculos: Array.isArray(input.veiculos)
       ? input.veiculos.map((item) => normalizeVeiculo(item)).filter((item): item is VeiculoRecord => Boolean(item))
       : base.veiculos,

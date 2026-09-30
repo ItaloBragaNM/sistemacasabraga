@@ -11,7 +11,9 @@ import { EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadas
 import { useEvents } from "@/components/events/events-provider";
 import { fieldControlClass, Field } from "@/components/events/field";
 import { DateSortSelect, compareDateSort, type DateSort } from "@/components/date-sort";
+import { MediaActions } from "@/components/ui/attached-media";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { KpiCard, StatusPill, type StatusTone } from "@/components/ui/status-pill";
@@ -625,35 +627,28 @@ export function ContasAReceberPage() {
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Cliente">
-              <select
-                className={fieldControlClass}
+              <SearchableSelect
                 value={draft.clientId}
-                onChange={(event) => setDraft((current) => ({ ...current, clientId: event.target.value }))}
-              >
-                <option value="">Sem cliente vinculado</option>
-                {[...clientes]
+                onChange={(clientId) => setDraft((current) => ({ ...current, clientId }))}
+                emptyLabel="Sem cliente vinculado"
+                searchPlaceholder="Pesquisar cliente…"
+                options={[...clientes]
                   .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-                  .map((cliente) => (
-                    <option key={cliente.id} value={cliente.id}>
-                      {cliente.name}
-                    </option>
-                  ))}
-              </select>
+                  .map((cliente) => ({ value: cliente.id, label: cliente.name }))}
+              />
             </Field>
             <Field label="Evento">
-              <select
-                className={fieldControlClass}
+              <SearchableSelect
                 value={draft.eventId}
-                onChange={(event) => setDraft((current) => applyEvent(event.target.value, current))}
-              >
-                <option value="">Sem evento vinculado</option>
-                {sortedEvents.map((event) => (
-                  <option key={event.id} value={event.id}>
-                    {event.code} · {event.title || "Sem nome"}
-                    {event.date ? ` · ${formatShortDate(event.date)}` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(eventId) => setDraft((current) => applyEvent(eventId, current))}
+                emptyLabel="Sem evento vinculado"
+                searchPlaceholder="Pesquisar evento…"
+                options={sortedEvents.map((event) => ({
+                  value: event.id,
+                  label: `${event.code} · ${event.title || "Sem nome"}`,
+                  hint: event.date ? formatShortDate(event.date) : undefined,
+                }))}
+              />
             </Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -825,13 +820,15 @@ export function ContasAReceberPage() {
                             />
                           </label>
                           {receipt.attachmentDataUrl ? (
-                            <a
-                              href={receipt.attachmentDataUrl}
-                              download={receipt.attachmentName || "comprovante"}
-                              className="truncate text-sm text-forest underline underline-offset-2 hover:text-petrol"
-                            >
-                              {receipt.attachmentName || "Comprovante"}
-                            </a>
+                            <div className="flex min-w-0 items-center gap-1">
+                              <span className="min-w-0 truncate text-sm text-forest">
+                                {receipt.attachmentName || "Comprovante"}
+                              </span>
+                              <MediaActions
+                                dataUrl={receipt.attachmentDataUrl}
+                                fileName={receipt.attachmentName || "comprovante"}
+                              />
+                            </div>
                           ) : (
                             <span className="meta-text">Sem anexo</span>
                           )}

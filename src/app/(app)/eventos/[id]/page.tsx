@@ -14,14 +14,14 @@ export default function EventoPage() {
   const event = getEvent(params.id);
 
   if (!ready) {
-    return <LoadingBlock label="Abrindo a ficha…" />;
+    return <LoadingBlock label="Abrindo o relatório…" />;
   }
 
   if (!event) {
     return (
-      <PageShell title="Ficha do Evento">
+      <PageShell title="Relatório do Evento">
         <EmptyBlock
-          title="Ficha não encontrada"
+          title="Relatório não encontrado"
           description="Este evento pode ter sido excluído."
           action={
             <Link href="/eventos" className={buttonVariants({ variant: "outline" })}>

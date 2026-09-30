@@ -30,7 +30,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           className="inline-flex items-center gap-2 text-sm text-forest/70"
         >
           <ArrowLeft className="size-4" />
-          Voltar à ficha
+          Voltar ao relatório
         </Link>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => window.print()} className="h-10">
@@ -79,6 +79,7 @@ export function KitchenSheet({ event }: { event: EventRecord }) {
           />
           <Info label="A servir" value={`${guestTotal(event.guests)}`} />
           <Info label="Local" value={event.venue.address || event.venue.name} />
+          <Info label="Saída da comida" value={event.foodDepartureTime || "—"} />
           <Info label="Chegada da equipe" value={event.teamArrival || "—"} />
           <Info
             label="Público"
