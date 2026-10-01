@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
 import { movementFromLoss, lossMovementId, movementsFromInsumoInventory } from "@/lib/cozinha/calc";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import type {
   CozinhaInsumosData,
   InsumoInventorySession,
@@ -34,53 +26,23 @@ interface CozinhaInsumosContextValue {
 const CozinhaInsumosContext = createContext<CozinhaInsumosContextValue | null>(null);
 
 export function CozinhaInsumosProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<CozinhaInsumosData | null>(null);
-  const [ready, setReady] = useState(false);
-  const queue = useRef<Promise<void>>(Promise.resolve());
+  const { data, ready, error, mutate } = useSyncedStore<CozinhaInsumosData | null>({
+    url: "/api/cozinha-insumos",
+    initial: null,
+    loadError: "Não foi possível carregar o estoque de insumos.",
+    saveError: "Não foi possível salvar o estoque de insumos. Verifique a conexão.",
+    mapData: (json) => json.data as CozinhaInsumosData,
+  });
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/cozinha-insumos", { cache: "no-store" });
-        if (res.status === 401 || res.status === 403) return;
-        if (!res.ok) throw new Error("load");
-        const json = (await res.json()) as { data: CozinhaInsumosData };
-        if (active) setData(json.data);
-      } catch {
-        if (active) toast.error("Não foi possível carregar o estoque de insumos.");
-      } finally {
-        if (active) setReady(true);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (error) toast.error(error);
+  }, [error]);
 
-  const persist = useCallback((next: CozinhaInsumosData) => {
-    setData(next);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/cozinha-insumos", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar o estoque de insumos. Verifique a conexão."));
-      });
-  }, []);
-
-  const mutate = useCallback(
+  const change = useCallback(
     (mutator: (current: CozinhaInsumosData) => CozinhaInsumosData) => {
-      if (!data) return;
-      persist(mutator(data));
+      mutate((current) => (current ? mutator(current) : current));
     },
-    [data, persist],
+    [mutate],
   );
 
   const value = useMemo<CozinhaInsumosContextValue>(
@@ -88,26 +50,26 @@ export function CozinhaInsumosProvider({ children }: { children: React.ReactNode
       data,
       ready,
       addMovement: (movement) =>
-        mutate((current) => ({ ...current, movements: [...current.movements, movement] })),
+        change((current) => ({ ...current, movements: [...current.movements, movement] })),
       upsertMeta: (meta) =>
-        mutate((current) => {
+        change((current) => {
           const others = current.meta.filter((item) => item.insumoId !== meta.insumoId);
           return { ...current, meta: [...others, meta] };
         }),
       addLoss: (loss) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           losses: [...current.losses, loss],
           movements: [...current.movements, movementFromLoss(loss)],
         })),
       removeLoss: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           losses: current.losses.filter((item) => item.id !== id),
           movements: current.movements.filter((item) => item.id !== lossMovementId(id)),
         })),
       concludeInventory: (session) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           inventories: [...(current.inventories ?? []).filter((item) => item.id !== session.id), session],
           movements: [
@@ -116,13 +78,13 @@ export function CozinhaInsumosProvider({ children }: { children: React.ReactNode
           ],
         })),
       removeInventory: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           inventories: (current.inventories ?? []).filter((item) => item.id !== id),
           movements: current.movements.filter((item) => item.ref !== id),
         })),
     }),
-    [data, ready, mutate],
+    [change, data, ready],
   );
 
   return <CozinhaInsumosContext.Provider value={value}>{children}</CozinhaInsumosContext.Provider>;

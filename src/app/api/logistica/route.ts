@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModule } from "@/lib/auth/server";
-import { readLogistica, writeLogistica } from "@/lib/logistica/store.server";
+import { readLogistica, readLogisticaState, saveLogistica } from "@/lib/logistica/store.server";
+import { jsonConflict, jsonState, parseStatePut } from "@/lib/store/http-state";
 import type { LogisticaData } from "@/lib/logistica/types";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export async function GET() {
   const { error } = await requireModule("logistica");
   if (error) return error;
   try {
-    const data = await readLogistica();
-    return NextResponse.json({ data });
+    const { data, updatedAt } = await readLogisticaState();
+    return jsonState(data, updatedAt);
   } catch (error) {
     console.error("Falha ao ler a logística", error);
     return NextResponse.json({ error: "Não foi possível carregar o estoque." }, { status: 500 });
@@ -21,16 +22,18 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { user, error } = await requireModule("logistica");
   if (error) return error;
-  let payload: LogisticaData;
+  let parsed: { body: unknown; updatedAt: string | null };
   try {
-    payload = (await request.json()) as LogisticaData;
+    parsed = await parseStatePut(request);
   } catch {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
   }
 
   try {
     const previous = await readLogistica();
-    const data = await writeLogistica(payload);
+    const saved = await saveLogistica(parsed.body as LogisticaData, parsed.updatedAt);
+    if (saved.conflict) return jsonConflict(saved.data, saved.updatedAt);
+    const data = saved.data;
     const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(user, [
       ...tagged(
@@ -52,7 +55,7 @@ export async function PUT(request: Request) {
         "Logística · Controle de Materiais em Eventos",
       ),
     ]);
-    return NextResponse.json({ data });
+    return jsonState(data, saved.updatedAt);
   } catch (error) {
     console.error("Falha ao salvar a logística", error);
     return NextResponse.json({ error: "Não foi possível salvar o estoque." }, { status: 500 });

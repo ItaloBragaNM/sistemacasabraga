@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { normalizeEventRecord, type EventRecord } from "@/lib/types";
 
@@ -30,4 +31,13 @@ export async function writeEventos(events: EventRecord[]): Promise<EventRecord[]
   const normalized = normalize(events);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+export async function readEventosState() {
+  return readStoreState(KEY, FILE, normalize);
+}
+
+export async function saveEventos(events: EventRecord[], expectedUpdatedAt: string | null) {
+  const normalized = normalize(events);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, normalize);
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
-import type { CompromissosData, MeetingRecord } from "@/lib/compromissos/types";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
+import { emptyCompromissos, type CompromissosData, type MeetingRecord } from "@/lib/compromissos/types";
 
 interface CompromissosContextValue {
   meetings: MeetingRecord[];
@@ -23,62 +23,30 @@ function upsert<T extends { id: string }>(list: T[], item: T) {
 }
 
 export function CompromissosProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<CompromissosData>({ meetings: [] });
-  const [ready, setReady] = useState(false);
-  const dataRef = useRef(data);
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  dataRef.current = data;
+  const { data, ready, error, mutate } = useSyncedStore<CompromissosData>({
+    url: "/api/eventos/compromissos",
+    initial: emptyCompromissos(),
+    loadError: "Não foi possível carregar os compromissos.",
+    saveError: "Não foi possível salvar o compromisso. Verifique a conexão.",
+    mapData: (json) => ({ meetings: (json.data as CompromissosData | undefined)?.meetings ?? [] }),
+  });
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/eventos/compromissos", { cache: "no-store" });
-        if (res.status === 401 || res.status === 403) return;
-        if (!res.ok) throw new Error("load");
-        const json = (await res.json()) as { data: CompromissosData };
-        if (active) setData({ meetings: json.data.meetings ?? [] });
-      } catch {
-        if (active) toast.error("Não foi possível carregar os compromissos.");
-      } finally {
-        if (active) setReady(true);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const persist = useCallback((next: CompromissosData) => {
-    dataRef.current = next;
-    setData(next);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/eventos/compromissos", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dataRef.current),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar o compromisso. Verifique a conexão."));
-      });
-  }, []);
+    if (error) toast.error(error);
+  }, [error]);
 
   const upsertMeeting = useCallback(
     (meeting: MeetingRecord) => {
-      persist({ meetings: upsert(dataRef.current.meetings, meeting) });
+      mutate((current) => ({ meetings: upsert(current.meetings, meeting) }));
     },
-    [persist],
+    [mutate],
   );
 
   const removeMeeting = useCallback(
     (id: string) => {
-      persist({ meetings: dataRef.current.meetings.filter((item) => item.id !== id) });
+      mutate((current) => ({ meetings: current.meetings.filter((item) => item.id !== id) }));
     },
-    [persist],
+    [mutate],
   );
 
   const value = useMemo(

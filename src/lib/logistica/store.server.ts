@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { normalizeVariant } from "./calc";
 import {
@@ -149,4 +150,17 @@ export async function writeLogistica(data: LogisticaData): Promise<LogisticaData
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<LogisticaData> | null);
+}
+
+export async function readLogisticaState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveLogistica(data: LogisticaData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }

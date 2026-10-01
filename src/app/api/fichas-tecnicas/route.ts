@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModule } from "@/lib/auth/server";
-import { readFichasTecnicas, writeFichasTecnicas } from "@/lib/fichas-tecnicas/store.server";
+import { readFichasTecnicas, readFichasTecnicasState, saveFichasTecnicas } from "@/lib/fichas-tecnicas/store.server";
+import { jsonConflict, jsonState, parseStatePut } from "@/lib/store/http-state";
 import type { FichasTecnicasData } from "@/lib/fichas-tecnicas/types";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export async function GET() {
   const { error } = await requireModule("cozinha");
   if (error) return error;
   try {
-    const data = await readFichasTecnicas();
-    return NextResponse.json({ data });
+    const { data, updatedAt } = await readFichasTecnicasState();
+    return jsonState(data, updatedAt);
   } catch (error) {
     console.error("Falha ao ler as fichas técnicas", error);
     return NextResponse.json({ error: "Não foi possível carregar as fichas técnicas." }, { status: 500 });
@@ -21,22 +22,24 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { user, error } = await requireModule("cozinha");
   if (error) return error;
-  let payload: FichasTecnicasData;
+  let parsed: { body: unknown; updatedAt: string | null };
   try {
-    payload = (await request.json()) as FichasTecnicasData;
+    parsed = await parseStatePut(request);
   } catch {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
   }
 
   try {
     const previous = await readFichasTecnicas();
-    const data = await writeFichasTecnicas(payload);
+    const saved = await saveFichasTecnicas(parsed.body as FichasTecnicasData, parsed.updatedAt);
+    if (saved.conflict) return jsonConflict(saved.data, saved.updatedAt);
+    const data = saved.data;
     const { appendAudit, diffRecords, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(
       user,
       tagged(diffRecords(previous.sheets, data.sheets, (item) => item.name), "cozinha", "ficha técnica", "Cozinha · Fichas Técnicas"),
     );
-    return NextResponse.json({ data });
+    return jsonState(data, saved.updatedAt);
   } catch (error) {
     console.error("Falha ao salvar as fichas técnicas", error);
     return NextResponse.json({ error: "Não foi possível salvar as fichas técnicas." }, { status: 500 });

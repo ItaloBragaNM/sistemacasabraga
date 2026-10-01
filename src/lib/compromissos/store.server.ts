@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { emptyCompromissos, normalizeMeeting, type CompromissosData, type MeetingRecord } from "./types";
 
@@ -21,4 +22,17 @@ export async function writeCompromissos(data: CompromissosData): Promise<Comprom
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<CompromissosData> | null);
+}
+
+export async function readCompromissosState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveCompromissos(data: CompromissosData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }

@@ -4,7 +4,7 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import ExcelJS from "exceljs";
 import { FileDown, Paperclip, Pencil, Plus, Trash2, Wallet } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCadastros } from "@/components/cadastros/cadastros-provider";
 import { EmptyBlock, LoadingBlock, Modal, SearchInput } from "@/components/cadastros/ui";
@@ -22,6 +22,7 @@ import { formatBRL } from "@/lib/crm/format";
 import { formatDateTime, formatShortDate } from "@/lib/dates";
 import { downloadBlob, slugify } from "@/lib/download";
 import { uid } from "@/lib/event-factory";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import {
   chargeTotal,
   contractedAmount,
@@ -32,6 +33,7 @@ import {
   todayIsoSaoPaulo,
 } from "@/lib/financeiro/calc";
 import {
+  emptyContasAReceber,
   RECEIVABLE_CHARGE_KINDS,
   RECEIVABLE_STATUS_LABELS,
   type ContasAReceberData,
@@ -156,8 +158,13 @@ function draftTotals(draft: Draft) {
 export function ContasAReceberPage() {
   const { events, ready: eventsReady } = useEvents();
   const { data: cadastros, ready: cadReady } = useCadastros();
-  const [data, setData] = useState<ContasAReceberData | null>(null);
-  const [ready, setReady] = useState(false);
+  const { data, ready, error, mutate } = useSyncedStore<ContasAReceberData | null>({
+    url: "/api/contas-a-receber",
+    initial: null,
+    loadError: "Não foi possível carregar as contas a receber.",
+    saveError: "Não foi possível salvar as contas a receber.",
+    mapData: (json) => json.data as ContasAReceberData,
+  });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("abertos");
   const [dateSort, setDateSort] = useState<DateSort>("asc");
@@ -165,53 +172,12 @@ export function ContasAReceberPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(todayIsoSaoPaulo()));
   const [working, setWorking] = useState(false);
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  const saveGen = useRef(0);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/contas-a-receber", { cache: "no-store" });
-      if (res.status === 401 || res.status === 403) return;
-      if (!res.ok) throw new Error("load");
-      const json = (await res.json()) as { data: ContasAReceberData };
-      setData(json.data);
-    } catch {
-      toast.error("Não foi possível carregar as contas a receber.");
-    }
-  }, []);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      await load();
-      if (active) setReady(true);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [load]);
+    if (error) toast.error(error);
+  }, [error]);
 
-  const persist = useCallback((next: ContasAReceberData) => {
-    const generation = ++saveGen.current;
-    setData(next);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/contas-a-receber", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
-        if (!res.ok) throw new Error("save");
-        const json = (await res.json()) as { data?: ContasAReceberData };
-        if (generation === saveGen.current && json.data) setData(json.data);
-      })
-      .catch(() => {
-        toast.error("Não foi possível salvar as contas a receber.");
-      });
-  }, []);
-
-  const receivables = useMemo(() => data?.receivables ?? [], [data]);
+  const receivables = useMemo(() => data?.receivables ?? emptyContasAReceber().receivables, [data]);
   const clientes = useMemo(() => cadastros?.clientes ?? [], [cadastros]);
   const clientById = useMemo(() => new Map(clientes.map((item) => [item.id, item])), [clientes]);
   const sortedEvents = useMemo(
@@ -389,10 +355,13 @@ export function ContasAReceberPage() {
       createdAt: editing?.createdAt ?? now,
       updatedAt: now,
     };
-    persist({
-      receivables: editing
-        ? receivables.map((item) => (item.id === editing.id ? nextItem : item))
-        : [nextItem, ...receivables],
+    mutate((current) => {
+      const list = current?.receivables ?? [];
+      return {
+        receivables: editing
+          ? list.map((row) => (row.id === nextItem.id ? nextItem : row))
+          : [nextItem, ...list.filter((row) => row.id !== nextItem.id)],
+      };
     });
     setFormOpen(false);
     toast.success(editing ? "Lançamento atualizado." : "Lançamento criado.");
@@ -400,7 +369,9 @@ export function ContasAReceberPage() {
 
   const removeItem = (item: ReceivableRecord) => {
     if (!window.confirm(`Excluir o lançamento de ${item.clientName || item.description}?`)) return;
-    persist({ receivables: receivables.filter((row) => row.id !== item.id) });
+    mutate((current) => ({
+      receivables: (current?.receivables ?? []).filter((row) => row.id !== item.id),
+    }));
     toast.success("Lançamento excluído.");
   };
 

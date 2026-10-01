@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import {
   emptyCozinhaInsumos,
@@ -125,4 +126,17 @@ export async function writeCozinhaInsumos(data: CozinhaInsumosData): Promise<Coz
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<CozinhaInsumosData> | null);
+}
+
+export async function readCozinhaInsumosState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveCozinhaInsumos(data: CozinhaInsumosData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }

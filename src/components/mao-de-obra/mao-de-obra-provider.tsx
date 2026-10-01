@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import type { ExternalWorker, LaborPayment, LaborRate, MaoDeObraData } from "@/lib/mao-de-obra/types";
 
 interface MaoDeObraContextValue {
@@ -35,76 +27,43 @@ function upsert<T extends { id: string }>(list: T[], item: T) {
 }
 
 export function MaoDeObraProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<MaoDeObraData | null>(null);
-  const [ready, setReady] = useState(false);
-  const queue = useRef<Promise<void>>(Promise.resolve());
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/mao-de-obra", { cache: "no-store" });
-      if (res.status === 401 || res.status === 403) return;
-      if (!res.ok) throw new Error("load");
-      const json = (await res.json()) as { data: MaoDeObraData };
-      setData(json.data);
-    } catch {
-      toast.error("Não foi possível carregar a mão de obra externa.");
-    }
-  }, []);
+  const { data, ready, error, mutate, pull } = useSyncedStore<MaoDeObraData | null>({
+    url: "/api/mao-de-obra",
+    initial: null,
+    loadError: "Não foi possível carregar a mão de obra externa.",
+    saveError: "Não foi possível salvar a mão de obra. Verifique a conexão.",
+    mapData: (json) => json.data as MaoDeObraData,
+  });
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      await load();
-      if (active) setReady(true);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [load]);
+    if (error) toast.error(error);
+  }, [error]);
 
-  const persist = useCallback((next: MaoDeObraData) => {
-    setData(next);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/mao-de-obra", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar a mão de obra. Verifique a conexão."));
-      });
-  }, []);
-
-  const mutate = useCallback(
+  const change = useCallback(
     (mutator: (current: MaoDeObraData) => MaoDeObraData) => {
-      if (!data) return;
-      persist(mutator(data));
+      mutate((current) => (current ? mutator(current) : current));
     },
-    [data, persist],
+    [mutate],
   );
 
   const value = useMemo<MaoDeObraContextValue>(
     () => ({
       data,
       ready,
-      reload: load,
-      upsertWorker: (worker) => mutate((current) => ({ ...current, workers: upsert(current.workers, worker) })),
+      reload: () => pull(true),
+      upsertWorker: (worker) => change((current) => ({ ...current, workers: upsert(current.workers, worker) })),
       removeWorker: (id) =>
-        mutate((current) => ({ ...current, workers: current.workers.filter((item) => item.id !== id) })),
-      setRates: (rates) => mutate((current) => ({ ...current, rates })),
-      setPayments: (payments) => mutate((current) => ({ ...current, payments })),
+        change((current) => ({ ...current, workers: current.workers.filter((item) => item.id !== id) })),
+      setRates: (rates) => change((current) => ({ ...current, rates })),
+      setPayments: (payments) => change((current) => ({ ...current, payments })),
       removePayment: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           payments: current.payments.filter((item) => item.id !== id),
           dismissedPaymentIds: [...new Set([...(current.dismissedPaymentIds ?? []), id])],
         })),
     }),
-    [data, ready, load, mutate],
+    [change, data, pull, ready],
   );
 
   return <MaoDeObraContext.Provider value={value}>{children}</MaoDeObraContext.Provider>;

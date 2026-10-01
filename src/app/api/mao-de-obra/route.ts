@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModule } from "@/lib/auth/server";
-import { readMaoDeObra, writeMaoDeObra } from "@/lib/mao-de-obra/store.server";
+import { readMaoDeObra, readMaoDeObraState, saveMaoDeObra } from "@/lib/mao-de-obra/store.server";
+import { jsonConflict, jsonState, parseStatePut } from "@/lib/store/http-state";
 import type { MaoDeObraData } from "@/lib/mao-de-obra/types";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export async function GET() {
   const { error } = await requireModule("cadastros");
   if (error) return error;
   try {
-    const data = await readMaoDeObra();
-    return NextResponse.json({ data });
+    const { data, updatedAt } = await readMaoDeObraState();
+    return jsonState(data, updatedAt);
   } catch (error) {
     console.error("Falha ao ler a mão de obra", error);
     return NextResponse.json({ error: "Não foi possível carregar a mão de obra externa." }, { status: 500 });
@@ -21,16 +22,18 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { user, error } = await requireModule("cadastros");
   if (error) return error;
-  let payload: MaoDeObraData;
+  let parsed: { body: unknown; updatedAt: string | null };
   try {
-    payload = (await request.json()) as MaoDeObraData;
+    parsed = await parseStatePut(request);
   } catch {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
   }
 
   try {
     const previous = await readMaoDeObra();
-    const data = await writeMaoDeObra(payload);
+    const saved = await saveMaoDeObra(parsed.body as MaoDeObraData, parsed.updatedAt);
+    if (saved.conflict) return jsonConflict(saved.data, saved.updatedAt);
+    const data = saved.data;
     const { appendAudit, diffRecords, scalarChange, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(user, [
       ...tagged(diffRecords(previous.workers, data.workers, (item) => item.name), "cadastros", "prestador", "Cadastros · Equipe Externa"),
@@ -42,7 +45,7 @@ export async function PUT(request: Request) {
       ),
       ...scalarChange("cadastros", "tabela de valores", previous.rates, data.rates, "Cadastros · Equipe Externa"),
     ]);
-    return NextResponse.json({ data });
+    return jsonState(data, saved.updatedAt);
   } catch (error) {
     console.error("Falha ao salvar a mão de obra", error);
     return NextResponse.json({ error: "Não foi possível salvar a mão de obra externa." }, { status: 500 });

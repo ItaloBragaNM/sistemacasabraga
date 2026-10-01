@@ -100,8 +100,13 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const dirty = useMemo(() => snapshotForDirty(draft) !== baseline, [baseline, draft]);
   const draftRef = useRef(draft);
   const baselineRef = useRef(baseline);
+  const remoteWarnRef = useRef<string | null>(null);
   draftRef.current = draft;
   baselineRef.current = baseline;
+  const remoteEvent = useMemo(
+    () => events.find((item) => item.id === event.id) ?? event,
+    [event, events],
+  );
   const dishPopularity = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of events) {
@@ -120,6 +125,22 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
+
+  useEffect(() => {
+    const incoming = normalizeEventRecord(remoteEvent);
+    if (!dirty) {
+      if (snapshotForDirty(incoming) === snapshotForDirty(draftRef.current)) return;
+      setDraft(incoming);
+      setBaseline(snapshotForDirty(incoming));
+      return;
+    }
+    if (!incoming.updatedAt || incoming.updatedAt === draftRef.current.updatedAt) return;
+    if (remoteWarnRef.current === incoming.updatedAt) return;
+    remoteWarnRef.current = incoming.updatedAt;
+    toast.warning(
+      "Este evento foi alterado em outro computador. Salve com cuidado: a última gravação deste relatório prevalece.",
+    );
+  }, [dirty, remoteEvent]);
 
   const update = <K extends keyof EventRecord>(key: K, value: EventRecord[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));

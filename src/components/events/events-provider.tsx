@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import {
   createEvent,
   deleteEvent,
@@ -42,111 +34,88 @@ const EventsContext = createContext<EventsContextValue | null>(null);
 export function EventsProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const authed = pathname !== "/login";
-  const [events, setEvents] = useState<EventRecord[]>([]);
-  const [ready, setReady] = useState(false);
-  const eventsRef = useRef<EventRecord[]>([]);
-  const loadedRef = useRef(false);
   const actorRef = useRef<PublicUser | null>(null);
-  const queue = useRef<Promise<void>>(Promise.resolve());
-
-  const persist = useCallback((next: EventRecord[]) => {
-    eventsRef.current = next;
-    setEvents(next);
-    if (!loadedRef.current) return;
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/eventos", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: eventsRef.current }),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar o evento. Verifique a conexão."));
-      });
-  }, []);
+  const migratedRef = useRef(false);
+  const { data: events, ready, error, mutate } = useSyncedStore<EventRecord[]>({
+    url: "/api/eventos",
+    enabled: authed,
+    initial: [],
+    loadError: "Não foi possível carregar os eventos.",
+    saveError: "Não foi possível salvar o evento. Verifique a conexão.",
+    mapData: (json) => (Array.isArray(json.data) ? json.data : []),
+  });
 
   useEffect(() => {
     if (!authed) return;
     let active = true;
-
     (async () => {
       try {
-        const [eventsRes, sessionRes] = await Promise.all([
-          fetch("/api/eventos", { cache: "no-store" }),
-          fetch("/api/auth/session", { cache: "no-store" }),
-        ]);
-        if (sessionRes.ok) {
-          const session = (await sessionRes.json()) as { user?: PublicUser | null };
-          if (active) actorRef.current = session.user ?? null;
-        }
-        if (eventsRes.status === 401 || eventsRes.status === 403) return;
-        if (!eventsRes.ok) throw new Error("load");
-        const json = (await eventsRes.json()) as { data: EventRecord[] };
-        let next = Array.isArray(json.data) ? json.data : [];
-
-        if (!localEventsWereMigrated()) {
-          const local = readLocalEvents();
-          const incoming = local ? localEventsToMigrate(local) : [];
-          if (incoming.length > 0) {
-            const merged = mergeEvents(next, incoming);
-            if (eventsDiffer(merged, next)) {
-              const save = await fetch("/api/eventos", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ data: merged }),
-              });
-              if (!save.ok) throw new Error("migrate");
-              next = merged;
-            }
-          }
-          markLocalEventsMigrated();
-        }
-
-        if (active) {
-          loadedRef.current = true;
-          eventsRef.current = next;
-          setEvents(next);
-        }
+        const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
+        if (!sessionRes.ok) return;
+        const session = (await sessionRes.json()) as { user?: PublicUser | null };
+        if (active) actorRef.current = session.user ?? null;
       } catch {
-        if (active) toast.error("Não foi possível carregar os eventos.");
-      } finally {
-        if (active) setReady(true);
+        /* sessão opcional para o histórico da ficha */
       }
     })();
-
     return () => {
       active = false;
     };
   }, [authed]);
 
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  useEffect(() => {
+    if (!authed || !ready || migratedRef.current) return;
+    if (localEventsWereMigrated()) {
+      migratedRef.current = true;
+      return;
+    }
+    const local = readLocalEvents();
+    const incoming = local ? localEventsToMigrate(local) : [];
+    if (incoming.length > 0) {
+      const merged = mergeEvents(events, incoming);
+      if (eventsDiffer(merged, events)) {
+        mutate(() => merged);
+      }
+    }
+    markLocalEventsMigrated();
+    migratedRef.current = true;
+  }, [authed, events, mutate, ready]);
+
   const upsert = useCallback(
     (event: EventRecord, meta?: EventSaveMeta) => {
-      const previous = findEvent(eventsRef.current, event.id);
-      const logged = withChangeLog(previous, event, actorRef.current, meta);
-      persist(saveEvent(eventsRef.current, logged));
+      let logged = event;
+      mutate((current) => {
+        const previous = findEvent(current, event.id);
+        logged = withChangeLog(previous, event, actorRef.current, meta);
+        return saveEvent(current, logged);
+      });
       return logged;
     },
-    [persist],
+    [mutate],
   );
 
   const remove = useCallback(
     (id: string) => {
-      persist(deleteEvent(eventsRef.current, id));
+      mutate((current) => deleteEvent(current, id));
     },
-    [persist],
+    [mutate],
   );
 
   const create = useCallback(
     (draft?: Partial<EventRecord>) => {
-      const { event } = createEvent(eventsRef.current, draft);
-      const logged = withChangeLog(null, event, actorRef.current);
-      persist(saveEvent(eventsRef.current, logged));
-      return logged;
+      let logged: EventRecord | null = null;
+      mutate((current) => {
+        const { event } = createEvent(current, draft);
+        logged = withChangeLog(null, event, actorRef.current);
+        return saveEvent(current, logged);
+      });
+      return logged ?? createEvent(events, draft).event;
     },
-    [persist],
+    [events, mutate],
   );
 
   const value = useMemo(

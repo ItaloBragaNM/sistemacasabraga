@@ -1,17 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import { uid } from "@/lib/event-factory";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import type {
   EventMaterialControl,
   InventorySession,
@@ -54,57 +45,19 @@ function movementsFromInventory(session: InventorySession): StockMovement[] {
 const LogisticaContext = createContext<LogisticaContextValue | null>(null);
 
 export function LogisticaProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<LogisticaData | null>(null);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const queue = useRef<Promise<void>>(Promise.resolve());
+  const { data, ready, error, saving, mutate } = useSyncedStore<LogisticaData | null>({
+    url: "/api/logistica",
+    initial: null,
+    loadError: "Não foi possível carregar o estoque.",
+    saveError: "Não foi possível salvar o estoque. Verifique a conexão.",
+    mapData: (json) => json.data as LogisticaData,
+  });
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/logistica", { cache: "no-store" });
-        if (res.status === 401 || res.status === 403) return;
-        if (!res.ok) throw new Error("load");
-        const json = (await res.json()) as { data: LogisticaData };
-        if (active) setData(json.data);
-      } catch {
-        if (active) setError("Não foi possível carregar o estoque.");
-      } finally {
-        if (active) setReady(true);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const persist = useCallback((next: LogisticaData) => {
-    setData(next);
-    setSaving(true);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/logistica", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar o estoque. Verifique a conexão."));
-      })
-      .finally(() => setSaving(false));
-  }, []);
-
-  const mutate = useCallback(
+  const change = useCallback(
     (mutator: (current: LogisticaData) => LogisticaData) => {
-      if (!data) return;
-      persist(mutator(data));
+      mutate((current) => (current ? mutator(current) : current));
     },
-    [data, persist],
+    [mutate],
   );
 
   const value = useMemo<LogisticaContextValue>(
@@ -114,11 +67,11 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
       error,
       saving,
       addMovement: (movement) =>
-        mutate((current) => ({ ...current, movements: [...current.movements, movement] })),
+        change((current) => ({ ...current, movements: [...current.movements, movement] })),
       addMovements: (movements) =>
-        mutate((current) => ({ ...current, movements: [...current.movements, ...movements] })),
+        change((current) => ({ ...current, movements: [...current.movements, ...movements] })),
       upsertMeta: (meta) =>
-        mutate((current) => {
+        change((current) => {
           const index = current.meta.findIndex((item) => item.materialId === meta.materialId);
           const next = [...current.meta];
           if (index < 0) next.push(meta);
@@ -126,13 +79,13 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
           return { ...current, meta: next };
         }),
       concludeInventory: (session) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           movements: [...current.movements, ...movementsFromInventory(session)],
           inventories: [...current.inventories, session],
         })),
       updateInventory: (session) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           movements: [
             ...current.movements.filter((movement) => movement.ref !== session.id),
@@ -141,13 +94,13 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
           inventories: current.inventories.map((item) => (item.id === session.id ? session : item)),
         })),
       removeInventory: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           movements: current.movements.filter((movement) => movement.ref !== id),
           inventories: current.inventories.filter((item) => item.id !== id),
         })),
       upsertEventControl: (control) =>
-        mutate((current) => {
+        change((current) => {
           const others = (current.eventControls ?? []).filter(
             (item) => item.id !== control.id && item.eventId !== control.eventId,
           );
@@ -161,13 +114,13 @@ export function LogisticaProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       removeEventControl: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           eventControls: (current.eventControls ?? []).filter((item) => item.id !== id),
           movements: current.movements.filter((movement) => movement.ref !== id),
         })),
     }),
-    [data, ready, error, saving, mutate],
+    [change, data, error, ready, saving],
   );
 
   return <LogisticaContext.Provider value={value}>{children}</LogisticaContext.Provider>;

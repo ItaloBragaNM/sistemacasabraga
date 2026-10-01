@@ -1,16 +1,7 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
+import { createContext, useCallback, useContext, useMemo } from "react";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import type {
   CadastrosData,
   CalcBase,
@@ -82,71 +73,32 @@ function upsert<T extends { id: string }>(list: T[], item: T): T[] {
   return next;
 }
 
+function hydrateCadastros(raw: unknown): CadastrosData {
+  const data = (raw && typeof raw === "object" ? raw : {}) as CadastrosData;
+  return {
+    ...data,
+    kits: data.kits ?? [],
+    extras: data.extras ?? [],
+    stockLocations: data.stockLocations ?? [],
+    locais: data.locais ?? [],
+    drinkPremises: data.drinkPremises ?? DEFAULT_DRINK_PREMISES,
+  };
+}
+
 export function CadastrosProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<CadastrosData | null>(null);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const dataRef = useRef<CadastrosData | null>(null);
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  dataRef.current = data;
+  const { data, ready, error, saving, mutate, replace } = useSyncedStore<CadastrosData | null>({
+    url: "/api/cadastros",
+    initial: null,
+    loadError: "Não foi possível carregar os cadastros.",
+    saveError: "Não foi possível salvar. Verifique a conexão e tente de novo.",
+    mapData: (json) => hydrateCadastros(json.data),
+  });
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/cadastros", { cache: "no-store" });
-        if (res.status === 401 || res.status === 403) return;
-        if (!res.ok) throw new Error("load");
-        const json = (await res.json()) as { data: CadastrosData };
-        if (active) {
-          setData({
-            ...json.data,
-            kits: json.data.kits ?? [],
-            extras: json.data.extras ?? [],
-            stockLocations: json.data.stockLocations ?? [],
-            locais: json.data.locais ?? [],
-            drinkPremises: json.data.drinkPremises ?? DEFAULT_DRINK_PREMISES,
-          });
-        }
-      } catch {
-        if (active) setError("Não foi possível carregar os cadastros.");
-      } finally {
-        if (active) setReady(true);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const persist = useCallback((next: CadastrosData) => {
-    dataRef.current = next;
-    setData(next);
-    setSaving(true);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/cadastros", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dataRef.current),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar. Verifique a conexão e tente de novo."));
-      })
-      .finally(() => setSaving(false));
-  }, []);
-
-  const mutate = useCallback(
+  const change = useCallback(
     (mutator: (current: CadastrosData) => CadastrosData) => {
-      const current = dataRef.current;
-      if (!current) return;
-      persist(mutator(current));
+      mutate((current) => (current ? mutator(current) : current));
     },
-    [persist],
+    [mutate],
   );
 
   const value = useMemo<CadastrosContextValue>(
@@ -156,91 +108,91 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
       error,
       saving,
       upsertMaterial: (material) =>
-        mutate((current) => ({ ...current, materials: upsert(current.materials, material) })),
+        change((current) => ({ ...current, materials: upsert(current.materials, material) })),
       removeMaterial: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           materials: current.materials.filter((item) => item.id !== id),
         })),
       upsertDish: (dish) =>
-        mutate((current) => ({ ...current, dishes: upsert(current.dishes, dish) })),
+        change((current) => ({ ...current, dishes: upsert(current.dishes, dish) })),
       removeDish: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           dishes: current.dishes.filter((item) => item.id !== id),
         })),
       upsertBase: (base) =>
-        mutate((current) => ({ ...current, bases: upsert(current.bases, base) })),
+        change((current) => ({ ...current, bases: upsert(current.bases, base) })),
       removeBase: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           bases: current.bases.filter((item) => item.id !== id),
         })),
-      setCategories: (categories) => mutate((current) => ({ ...current, materialCategories: categories })),
-      setDishCategories: (categories) => mutate((current) => ({ ...current, dishCategories: categories })),
+      setCategories: (categories) => change((current) => ({ ...current, materialCategories: categories })),
+      setDishCategories: (categories) => change((current) => ({ ...current, dishCategories: categories })),
       upsertInsumo: (insumo) =>
-        mutate((current) => ({ ...current, insumos: upsert(current.insumos, insumo) })),
+        change((current) => ({ ...current, insumos: upsert(current.insumos, insumo) })),
       removeInsumo: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           insumos: current.insumos.filter((item) => item.id !== id),
         })),
       setInsumoCategories: (categories) =>
-        mutate((current) => ({ ...current, insumoCategories: categories })),
+        change((current) => ({ ...current, insumoCategories: categories })),
       upsertCliente: (cliente) =>
-        mutate((current) => ({ ...current, clientes: upsert(current.clientes, cliente) })),
+        change((current) => ({ ...current, clientes: upsert(current.clientes, cliente) })),
       removeCliente: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           clientes: current.clientes.filter((item) => item.id !== id),
         })),
       upsertLocal: (local) =>
-        mutate((current) => ({ ...current, locais: upsert(current.locais ?? [], local) })),
+        change((current) => ({ ...current, locais: upsert(current.locais ?? [], local) })),
       removeLocal: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           locais: (current.locais ?? []).filter((item) => item.id !== id),
         })),
       upsertVeiculo: (veiculo) =>
-        mutate((current) => ({ ...current, veiculos: upsert(current.veiculos, veiculo) })),
+        change((current) => ({ ...current, veiculos: upsert(current.veiculos, veiculo) })),
       removeVeiculo: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           veiculos: current.veiculos.filter((item) => item.id !== id),
         })),
-      upsertKit: (kit) => mutate((current) => ({ ...current, kits: upsert(current.kits ?? [], kit) })),
+      upsertKit: (kit) => change((current) => ({ ...current, kits: upsert(current.kits ?? [], kit) })),
       removeKit: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           kits: (current.kits ?? []).filter((item) => item.id !== id),
         })),
       upsertExtra: (extra) =>
-        mutate((current) => ({ ...current, extras: upsert(current.extras ?? [], extra) })),
+        change((current) => ({ ...current, extras: upsert(current.extras ?? [], extra) })),
       removeExtra: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           extras: (current.extras ?? []).filter((item) => item.id !== id),
         })),
       upsertStockLocation: (location) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           stockLocations: upsert(current.stockLocations ?? [], location),
         })),
       removeStockLocation: (id) =>
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           stockLocations: (current.stockLocations ?? []).filter((item) => item.id !== id),
         })),
-      setDrinkPremises: (premises) => mutate((current) => ({ ...current, drinkPremises: premises })),
+      setDrinkPremises: (premises) => change((current) => ({ ...current, drinkPremises: premises })),
       removeMany: (key, ids) => {
         const drop = new Set(ids);
-        mutate((current) => ({
+        change((current) => ({
           ...current,
           [key]: current[key].filter((item) => !drop.has(item.id)),
         }));
       },
       duplicateMany: (key, ids) =>
-        mutate((current) => {
+        change((current) => {
           const nextList = duplicateManyIn(current[key] as NamedRecord[], ids);
           if (key === "kits") {
             return {
@@ -253,9 +205,9 @@ export function CadastrosProvider({ children }: { children: React.ReactNode }) {
           }
           return { ...current, [key]: nextList };
         }),
-      replaceAll: (next) => persist(next),
+      replaceAll: (next) => replace(next),
     }),
-    [data, ready, error, saving, mutate, persist],
+    [change, data, error, ready, replace, saving],
   );
 
   return <CadastrosContext.Provider value={value}>{children}</CadastrosContext.Provider>;

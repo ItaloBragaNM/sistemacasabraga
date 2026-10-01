@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { emptyVeiculosUso, type VehicleUsageRecord, type VeiculosUsoData } from "./types";
 
@@ -34,4 +35,17 @@ export async function writeVeiculosUso(data: VeiculosUsoData): Promise<VeiculosU
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<VeiculosUsoData> | null);
+}
+
+export async function readVeiculosUsoState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveVeiculosUso(data: VeiculosUsoData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }

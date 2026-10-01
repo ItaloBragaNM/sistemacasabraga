@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import type { FichasTecnicasData, TechnicalSheet } from "@/lib/fichas-tecnicas/types";
 
 interface FichasTecnicasContextValue {
@@ -32,71 +24,37 @@ function upsert<T extends { id: string }>(list: T[], item: T) {
 }
 
 export function FichasTecnicasProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<FichasTecnicasData | null>(null);
-  const [ready, setReady] = useState(false);
-  const queue = useRef<Promise<void>>(Promise.resolve());
+  const { data, ready, error, mutate } = useSyncedStore<FichasTecnicasData | null>({
+    url: "/api/fichas-tecnicas",
+    initial: null,
+    loadError: "Não foi possível carregar as fichas técnicas.",
+    saveError: "Não foi possível salvar as fichas técnicas. Verifique a conexão.",
+    mapData: (json) => json.data as FichasTecnicasData,
+  });
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/fichas-tecnicas", { cache: "no-store" });
-        if (res.status === 401 || res.status === 403) return;
-        if (!res.ok) throw new Error("load");
-        const json = (await res.json()) as { data: FichasTecnicasData };
-        if (active) setData(json.data);
-      } catch {
-        if (active) toast.error("Não foi possível carregar as fichas técnicas.");
-      } finally {
-        if (active) setReady(true);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const persist = useCallback((next: FichasTecnicasData) => {
-    setData(next);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/fichas-tecnicas", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar as fichas técnicas. Verifique a conexão."));
-      });
-  }, []);
+    if (error) toast.error(error);
+  }, [error]);
 
   const upsertSheet = useCallback(
     (sheet: TechnicalSheet) => {
-      if (!data) {
-        persist({ sheets: [sheet] });
-        return;
-      }
-      persist({ sheets: upsert(data.sheets, sheet) });
+      mutate((current) => ({ sheets: upsert(current?.sheets ?? [], sheet) }));
     },
-    [data, persist],
+    [mutate],
   );
 
   const removeSheet = useCallback(
     (id: string) => {
-      if (!data) return;
-      persist({ sheets: data.sheets.filter((item) => item.id !== id) });
+      mutate((current) => ({ sheets: (current?.sheets ?? []).filter((item) => item.id !== id) }));
     },
-    [data, persist],
+    [mutate],
   );
 
   const replaceSheets = useCallback(
     (sheets: TechnicalSheet[]) => {
-      persist({ sheets });
+      mutate(() => ({ sheets }));
     },
-    [persist],
+    [mutate],
   );
 
   const value = useMemo(

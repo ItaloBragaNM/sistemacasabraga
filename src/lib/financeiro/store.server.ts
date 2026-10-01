@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import {
   emptyContasAReceber,
@@ -152,4 +153,17 @@ export async function writeContasAReceber(data: ContasAReceberData): Promise<Con
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<ContasAReceberData> | null);
+}
+
+export async function readContasAReceberState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveContasAReceber(data: ContasAReceberData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }

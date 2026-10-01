@@ -1,4 +1,5 @@
 import { MENU_SECTIONS, normalizeDrinkPremises } from "@/lib/types";
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import { defaultCadastros } from "./defaults";
 import { mergeDefaultLocais, normalizeLocal } from "./locais";
@@ -243,4 +244,17 @@ export async function writeCadastros(data: CadastrosData): Promise<CadastrosData
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<CadastrosData> | null);
+}
+
+export async function readCadastrosState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveCadastros(data: CadastrosData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }

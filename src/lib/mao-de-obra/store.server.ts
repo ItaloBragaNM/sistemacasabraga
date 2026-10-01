@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import {
   DEFAULT_LABOR_RATES,
@@ -135,4 +136,17 @@ export async function writeMaoDeObra(data: MaoDeObraData): Promise<MaoDeObraData
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<MaoDeObraData> | null);
+}
+
+export async function readMaoDeObraState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveMaoDeObra(data: MaoDeObraData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }

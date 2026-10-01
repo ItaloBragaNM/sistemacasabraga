@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModule } from "@/lib/auth/server";
-import { readCadastros, writeCadastros } from "@/lib/cadastros/store.server";
+import { readCadastros, readCadastrosState, saveCadastros } from "@/lib/cadastros/store.server";
+import { jsonConflict, jsonState, parseStatePut } from "@/lib/store/http-state";
 import type { CadastrosData } from "@/lib/cadastros/types";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export async function GET() {
   const { error } = await requireModule("cadastros");
   if (error) return error;
   try {
-    const data = await readCadastros();
-    return NextResponse.json({ data });
+    const { data, updatedAt } = await readCadastrosState();
+    return jsonState(data, updatedAt);
   } catch (error) {
     console.error("Falha ao ler os cadastros", error);
     return NextResponse.json(
@@ -24,16 +25,18 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { user, error } = await requireModule("cadastros");
   if (error) return error;
-  let payload: CadastrosData;
+  let parsed: { body: unknown; updatedAt: string | null };
   try {
-    payload = (await request.json()) as CadastrosData;
+    parsed = await parseStatePut(request);
   } catch {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
   }
 
   try {
     const previous = await readCadastros();
-    const data = await writeCadastros(payload);
+    const saved = await saveCadastros(parsed.body as CadastrosData, parsed.updatedAt);
+    if (saved.conflict) return jsonConflict(saved.data, saved.updatedAt);
+    const data = saved.data;
     const { appendAudit, diffRecords, scalarChange, tagged } = await import("@/lib/auditoria/store.server");
     await appendAudit(user, [
       ...tagged(diffRecords(previous.dishes, data.dishes, (item) => item.name), "cadastros", "prato", "Cadastros · Cardápio"),
@@ -51,7 +54,7 @@ export async function PUT(request: Request) {
       ...scalarChange("cadastros", "categorias de insumos", previous.insumoCategories, data.insumoCategories, "Configurações · Módulo de Cadastros"),
       ...scalarChange("cadastros", "premissas de bebidas", previous.drinkPremises, data.drinkPremises, "Configurações · Módulo de Cadastros"),
     ]);
-    return NextResponse.json({ data });
+    return jsonState(data, saved.updatedAt);
   } catch (error) {
     console.error("Falha ao salvar os cadastros", error);
     return NextResponse.json(

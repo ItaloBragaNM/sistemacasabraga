@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { assertSaved, saveErrorMessage } from "@/lib/http";
+import { useSyncedStore } from "@/lib/store/use-synced-store";
 import { usageIdFor, type VehicleUsageRecord, type VeiculosUsoData } from "@/lib/veiculos/types";
 
 interface VeiculosUsoContextValue {
@@ -24,54 +16,26 @@ interface VeiculosUsoContextValue {
 const VeiculosUsoContext = createContext<VeiculosUsoContextValue | null>(null);
 
 export function VeiculosUsoProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<VeiculosUsoData | null>(null);
-  const [ready, setReady] = useState(false);
-  const queue = useRef<Promise<void>>(Promise.resolve());
+  const { data, ready, error, mutate } = useSyncedStore<VeiculosUsoData | null>({
+    url: "/api/veiculos",
+    initial: null,
+    loadError: "Não foi possível carregar o uso dos veículos.",
+    saveError: "Não foi possível salvar o uso dos veículos. Verifique a conexão.",
+    mapData: (json) => json.data as VeiculosUsoData,
+  });
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/veiculos", { cache: "no-store" });
-        if (res.status === 401 || res.status === 403) return;
-        if (!res.ok) throw new Error("load");
-        const json = (await res.json()) as { data: VeiculosUsoData };
-        if (active) setData(json.data);
-      } catch {
-        if (active) toast.error("Não foi possível carregar o uso dos veículos.");
-      } finally {
-        if (active) setReady(true);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const persist = useCallback((next: VeiculosUsoData) => {
-    setData(next);
-    queue.current = queue.current
-      .catch(() => {})
-      .then(async () => {
-        const res = await fetch("/api/veiculos", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
-        assertSaved(res);
-      })
-      .catch((error) => {
-        toast.error(saveErrorMessage(error, "Não foi possível salvar o uso dos veículos. Verifique a conexão."));
-      });
-  }, []);
+    if (error) toast.error(error);
+  }, [error]);
 
   const upsertUsage = useCallback(
     (usage: VehicleUsageRecord) => {
-      if (!data) return;
-      const others = data.usages.filter((item) => item.id !== usage.id);
-      persist({ usages: [...others, usage] });
+      mutate((current) => {
+        if (!current) return current;
+        return { usages: [...current.usages.filter((item) => item.id !== usage.id), usage] };
+      });
     },
-    [data, persist],
+    [mutate],
   );
 
   const markGenerated = useCallback(
@@ -86,23 +50,24 @@ export function VeiculosUsoProvider({ children }: { children: React.ReactNode })
         generatedAt: new Date().toISOString(),
         notes: previous?.notes ?? "",
       };
-      const usages = [...(data?.usages ?? []).filter((item) => item.id !== id), next];
-      if (data) persist({ usages });
+      mutate((current) => ({
+        usages: [...(current?.usages ?? []).filter((item) => item.id !== id), next],
+      }));
       return next;
     },
-    [data, persist],
+    [data, mutate],
   );
 
   const markSigned = useCallback(
     (id: string) => {
-      if (!data) return;
-      persist({
-        usages: data.usages.map((item) =>
-          item.id === id ? { ...item, status: "assinado" as const } : item,
-        ),
+      mutate((current) => {
+        if (!current) return current;
+        return {
+          usages: current.usages.map((item) => (item.id === id ? { ...item, status: "assinado" as const } : item)),
+        };
       });
     },
-    [data, persist],
+    [mutate],
   );
 
   const value = useMemo(

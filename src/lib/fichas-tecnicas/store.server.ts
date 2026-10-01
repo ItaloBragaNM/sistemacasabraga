@@ -1,3 +1,4 @@
+import { readStoreState, saveStoreState } from "@/lib/store/cas.server";
 import { readState, writeState } from "@/lib/store/kv.server";
 import {
   emptyFichasTecnicas,
@@ -78,4 +79,17 @@ export async function writeFichasTecnicas(data: FichasTecnicasData): Promise<Fic
   const normalized = normalize(data);
   await writeState(KEY, FILE, normalized);
   return normalized;
+}
+
+function revive(raw: unknown) {
+  return normalize((raw ?? null) as Partial<FichasTecnicasData> | null);
+}
+
+export async function readFichasTecnicasState() {
+  return readStoreState(KEY, FILE, revive);
+}
+
+export async function saveFichasTecnicas(data: FichasTecnicasData, expectedUpdatedAt: string | null) {
+  const normalized = normalize(data);
+  return saveStoreState(KEY, FILE, normalized, expectedUpdatedAt, revive);
 }
