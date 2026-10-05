@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { assertSaved, saveErrorMessage } from "@/lib/http";
-import { applyJobs, type SyncJob } from "@/lib/store/sync";
+import { applyJobs, stableEqual, threeWayMerge, type SyncJob } from "@/lib/store/sync";
 
 const POLL_MS = 8000;
 const MAX_RETRIES = 5;
@@ -88,8 +88,11 @@ export function useSyncedStore<T>({
         const batch = jobsRef.current.slice();
         jobsRef.current = [];
         let revision = revisionRef.current;
-        let next = applyJobs(ackedRef.current, batch);
+        const base = ackedRef.current;
+        const intended = applyJobs(base, batch);
+        let next = intended;
         let attempts = 0;
+        let mergedRemote = false;
         while (true) {
           const res = await fetch(url, {
             method: "PUT",
@@ -103,6 +106,9 @@ export function useSyncedStore<T>({
             ackedRef.current = saved;
             revisionRef.current = savedRevision;
             publish();
+            if (mergedRemote) {
+              toast.success("Unimos a sua edição com a de outro computador. Nada foi apagado.");
+            }
             break;
           }
           if (res.status === 409 && attempts < MAX_RETRIES) {
@@ -110,9 +116,13 @@ export function useSyncedStore<T>({
             const json = (await res.json()) as SyncedEnvelope<unknown> & { updatedAt?: string };
             const server = parseResponse(json);
             revision = typeof json.updatedAt === "string" && json.updatedAt ? json.updatedAt : null;
-            ackedRef.current = server;
+            const merged = threeWayMerge(base, server, intended);
+            if (!stableEqual(merged, intended) || !stableEqual(merged, applyJobs(server, batch))) {
+              mergedRemote = true;
+            }
+            next = merged;
+            ackedRef.current = merged;
             revisionRef.current = revision;
-            next = applyJobs(server, batch);
             publish();
             continue;
           }

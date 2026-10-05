@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyBlock, LoadingBlock, SearchInput } from "@/components/cadastros/ui";
+import { VersoesSalvas } from "@/components/configuracoes/versoes-salvas";
 import { fieldControlClass } from "@/components/events/field";
 import { Card } from "@/components/ui/card";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -74,6 +75,7 @@ export function MovimentacoesAdmin() {
       title="Registro de movimentações"
       description="Cada linha mostra quem fez a alteração, em qual página ela aconteceu e qual registro foi criado, editado ou excluído."
     >
+      <VersoesSalvas />
       {!ready ? (
         <LoadingBlock />
       ) : entries.length === 0 ? (

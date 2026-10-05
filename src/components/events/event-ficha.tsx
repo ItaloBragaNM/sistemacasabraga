@@ -57,6 +57,7 @@ import {
   type YesNo,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { stableEqual, threeWayMerge } from "@/lib/store/sync";
 import { laborLineAmounts, rateFor, type EventLaborExtras } from "@/lib/mao-de-obra/calc";
 import { LABOR_FUNCTIONS, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
 import { applyLaborUniformDelta } from "@/lib/mao-de-obra/uniforms";
@@ -87,6 +88,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const [reason, setReason] = useState("");
   const [changeAtLabel, setChangeAtLabel] = useState("");
   const [baseline, setBaseline] = useState(() => snapshotForDirty(event));
+  const baselineEventRef = useRef(normalizeEventRecord(event));
   const drinkPremises = cadastros?.drinkPremises ?? DEFAULT_DRINK_PREMISES;
   const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
@@ -132,14 +134,16 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       if (snapshotForDirty(incoming) === snapshotForDirty(draftRef.current)) return;
       setDraft(incoming);
       setBaseline(snapshotForDirty(incoming));
+      baselineEventRef.current = incoming;
       return;
     }
     if (!incoming.updatedAt || incoming.updatedAt === draftRef.current.updatedAt) return;
+    const merged = threeWayMerge(baselineEventRef.current, incoming, draftRef.current);
+    if (stableEqual(merged, draftRef.current)) return;
     if (remoteWarnRef.current === incoming.updatedAt) return;
     remoteWarnRef.current = incoming.updatedAt;
-    toast.warning(
-      "Este evento foi alterado em outro computador. Salve com cuidado: a última gravação deste relatório prevalece.",
-    );
+    setDraft(merged);
+    toast.success("Incorporamos as alterações de outro computador. O que você estava editando foi mantido.");
   }, [dirty, remoteEvent]);
 
   const update = <K extends keyof EventRecord>(key: K, value: EventRecord[K]) => {
@@ -278,15 +282,20 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const persistDraft = useCallback(
     (meta?: EventSaveMeta) => {
       const toSave = normalizeEventRecord(draftRef.current);
-      const snap = snapshotForDirty(toSave);
+      const remote = events.find((item) => item.id === toSave.id);
+      const merged = remote
+        ? normalizeEventRecord(threeWayMerge(baselineEventRef.current, remote, toSave))
+        : toSave;
+      const snap = snapshotForDirty(merged);
       const hasReason = Boolean(meta?.reason?.trim());
       if (snap === baselineRef.current && !hasReason) return false;
       setSaveState("saving");
-      const saved = onSave(toSave, meta);
-      const next = normalizeEventRecord(saved || toSave);
-      if (snapshotForDirty(draftRef.current) === snap) {
+      const saved = onSave(merged, meta);
+      const next = normalizeEventRecord(saved || merged);
+      if (snapshotForDirty(draftRef.current) === snapshotForDirty(toSave)) {
         setDraft(next);
         setBaseline(snapshotForDirty(next));
+        baselineEventRef.current = next;
       } else {
         setDraft((current) => ({
           ...current,
@@ -297,7 +306,7 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       setSaveState("saved");
       return true;
     },
-    [onSave],
+    [events, onSave],
   );
 
   useEffect(() => {
