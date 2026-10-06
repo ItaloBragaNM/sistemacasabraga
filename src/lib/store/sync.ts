@@ -144,15 +144,11 @@ export function threeWayMerge<T>(base: T, server: T, local: T): T {
   }
 
   if (isPlainObject(local) && isPlainObject(server)) {
-    const baseObj = isPlainObject(base) ? base : {};
+    const baseObj: Record<string, unknown> = isPlainObject(base) ? base : {};
     const keys = new Set([...Object.keys(baseObj), ...Object.keys(server), ...Object.keys(local)]);
     const out: Record<string, unknown> = {};
     for (const key of keys) {
-      out[key] = threeWayMerge(
-        baseObj[key] as T,
-        server[key] as T,
-        local[key] as T,
-      );
+      out[key] = threeWayMerge(baseObj[key], server[key], local[key]);
     }
     return out as T;
   }
