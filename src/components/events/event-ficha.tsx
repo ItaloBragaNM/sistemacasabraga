@@ -57,6 +57,7 @@ import {
   type YesNo,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { remoteEventSyncAction, snapshotForDirty } from "@/lib/eventos/remote-sync";
 import { stableEqual, threeWayMerge } from "@/lib/store/sync";
 import { laborLineAmounts, rateFor, type EventLaborExtras } from "@/lib/mao-de-obra/calc";
 import { LABOR_FUNCTIONS, type ExternalWorker, type LaborRate } from "@/lib/mao-de-obra/types";
@@ -68,17 +69,14 @@ type Props = {
   onDelete: (id: string) => void;
 };
 
-function snapshotForDirty(event: EventRecord) {
-  const normalized = normalizeEventRecord(event);
-  return JSON.stringify({ ...normalized, changeLog: undefined, updatedAt: undefined });
-}
-
 export function EventFicha({ event, onSave, onDelete }: Props) {
   const router = useRouter();
   const { events } = useEvents();
   const { data: cadastros, upsertCliente, upsertLocal } = useCadastros();
   const { data: maoDeObra, reload: reloadLabor } = useMaoDeObra();
-  const [draft, setDraft] = useState(() => normalizeEventRecord(event));
+  const seedRef = useRef<EventRecord | null>(null);
+  if (!seedRef.current) seedRef.current = normalizeEventRecord(event);
+  const [draft, setDraft] = useState(seedRef.current);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "working">("idle");
   const [pdfModal, setPdfModal] = useState(false);
@@ -87,8 +85,9 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
   const [reasonModal, setReasonModal] = useState(false);
   const [reason, setReason] = useState("");
   const [changeAtLabel, setChangeAtLabel] = useState("");
-  const [baseline, setBaseline] = useState(() => snapshotForDirty(event));
-  const baselineEventRef = useRef(normalizeEventRecord(event));
+  const [baseline, setBaseline] = useState(() => snapshotForDirty(seedRef.current!));
+  const baselineEventRef = useRef(seedRef.current);
+  const ownSnapsRef = useRef<string[]>([snapshotForDirty(seedRef.current)]);
   const drinkPremises = cadastros?.drinkPremises ?? DEFAULT_DRINK_PREMISES;
   const clientes = [...(cadastros?.clientes ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
@@ -130,14 +129,31 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
 
   useEffect(() => {
     const incoming = normalizeEventRecord(remoteEvent);
-    if (!dirty) {
-      if (snapshotForDirty(incoming) === snapshotForDirty(draftRef.current)) return;
+    const action = remoteEventSyncAction(
+      incoming,
+      draftRef.current,
+      baselineRef.current,
+      dirty,
+      ownSnapsRef.current,
+    );
+    if (action === "ignore") {
+      const sameContent = snapshotForDirty(incoming) === snapshotForDirty(draftRef.current);
+      if (sameContent && incoming.updatedAt && incoming.updatedAt !== draftRef.current.updatedAt) {
+        setDraft((current) => ({
+          ...current,
+          updatedAt: incoming.updatedAt,
+          changeLog: incoming.changeLog,
+        }));
+      }
+      return;
+    }
+    if (action === "adopt") {
+      if (stableEqual(incoming, draftRef.current)) return;
       setDraft(incoming);
       setBaseline(snapshotForDirty(incoming));
       baselineEventRef.current = incoming;
       return;
     }
-    if (!incoming.updatedAt || incoming.updatedAt === draftRef.current.updatedAt) return;
     const merged = threeWayMerge(baselineEventRef.current, incoming, draftRef.current);
     if (stableEqual(merged, draftRef.current)) return;
     if (remoteWarnRef.current === incoming.updatedAt) return;
@@ -292,9 +308,15 @@ export function EventFicha({ event, onSave, onDelete }: Props) {
       setSaveState("saving");
       const saved = onSave(merged, meta);
       const next = normalizeEventRecord(saved || merged);
+      const savedSnap = snapshotForDirty(next);
+      for (const item of [snap, savedSnap]) {
+        if (!ownSnapsRef.current.includes(item)) {
+          ownSnapsRef.current = [...ownSnapsRef.current, item].slice(-12);
+        }
+      }
       if (snapshotForDirty(draftRef.current) === snapshotForDirty(toSave)) {
         setDraft(next);
-        setBaseline(snapshotForDirty(next));
+        setBaseline(savedSnap);
         baselineEventRef.current = next;
       } else {
         setDraft((current) => ({
